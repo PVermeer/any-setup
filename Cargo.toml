@@ -1,0 +1,29 @@
+[workspace]
+members = ["workspaces/app", "workspaces/common"]
+resolver = "3"
+
+[workspace.package]
+name = "any-setup"
+version = "0.0.0"
+edition = "2024"
+description = "Setup anything with declarative config files"
+license = "GPL-3.0-only"
+authors = ["PVermeer"]
+repository = "https://github.com/pvermeer/any-setup"
+homepage = "https://github.com/pvermeer/any-setup"
+documentation = "https://github.com/pvermeer/any-setup"
+
+[workspace.dependencies]
+common = { path = "workspaces/common" }
+anyhow = "1.0.102"
+freedesktop-desktop-entry = "0.8.1"
+gtk = { version = "0.11.2", features = ["v4_10"], package = "gtk4" }
+include_dir = "0.7.4"
+libadwaita = { version = "0.9.1", features = ["v1_7"] }
+rust-i18n = "4.0.0"
+semver = "1.0.28"
+serde = { version = "1.0.228", features = ["derive"] }
+serde_yaml = "0.9.34"
+toml = "1.1.2"
+tracing = "0.1.44"
+tracing-subscriber = { version = "0.3.23", features = ["env-filter"] }

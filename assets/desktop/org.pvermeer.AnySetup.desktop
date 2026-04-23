@@ -1,0 +1,10 @@
+[Desktop Entry]
+Categories=Utility;GNOME
+Comment=Setup anything with declarative config files
+Exec=any-setup
+Icon=org.pvermeer.AnySetup
+Keywords=App;Software;Manager
+Name=Any Setup
+StartupWMClass=org.pvermeer.AnySetup
+Type=Application
+

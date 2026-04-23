@@ -1,0 +1,20 @@
+#![warn(clippy::all)]
+#![warn(clippy::pedantic)]
+#![warn(
+    clippy::dbg_macro,
+    clippy::unwrap_used,
+    // clippy::expect_used,
+    clippy::todo,
+    clippy::panic
+)]
+#![allow(clippy::must_use_candidate)]
+#![allow(clippy::missing_errors_doc)]
+#![allow(clippy::missing_panics_doc)]
+#![allow(clippy::new_without_default)]
+
+pub mod app_dirs;
+pub mod assets;
+pub mod cache_settings;
+pub mod config;
+pub mod desktop_assets;
+pub mod utils;

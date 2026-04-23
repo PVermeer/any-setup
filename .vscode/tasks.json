@@ -1,0 +1,47 @@
+{
+	"version": "2.0.0",
+	"tasks": [
+		{
+			"label": "Build release",
+			"type": "cargo",
+			"command": "build",
+			"args": [
+				"--release"
+			],
+			"problemMatcher": [
+				"$rustc"
+			],
+			"group": {
+				"kind": "build",
+				"isDefault": false
+			}
+		},
+		{
+			"label": "Build and run release app",
+			"type": "shell",
+			"command": "WAH_LOG=debug ./target/release/any-setup",
+			"problemMatcher": [
+				"$rustc",
+			],
+			"group": {
+				"kind": "build",
+				"isDefault": false
+			},
+			"dependsOn": [
+				"Build release"
+			]
+		},
+		{
+			"label": "Validate metainfo.xml",
+			"type": "shell",
+			"command": "appstreamcli validate --no-net ./assets/desktop/org.pvermeer.AnySetup.metainfo.xml",
+			"problemMatcher": [
+				"$rustc",
+			],
+			"group": {
+				"kind": "test",
+				"isDefault": false
+			},
+		},
+	]
+}
