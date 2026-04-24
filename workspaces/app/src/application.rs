@@ -69,7 +69,7 @@ impl App {
             // Last
             self.pages.init(self);
 
-            self.navigate(&Page::Home);
+            self.navigate(&Page::Fallback);
 
             Ok(())
         })() {

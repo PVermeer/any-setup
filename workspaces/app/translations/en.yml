@@ -1,1 +1,6 @@
 _version: 1
+
+pages:
+  fallback:
+    title: No pages found
+    get_started: To get started add pages to <dir>

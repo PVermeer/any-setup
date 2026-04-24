@@ -6,19 +6,19 @@ use common::{
     config::{self},
     utils::OnceLockExt,
 };
-use gtk::{Align, Orientation, prelude::WidgetExt};
+use gtk::{Align, Justification, Orientation, prelude::WidgetExt};
 use libadwaita::{
     ActionRow, NavigationPage,
     gtk::{self, Label, prelude::BoxExt},
 };
 use std::rc::Rc;
 
-pub struct HomePage {
+pub struct FallbackPage {
     nav_page: NavigationPage,
     nav_row: ActionRow,
     content_box: gtk::Box,
 }
-impl NavPage for HomePage {
+impl NavPage for FallbackPage {
     fn get_navpage(&self) -> &NavigationPage {
         &self.nav_page
     }
@@ -27,9 +27,9 @@ impl NavPage for HomePage {
         Some(&self.nav_row)
     }
 }
-impl HomePage {
+impl FallbackPage {
     pub fn new() -> Rc<Self> {
-        let title = t!("home.title");
+        let title = t!("pages.fallback.title");
         let icon = "go-home-symbolic";
 
         let ContentPage {
@@ -50,8 +50,10 @@ impl HomePage {
         self.content_box.set_spacing(24);
 
         let header = Self::build_header(app);
+        let text = Self::build_text();
 
         self.content_box.append(&header);
+        self.content_box.append(&text);
     }
 
     fn build_header(app: &Rc<App>) -> gtk::Box {
@@ -76,6 +78,25 @@ impl HomePage {
 
         content_box.append(&icon);
         content_box.append(&name);
+
+        content_box
+    }
+
+    fn build_text() -> gtk::Box {
+        let content_box = gtk::Box::builder()
+            .orientation(Orientation::Vertical)
+            .halign(Align::Center)
+            .spacing(12)
+            .build();
+
+        let text = Label::builder()
+            .label(t!("pages.fallback.get_started"))
+            .css_classes(["label-spaced"])
+            .wrap(true)
+            .justify(Justification::Center)
+            .build();
+
+        content_box.append(&text);
 
         content_box
     }

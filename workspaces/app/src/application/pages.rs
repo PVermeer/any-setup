@@ -1,7 +1,7 @@
-mod home;
+mod fallback;
 
 use crate::application::App;
-use home::HomePage;
+use fallback::FallbackPage;
 use libadwaita::{
     ActionRow, Clamp, HeaderBar, NavigationPage, NavigationSplitView, ToolbarView,
     gtk::{self, Image, Orientation, ScrolledWindow, prelude::WidgetExt},
@@ -12,30 +12,30 @@ use std::rc::Rc;
 #[derive(Clone)]
 #[repr(i32)]
 pub enum Page {
-    Home,
+    Fallback,
 }
 
 pub struct Pages {
-    home: Rc<HomePage>,
+    fallback: Rc<FallbackPage>,
 }
 #[allow(clippy::unused_self)]
 impl Pages {
     pub fn new() -> Self {
         Self {
-            home: HomePage::new(),
+            fallback: FallbackPage::new(),
         }
     }
 
     pub fn init(&self, app: &Rc<App>) {
-        self.home.init(app);
+        self.fallback.init(app);
 
         let sidebar = &app.window.view.sidebar;
-        sidebar.add_nav_row(app.clone(), Page::Home);
+        sidebar.add_nav_row(app.clone(), Page::Fallback);
     }
 
     pub fn get(&self, page: &Page) -> Rc<dyn NavPage> {
         match page {
-            Page::Home => self.home.clone(),
+            Page::Fallback => self.fallback.clone(),
         }
     }
 }
