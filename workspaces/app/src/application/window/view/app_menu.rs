@@ -1,14 +1,11 @@
 use crate::application::{App, window::view::View};
 use common::{
-    assets,
     config::{self},
     utils::OnceLockExt,
 };
 use libadwaita::{
-    AlertDialog, ResponseAppearance,
     gio::{ActionEntry, Menu, MenuItem, SimpleActionGroup, prelude::ActionMapExtManual},
     gtk::{MenuButton, prelude::WidgetExt},
-    prelude::{AdwDialogExt, AlertDialogExt},
 };
 use std::rc::Rc;
 
@@ -49,10 +46,8 @@ impl AppMenu {
         let section_1 = Menu::new();
         let section_2 = Menu::new();
 
-        let reset = self.build_reset(app);
         let about = self.build_about(app);
 
-        section_1.append_item(&reset);
         section_2.append_item(&about);
 
         self.menu.append_section(None, &section_1);
@@ -68,38 +63,6 @@ impl AppMenu {
             ),
             ("about", move || {
                 View::show_about(&app_clone);
-            }),
-        )
-    }
-
-    fn build_reset(&self, app: &Rc<App>) -> MenuItem {
-        let app_clone = app.clone();
-        self.build_menu_item(
-            &t!("app_menu.reset.title"),
-            ("reset_app", move || {
-                let dialog_ok = "ok";
-                let dialog_cancel = "cancel";
-
-                let dialog = AlertDialog::builder()
-                    .heading(format!("Reset {}?", config::APP_NAME.get_value()))
-                    .body(t!("app_menu.reset.dialog.text"))
-                    .build();
-
-                dialog.add_response(dialog_cancel, &t!("app_menu.reset.dialog.cancel"));
-                dialog.add_response(dialog_ok, &t!("app_menu.reset.dialog.ok"));
-                dialog.set_response_appearance(dialog_cancel, ResponseAppearance::Suggested);
-                dialog.set_default_response(Some(dialog_cancel));
-                dialog.set_close_response(dialog_cancel);
-
-                let app_clone_response = app_clone.clone();
-                dialog.connect_response(Some(dialog_ok), move |_, _| {
-                    if let Err(error) = assets::reset_config_files(&app_clone_response.dirs) {
-                        app_clone_response.show_error(&error);
-                    }
-                    app_clone_response.clone().restart();
-                });
-
-                dialog.present(Some(&app_clone.window.adw_window));
             }),
         )
     }

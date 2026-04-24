@@ -4,3 +4,7 @@ pages:
   fallback:
     title: No pages found
     get_started: To get started add pages to <dir>
+
+app_menu:
+  about:
+    title: About %{app_name}
