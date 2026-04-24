@@ -59,7 +59,11 @@ fn install_app_desktop_file(app_dirs: &AppDirs) -> Result<()> {
     let file_name = desktop_file
         .file_name()
         .context("No file name on app-desktop-file")?;
-    let save_file = app_dirs.user_data.join("applications").join(file_name);
+    let save_dir = app_dirs.user_data.join("applications");
+    if !save_dir.is_dir() {
+        fs::create_dir_all(&save_dir).context("Failed to create applications dir")?;
+    }
+    let save_file = save_dir.join(file_name);
 
     fs::copy(desktop_file, save_file).context("Desktop file copy failed")?;
     Ok(())
