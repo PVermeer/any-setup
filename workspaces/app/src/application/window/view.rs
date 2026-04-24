@@ -4,7 +4,7 @@ mod sidebar_page;
 
 use crate::application::{
     App,
-    pages::{NavPage, Page},
+    pages::{NavPage, page_config::Page},
 };
 use app_menu::AppMenu;
 use gtk::{
@@ -55,10 +55,9 @@ impl View {
     }
 
     pub fn navigate(self: &Rc<Self>, app: &Rc<App>, page: &Page) {
-        let nav_page = app.pages.get(page);
-        nav_page.load_page(&self.nav_split);
+        page.load_page(&self.nav_split);
         app.window.view.nav_split.set_show_content(true);
-        app.window.view.sidebar.select_nav_row(app, page);
+        app.window.view.sidebar.select_nav_row(page);
     }
 
     pub fn show_about(app: &Rc<App>) {

@@ -12,6 +12,8 @@ pub struct AppDirs {
     pub user_data: PathBuf,
     pub user_config: PathBuf,
     pub user_cache: PathBuf,
+    pub system_data_dir: Option<PathBuf>,
+    pub system_data_pages_dir: Option<PathBuf>,
 }
 impl AppDirs {
     pub fn new() -> Result<Rc<Self>> {
@@ -22,11 +24,23 @@ impl AppDirs {
         let user_config = glib::user_config_dir();
         let user_cache = glib::user_cache_dir();
 
+        let mut system_data_dir = glib::system_data_dirs()
+            .into_iter()
+            .find(|dir| dir.join(config::APP_NAME_HYPHEN.get_value()).is_dir());
+
+        if cfg!(debug_assertions) {
+            system_data_dir = Some(glib::current_dir().join("dev-assets").join("share"));
+        }
+
+        let system_data_pages_dir = system_data_dir.clone().map(|dir| dir.join("pages"));
+
         Ok(Rc::new(Self {
             user_home,
             user_data,
             user_config,
             user_cache,
+            system_data_dir,
+            system_data_pages_dir,
         }))
     }
 

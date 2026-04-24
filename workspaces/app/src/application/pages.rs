@@ -1,7 +1,7 @@
-mod fallback;
+pub mod page_config;
 
-use crate::application::App;
-use fallback::FallbackPage;
+use crate::application::{App, pages::page_config::Page};
+use common::{app_dirs::AppDirs, utils};
 use libadwaita::{
     ActionRow, Clamp, HeaderBar, NavigationPage, NavigationSplitView, ToolbarView,
     gtk::{self, Image, Orientation, ScrolledWindow, prelude::WidgetExt},
@@ -9,34 +9,56 @@ use libadwaita::{
 };
 use std::rc::Rc;
 
-#[derive(Clone)]
-#[repr(i32)]
-pub enum Page {
-    Fallback,
-}
-
 pub struct Pages {
-    fallback: Rc<FallbackPage>,
+    pages: Vec<Rc<Page>>,
 }
 #[allow(clippy::unused_self)]
 impl Pages {
-    pub fn new() -> Self {
-        Self {
-            fallback: FallbackPage::new(),
-        }
+    pub fn new(app_dirs: &Rc<AppDirs>) -> Self {
+        let pages = Self::load_page_configs(app_dirs);
+
+        Self { pages }
     }
 
     pub fn init(&self, app: &Rc<App>) {
-        self.fallback.init(app);
-
         let sidebar = &app.window.view.sidebar;
-        sidebar.add_nav_row(app.clone(), Page::Fallback);
+
+        for page in &self.pages {
+            sidebar.add_nav_row(app, page);
+        }
     }
 
-    pub fn get(&self, page: &Page) -> Rc<dyn NavPage> {
-        match page {
-            Page::Fallback => self.fallback.clone(),
+    pub fn get_first(&self) -> Option<&Rc<Page>> {
+        self.pages.first()
+    }
+
+    fn load_page_configs(app_dirs: &Rc<AppDirs>) -> Vec<Rc<Page>> {
+        let mut pages = Vec::new();
+
+        if let Some(pages_dir) = &app_dirs.system_data_pages_dir
+            && let Ok(pages_dir_entries) = utils::files::get_entries_in_dir(pages_dir)
+        {
+            for dir_entry in pages_dir_entries {
+                if dir_entry
+                    .path()
+                    .extension()
+                    .is_none_or(|extension| extension != "yml" && extension != "yaml")
+                {
+                    continue;
+                }
+
+                let page = Page::new(&dir_entry.path());
+                if let Ok(page) = page {
+                    pages.push(page);
+                }
+            }
         }
+
+        if pages.is_empty() {
+            pages.push(Page::get_fallback());
+        }
+
+        pages
     }
 }
 

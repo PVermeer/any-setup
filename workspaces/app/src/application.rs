@@ -13,7 +13,7 @@ use common::{
 };
 use error_dialog::ErrorDialog;
 use gtk::{IconTheme, Image, Settings, gdk};
-use pages::{Page, Pages};
+use pages::{Pages, page_config::Page};
 use std::{cell::RefCell, rc::Rc};
 use tracing::{debug, error};
 use window::AppWindow;
@@ -22,7 +22,6 @@ pub struct App {
     pub cache_settings: RefCell<CacheSettings>,
     pub dirs: Rc<AppDirs>,
     pub error_dialog: ErrorDialog,
-    adw_application: libadwaita::Application,
     icon_theme: Rc<IconTheme>,
     window: AppWindow,
     pages: Pages,
@@ -38,7 +37,7 @@ impl App {
                 CacheSettings::new(&app_dirs).expect("Failed to load cached settings"),
             );
             let window = AppWindow::new(adw_application);
-            let pages = Pages::new();
+            let pages = Pages::new(&app_dirs);
             let error_dialog = ErrorDialog::new();
 
             Self::set_theme_settings(&settings);
@@ -48,7 +47,6 @@ impl App {
                 cache_settings,
                 dirs: app_dirs,
                 error_dialog,
-                adw_application: adw_application.clone(),
                 icon_theme,
                 window,
                 pages,
@@ -68,8 +66,9 @@ impl App {
 
             // Last
             self.pages.init(self);
-
-            self.navigate(&Page::Fallback);
+            if let Some(page) = self.pages.get_first() {
+                self.navigate(page);
+            }
 
             Ok(())
         })() {
@@ -77,7 +76,7 @@ impl App {
         }
     }
 
-    #[allow(clippy::unused_self)]
+    #[allow(clippy::unused_self, unused)]
     pub fn get_icon(self: &Rc<Self>) -> Image {
         Image::from_icon_name(config::APP_ID.get_value())
     }
@@ -93,14 +92,6 @@ impl App {
 
     pub fn close(self: &Rc<Self>) {
         self.window.close();
-    }
-
-    pub fn restart(mut self: Rc<Self>) {
-        self.close();
-        self.cache_settings.borrow_mut().reset();
-        let new_self = Self::new(&self.adw_application);
-        self = new_self;
-        self.init();
     }
 
     fn set_theme_settings(settings: &Settings) {
