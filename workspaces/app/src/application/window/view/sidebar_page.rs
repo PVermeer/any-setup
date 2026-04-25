@@ -1,5 +1,5 @@
-use super::NavPage;
-use crate::application::{App, pages::page_config::Page};
+use super::{NavPage, Page};
+use crate::application::App;
 use common::{
     config::{self},
     utils::{self, OnceLockExt},
@@ -22,8 +22,8 @@ impl NavPage for SidebarPage {
         &self.nav_page
     }
 
-    fn get_nav_row(&self) -> Option<&ActionRow> {
-        Some(&self.nav_row)
+    fn get_nav_row(&self) -> &ActionRow {
+        &self.nav_row
     }
 }
 impl SidebarPage {
@@ -52,21 +52,17 @@ impl SidebarPage {
         }
     }
 
-    pub fn add_nav_row(&self, app: &Rc<App>, page: &Rc<Page>) {
+    pub fn add_nav_row(&self, app: &Rc<App>, page: &Page) {
         let nav_row = page.get_nav_row();
         let page_clone = page.clone();
         let app_clone = app.clone();
 
-        if let Some(row) = nav_row {
-            row.connect_activated(move |_| app_clone.navigate(&page_clone));
-            self.list.append(row);
-        }
+        nav_row.connect_activated(move |_| app_clone.navigate(&page_clone));
+        self.list.append(nav_row);
     }
 
     pub fn select_nav_row(&self, page: &Page) {
         let nav_row = page.get_nav_row();
-        if let Some(row) = nav_row {
-            self.list.select_row(Some(row));
-        }
+        self.list.select_row(Some(nav_row));
     }
 }

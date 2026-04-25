@@ -4,7 +4,7 @@ mod sidebar_page;
 
 use crate::application::{
     App,
-    pages::{NavPage, page_config::Page},
+    pages::{NavPage, Page},
 };
 use app_menu::AppMenu;
 use gtk::{

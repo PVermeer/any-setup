@@ -13,7 +13,7 @@ use common::{
 };
 use error_dialog::ErrorDialog;
 use gtk::{IconTheme, Image, Settings, gdk};
-use pages::{Pages, page_config::Page};
+use pages::{Page, Pages};
 use std::{cell::RefCell, rc::Rc};
 use tracing::{debug, error};
 use window::AppWindow;
