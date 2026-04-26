@@ -1,21 +1,22 @@
 mod content;
 mod fallback;
 mod page_config;
+mod settings;
 
-use crate::application::App;
+use crate::application::{
+    App,
+    pages::{fallback::FallbackPage, page_config::PageYaml},
+};
 use common::{app_dirs::AppDirs, utils};
-use content::ContentPage;
-use fallback::FallbackPage;
 use libadwaita::{
     ActionRow, HeaderBar, NavigationPage, NavigationSplitView, ToolbarView,
     gtk::{Image, prelude::WidgetExt},
     prelude::ActionRowExt,
 };
-use page_config::{PageType, PageYaml};
 use std::rc::Rc;
 use tracing::error;
 
-pub type Page = Rc<dyn NavPage>;
+pub type Page = Rc<dyn DynPage>;
 
 pub struct Pages {
     pages: Vec<Page>,
@@ -64,16 +65,14 @@ impl Pages {
                         continue;
                     }
                 };
-                let page = match page_yaml.page_type {
-                    PageType::Content => ContentPage::from_yaml(&page_yaml),
-                };
 
+                let page = page_yaml.into_page();
                 pages.push(page);
             }
         }
 
         if pages.is_empty() {
-            pages.push(FallbackPage::new());
+            pages.push(FallbackPage::new().build_page());
         }
 
         pages
@@ -123,6 +122,10 @@ pub trait NavPage {
             toolbar,
         }
     }
+}
+
+pub trait DynPage: NavPage {
+    fn build_page(self) -> Page;
 }
 
 // struct PrefPage {

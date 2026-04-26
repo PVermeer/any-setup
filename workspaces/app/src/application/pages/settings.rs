@@ -1,3 +1,5 @@
+use std::rc::Rc;
+
 use crate::application::pages::{DynPage, NavPage, NavPageBuild, Page};
 use gtk::{
     Align, Image, Justification, Label, Orientation, ScrolledWindow,
@@ -5,7 +7,6 @@ use gtk::{
 };
 use libadwaita::{ActionRow, Clamp, NavigationPage, ToolbarView};
 use serde::Deserialize;
-use std::rc::Rc;
 
 #[derive(Deserialize, PartialEq, Default)]
 pub enum TextAlign {
@@ -38,7 +39,7 @@ pub struct Content {
 }
 
 #[derive(PartialEq, Deserialize)]
-pub struct ContentPage {
+pub struct SettingsPage {
     title: String,
     icon: String,
     header: Option<Header>,
@@ -51,7 +52,7 @@ pub struct ContentPage {
     #[serde(skip)]
     toolbar: ToolbarView,
 }
-impl DynPage for ContentPage {
+impl DynPage for SettingsPage {
     fn build_page(mut self) -> Page {
         let NavPageBuild {
             nav_page,
@@ -66,7 +67,7 @@ impl DynPage for ContentPage {
         Rc::new(self)
     }
 }
-impl NavPage for ContentPage {
+impl NavPage for SettingsPage {
     fn get_navpage(&self) -> &NavigationPage {
         &self.nav_page
     }
@@ -75,11 +76,11 @@ impl NavPage for ContentPage {
         &self.nav_row
     }
 }
-impl ContentPage {
+impl SettingsPage {
     const SPACING: i32 = 20;
     const MAX_WIDTH: i32 = 600;
 
-    pub fn build(&self) {
+    pub fn build(&mut self) {
         let content_box = gtk::Box::builder()
             .orientation(Orientation::Vertical)
             .margin_top(Self::SPACING)

@@ -1,4 +1,4 @@
-use super::{NavPage, NavPageBuild};
+use crate::application::pages::{DynPage, NavPage, NavPageBuild, Page};
 use gtk::{Align, Justification, Label, Orientation, ScrolledWindow, prelude::BoxExt};
 use libadwaita::{ActionRow, Clamp, NavigationPage};
 use std::rc::Rc;
@@ -6,6 +6,11 @@ use std::rc::Rc;
 pub struct FallbackPage {
     nav_page: NavigationPage,
     nav_row: ActionRow,
+}
+impl DynPage for FallbackPage {
+    fn build_page(self) -> Page {
+        Rc::new(self)
+    }
 }
 impl NavPage for FallbackPage {
     fn get_navpage(&self) -> &NavigationPage {
@@ -17,7 +22,7 @@ impl NavPage for FallbackPage {
     }
 }
 impl FallbackPage {
-    pub fn new() -> Rc<Self> {
+    pub fn new() -> Self {
         let icon = "go-home-symbolic";
         let title = &t!("pages.fallback.title");
 
@@ -48,7 +53,7 @@ impl FallbackPage {
         let header_text = Self::build_header_text(&t!("pages.fallback.get_started"));
         content_box.append(&header_text);
 
-        Rc::new(Self { nav_page, nav_row })
+        Self { nav_page, nav_row }
     }
 
     fn build_header_text(text: &str) -> gtk::Box {
