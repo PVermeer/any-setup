@@ -1,4 +1,39 @@
 page_type: content
 title: Home
 icon: go-home-symbolic
-header_text: "Some header text"
+header:
+  icon: org.pvermeer.AnySetup
+  text: "Some header text"
+contents:
+  - pango: true
+    align: center
+    text: <span font_desc="Sans 12">Lorem ipsum <b>dolor sit amet</b>, <span
+      foreground="blue">consectetur adipiscing elit</span>. Sed do eiusmod
+      tempor <i>incididunt ut labore</i> et dolore magna aliqua. Ut enim ad
+      minim veniam, <span underline="single">quis nostrud exercitation</span>
+      ullamco laboris nisi ut aliquip ex ea commodo consequat. Duis aute irure
+      dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat
+      nulla pariatur.</span>
+  - text: Lorem ipsum dolor sit amet, consectetur adipiscing elit. Integer nec odio.
+      Praesent libero. Sed cursus ante dapibus diam. Sed nisi. Nulla quis sem at
+      nibh elementum imperdiet. Duis sagittis ipsum. Praesent mauris. Fusce nec
+      tellus sed augue semper porta. Mauris massa. Vestibulum lacinia arcu eget
+      nulla.
+  - pango: true
+    align: left
+    text: <span font_desc="Serif 11">Lorem ipsum dolor sit amet, <b>consectetur
+      adipiscing elit</b>. Vivamus <i>lacinia odio vitae vestibulum</i>
+      vestibulum. <span foreground="green">Cras venenatis euismod
+      malesuada</span>. Nullam ac erat ante. Sed ut <span
+      underline="single">perspiciatis unde omnis</span> iste natus error sit
+      voluptatem accusantium doloremque laudantium. Totam rem aperiam, eaque
+      ipsa quae ab illo inventore veritatis et quasi architecto beatae vitae
+      dicta sunt explicabo.</span>
+  - align: fill
+    text: Lorem ipsum dolor sit amet, consectetur adipiscing elit. Curabitur vel
+      turpis ac odio pretium fermentum. Donec non purus ut massa finibus
+      aliquet. Integer vitae justo vitae urna placerat ullamcorper. Phasellus
+      non sem vel sapien gravida tristique. Aliquam erat volutpat. Sed vitae
+      neque sit amet leo sollicitudin faucibus. Cras at lectus nec ipsum
+      elementum feugiat. Suspendisse potenti. Vivamus euismod, nisl at convallis
+      tincidunt, massa justo dictum nisi, sed facilisis libero erat a augue.

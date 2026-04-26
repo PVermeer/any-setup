@@ -8,12 +8,43 @@ pub enum PageType {
     Content,
 }
 
+#[derive(Deserialize, PartialEq, Default)]
+pub enum TextAlign {
+    #[default]
+    #[serde(alias = "left", alias = "LEFT")]
+    Left,
+
+    #[serde(alias = "center", alias = "CENTER")]
+    Center,
+
+    #[serde(alias = "fill", alias = "FILL")]
+    Fill,
+}
+
+#[derive(PartialEq, Deserialize)]
+pub struct Header {
+    pub icon: Option<String>,
+    pub text: Option<String>,
+}
+
+#[derive(PartialEq, Deserialize)]
+pub struct Content {
+    #[serde(default)]
+    pub pango: bool,
+
+    #[serde(default)]
+    pub align: TextAlign,
+
+    pub text: String,
+}
+
 #[derive(PartialEq, Deserialize)]
 pub struct PageYaml {
     pub page_type: PageType,
     pub title: String,
     pub icon: String,
-    pub header_text: Option<String>,
+    pub header: Option<Header>,
+    pub contents: Option<Vec<Content>>,
 }
 impl PageYaml {
     pub fn from_file(file_path: &PathBuf) -> Result<Self> {
