@@ -79,7 +79,7 @@ fn install_app_icon(app_dirs: &AppDirs) -> Result<()> {
         .user_data
         .join("icons")
         .join("hicolor")
-        .join("256x256")
+        .join("512x512")
         .join("apps");
     if !save_dir.is_dir() {
         fs::create_dir_all(&save_dir).context("Failed to create icon dir")?;
