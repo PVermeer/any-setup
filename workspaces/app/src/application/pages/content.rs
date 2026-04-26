@@ -8,15 +8,11 @@ use serde::Deserialize;
 use std::rc::Rc;
 
 #[derive(Deserialize, PartialEq, Default)]
+#[serde(rename_all = "lowercase")]
 pub enum TextAlign {
     #[default]
-    #[serde(alias = "left", alias = "LEFT")]
     Left,
-
-    #[serde(alias = "center", alias = "CENTER")]
     Center,
-
-    #[serde(alias = "fill", alias = "FILL")]
     Fill,
 }
 
@@ -79,7 +75,7 @@ impl ContentPage {
     const SPACING: i32 = 20;
     const MAX_WIDTH: i32 = 600;
 
-    pub fn build(&self) {
+    fn build(&self) {
         let content_box = gtk::Box::builder()
             .orientation(Orientation::Vertical)
             .margin_top(Self::SPACING)

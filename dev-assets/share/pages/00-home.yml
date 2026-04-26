@@ -14,11 +14,13 @@ contents:
       ullamco laboris nisi ut aliquip ex ea commodo consequat. Duis aute irure
       dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat
       nulla pariatur.</span>
+
   - text: Lorem ipsum dolor sit amet, consectetur adipiscing elit. Integer nec odio.
       Praesent libero. Sed cursus ante dapibus diam. Sed nisi. Nulla quis sem at
       nibh elementum imperdiet. Duis sagittis ipsum. Praesent mauris. Fusce nec
       tellus sed augue semper porta. Mauris massa. Vestibulum lacinia arcu eget
       nulla.
+
   - pango: true
     align: left
     text: <span font_desc="Serif 11">Lorem ipsum dolor sit amet, <b>consectetur
@@ -29,6 +31,7 @@ contents:
       voluptatem accusantium doloremque laudantium. Totam rem aperiam, eaque
       ipsa quae ab illo inventore veritatis et quasi architecto beatae vitae
       dicta sunt explicabo.</span>
+
   - align: fill
     text: Lorem ipsum dolor sit amet, consectetur adipiscing elit. Curabitur vel
       turpis ac odio pretium fermentum. Donec non purus ut massa finibus

@@ -1,0 +1,16 @@
+page_type: settings
+title: Tools
+icon: applications-utilities-symbolic
+groups:
+  - title: Some settings
+    settings:
+      - type: input
+        title: Input something
+        check: check it
+        input_type: name
+
+      - type: switch
+        title: Don't do it!
+        subtitle: ..do it...
+        check: some check
+        action: some action

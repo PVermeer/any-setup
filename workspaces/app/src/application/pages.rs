@@ -9,7 +9,8 @@ use crate::application::{
 };
 use common::{app_dirs::AppDirs, utils};
 use libadwaita::{
-    ActionRow, HeaderBar, NavigationPage, NavigationSplitView, ToolbarView,
+    ActionRow, HeaderBar, NavigationPage, NavigationSplitView, NavigationView, PreferencesPage,
+    ToolbarView,
     gtk::{Image, prelude::WidgetExt},
     prelude::ActionRowExt,
 };
@@ -84,6 +85,12 @@ pub struct NavPageBuild {
     nav_row: ActionRow,
     toolbar: ToolbarView,
 }
+pub struct PrefNavPageBuild {
+    nav_page: NavigationPage,
+    nav_row: ActionRow,
+    nav_view: NavigationView,
+    prefs_page: PreferencesPage,
+}
 
 pub trait NavPage {
     fn get_navpage(&self) -> &NavigationPage;
@@ -122,83 +129,32 @@ pub trait NavPage {
             toolbar,
         }
     }
+
+    fn build_preferences_nav_page(title: &str, icon: &str) -> PrefNavPageBuild
+    where
+        Self: Sized,
+    {
+        let NavPageBuild {
+            nav_page,
+            nav_row,
+            toolbar,
+        } = Self::build_nav_page(title, icon);
+
+        let nav_view = NavigationView::new();
+        let prefs_page = PreferencesPage::new();
+        let nav_view_page = NavigationPage::builder().child(&nav_view).build();
+        toolbar.set_content(Some(&prefs_page));
+        nav_view.add(&nav_page);
+
+        PrefNavPageBuild {
+            nav_page: nav_view_page,
+            nav_row,
+            nav_view,
+            prefs_page,
+        }
+    }
 }
 
 pub trait DynPage: NavPage {
     fn build_page(self) -> Page;
 }
-
-// struct PrefPage {
-//     nav_page: NavigationPage,
-//     nav_row: ActionRow,
-//     prefs_page: PreferencesPage,
-//     toast_overlay: ToastOverlay,
-// }
-// struct PrefNavPage {
-//     nav_page: NavigationPage,
-//     nav_row: ActionRow,
-//     nav_view: NavigationView,
-//     prefs_page: PreferencesPage,
-// }
-// pub struct PageBuilder {
-//     nav_page: NavigationPage,
-//     nav_row: ActionRow,
-//     toolbar: ToolbarView,
-// }
-// impl PageBuilder {
-//     fn with_content_box(self) -> ContentPage {
-//         const MARGIN: i32 = 20;
-//         const MAX_WIDTH: i32 = 600;
-
-//         let content_box = gtk::Box::builder()
-//             .orientation(Orientation::Vertical)
-//             .margin_top(MARGIN)
-//             .margin_bottom(MARGIN)
-//             .margin_start(MARGIN)
-//             .margin_end(MARGIN)
-//             .build();
-//         let clamp = Clamp::builder()
-//             .maximum_size(MAX_WIDTH)
-//             .child(&content_box)
-//             .build();
-//         let scrolled_window = ScrolledWindow::builder().child(&clamp).build();
-//         self.toolbar.set_content(Some(&scrolled_window));
-
-//         ContentPage {
-//             nav_page: self.nav_page,
-//             nav_row: self.nav_row,
-//             content_box,
-//         }
-//     }
-
-// fn with_preference_page(self) -> PrefPage {
-//     let prefs_page = PreferencesPage::new();
-//     let toast_overlay = ToastOverlay::new();
-//     toast_overlay.set_child(Some(&prefs_page));
-//     self.toolbar.set_content(Some(&toast_overlay));
-
-//     PrefPage {
-//         nav_page: self.nav_page,
-//         nav_row: self.nav_row,
-//         prefs_page,
-//         toast_overlay,
-//         header: self.header,
-//     }
-// }
-
-// /// This has a `NavigationView` for animations deeper in settings
-// fn with_preference_navigation_view(self) -> PrefNavPage {
-//     let nav_view = NavigationView::new();
-//     let prefs_page = PreferencesPage::new();
-//     let nav_view_page = NavigationPage::builder().child(&nav_view).build();
-//     self.toolbar.set_content(Some(&prefs_page));
-//     nav_view.add(&self.nav_page);
-
-//     PrefNavPage {
-//         nav_page: nav_view_page,
-//         nav_row: self.nav_row,
-//         nav_view,
-//         prefs_page,
-//     }
-// }
-// }

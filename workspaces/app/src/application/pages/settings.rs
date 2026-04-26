@@ -1,67 +1,95 @@
+use crate::application::pages::{DynPage, NavPage, Page, PrefNavPageBuild};
+use gtk::InputPurpose;
+use libadwaita::{
+    ActionRow, EntryRow, NavigationPage, NavigationView, PreferencesGroup, PreferencesPage,
+    SwitchRow,
+    prelude::{ActionRowExt, PreferencesGroupExt, PreferencesPageExt},
+};
+use serde::Deserialize;
 use std::rc::Rc;
 
-use crate::application::pages::{DynPage, NavPage, NavPageBuild, Page};
-use gtk::{
-    Align, Image, Justification, Label, Orientation, ScrolledWindow,
-    prelude::{BoxExt, WidgetExt},
-};
-use libadwaita::{ActionRow, Clamp, NavigationPage, ToolbarView};
-use serde::Deserialize;
-
-#[derive(Deserialize, PartialEq, Default)]
-pub enum TextAlign {
-    #[default]
-    #[serde(alias = "left", alias = "LEFT")]
-    Left,
-
-    #[serde(alias = "center", alias = "CENTER")]
-    Center,
-
-    #[serde(alias = "fill", alias = "FILL")]
-    Fill,
+#[derive(PartialEq, Deserialize)]
+#[serde(rename_all = "lowercase")]
+enum InputType {
+    FreeForm,
+    Digits,
+    Number,
+    Phone,
+    Url,
+    Email,
+    Name,
+    Password,
+    Pin,
+}
+impl InputType {
+    fn to_gtk(&self) -> InputPurpose {
+        match self {
+            Self::FreeForm => InputPurpose::FreeForm,
+            Self::Digits => InputPurpose::Digits,
+            Self::Number => InputPurpose::Number,
+            Self::Phone => InputPurpose::Phone,
+            Self::Url => InputPurpose::Url,
+            Self::Email => InputPurpose::Email,
+            Self::Name => InputPurpose::Name,
+            Self::Password => InputPurpose::Password,
+            Self::Pin => InputPurpose::Pin,
+        }
+    }
 }
 
 #[derive(PartialEq, Deserialize)]
-pub struct Header {
-    pub icon: Option<String>,
-    pub text: Option<String>,
+struct Input {
+    title: String,
+    input_type: InputType,
 }
 
 #[derive(PartialEq, Deserialize)]
-pub struct Content {
-    #[serde(default)]
-    pub pango: bool,
+struct Switch {
+    title: String,
+    subtitle: Option<String>,
+}
 
-    #[serde(default)]
-    pub align: TextAlign,
+#[derive(PartialEq, Deserialize)]
+#[serde(tag = "type", rename_all = "lowercase")]
+enum Setting {
+    Input(Input),
+    Switch(Switch),
+}
 
-    pub text: String,
+#[derive(PartialEq, Deserialize)]
+struct Group {
+    title: Option<String>,
+    settings: Vec<Setting>,
 }
 
 #[derive(PartialEq, Deserialize)]
 pub struct SettingsPage {
     title: String,
     icon: String,
-    header: Option<Header>,
-    contents: Option<Vec<Content>>,
+    groups: Vec<Group>,
 
     #[serde(skip)]
     nav_page: NavigationPage,
     #[serde(skip)]
     nav_row: ActionRow,
     #[serde(skip)]
-    toolbar: ToolbarView,
+    nav_view: NavigationView,
+    #[serde(skip)]
+    prefs_page: PreferencesPage,
 }
 impl DynPage for SettingsPage {
     fn build_page(mut self) -> Page {
-        let NavPageBuild {
+        let PrefNavPageBuild {
             nav_page,
             nav_row,
-            toolbar,
-        } = Self::build_nav_page(&self.title, &self.icon);
+            nav_view,
+            prefs_page,
+        } = Self::build_preferences_nav_page(&self.title, &self.icon);
         self.nav_page = nav_page;
         self.nav_row = nav_row;
-        self.toolbar = toolbar;
+        self.nav_view = nav_view;
+        self.prefs_page = prefs_page;
+
         self.build();
 
         Rc::new(self)
@@ -77,99 +105,42 @@ impl NavPage for SettingsPage {
     }
 }
 impl SettingsPage {
-    const SPACING: i32 = 20;
-    const MAX_WIDTH: i32 = 600;
+    fn build(&self) {
+        for group in &self.groups {
+            let pref_group = PreferencesGroup::builder().build();
 
-    pub fn build(&mut self) {
-        let content_box = gtk::Box::builder()
-            .orientation(Orientation::Vertical)
-            .margin_top(Self::SPACING)
-            .margin_bottom(Self::SPACING)
-            .margin_start(Self::SPACING)
-            .margin_end(Self::SPACING)
-            .spacing(Self::SPACING)
-            .build();
-        let clamp = Clamp::builder()
-            .maximum_size(Self::MAX_WIDTH)
-            .child(&content_box)
-            .build();
-        let scrolled_window = ScrolledWindow::builder().child(&clamp).build();
-        self.toolbar.set_content(Some(&scrolled_window));
+            if let Some(group_title) = &group.title {
+                pref_group.set_title(group_title);
+            }
 
-        if let Some(header) = &self.header {
-            let header_built = Self::build_header(header);
-            content_box.append(&header_built);
-        }
+            for setting in &group.settings {
+                match setting {
+                    Setting::Input(input) => {
+                        let entry_row = EntryRow::builder()
+                            .title(&input.title)
+                            // .text()
+                            .show_apply_button(true)
+                            .input_purpose(input.input_type.to_gtk())
+                            .build();
 
-        if let Some(contents) = &self.contents {
-            let content_built = Self::build_content(contents);
-            content_box.append(&content_built);
-        }
-    }
+                        pref_group.add(&entry_row);
+                    }
 
-    fn build_header(header: &Header) -> gtk::Box {
-        let content_box = gtk::Box::builder()
-            .orientation(Orientation::Vertical)
-            .spacing(12)
-            .halign(Align::Center)
-            .valign(Align::Fill)
-            .build();
+                    Setting::Switch(switch) => {
+                        let switch_row = SwitchRow::builder()
+                            .title(&switch.title)
+                            // .active()
+                            .build();
+                        if let Some(subtitle) = &switch.subtitle {
+                            switch_row.set_subtitle(subtitle);
+                        }
 
-        if let Some(icon_name) = &header.icon {
-            let image = Image::builder()
-                .icon_name(icon_name)
-                .pixel_size(96)
-                .margin_start(25)
-                .margin_end(25)
-                .css_classes(["icon-dropshadow"])
-                .build();
-            content_box.append(&image);
-        }
-
-        if let Some(text) = &header.text {
-            let label = Label::builder()
-                .label(text)
-                .css_classes(["title-1"])
-                .wrap(true)
-                .build();
-            content_box.append(&label);
-        }
-
-        content_box
-    }
-
-    fn build_content(contents: &Vec<Content>) -> gtk::Box {
-        let content_box = gtk::Box::builder()
-            .orientation(Orientation::Vertical)
-            .spacing(12)
-            .build();
-
-        for content in contents {
-            let label = Label::builder()
-                .use_markup(content.pango)
-                .label(&content.text)
-                .wrap(true)
-                .halign(Align::Start)
-                .justify(Justification::Left)
-                .build();
-            content_box.append(&label);
-
-            match content.align {
-                TextAlign::Left => {
-                    label.set_halign(Align::Start);
-                    label.set_justify(Justification::Left);
-                }
-                TextAlign::Center => {
-                    label.set_halign(Align::Center);
-                    label.set_justify(Justification::Center);
-                }
-                TextAlign::Fill => {
-                    label.set_halign(Align::Fill);
-                    label.set_justify(Justification::Fill);
+                        pref_group.add(&switch_row);
+                    }
                 }
             }
-        }
 
-        content_box
+            self.prefs_page.add(&pref_group);
+        }
     }
 }
