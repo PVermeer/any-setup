@@ -9,8 +9,12 @@
 )]
 
 mod application;
+mod batch_run;
 
+use anyhow::Result;
 use application::App;
+use batch_run::BatchArgs;
+use clap::{Parser, Subcommand};
 use common::{
     config::{self},
     utils::{self, OnceLockExt},
@@ -19,6 +23,20 @@ use libadwaita::gio::prelude::{ApplicationExt, ApplicationExtManual};
 use rust_i18n::locale;
 use tracing::{Level, debug, info};
 use tracing_subscriber::{FmtSubscriber, util::SubscriberInitExt};
+
+use crate::batch_run::run_batch_actions;
+
+#[derive(Parser)]
+#[command(version, about, long_about = None)]
+pub struct Cli {
+    #[command(subcommand)]
+    pub command: Option<Command>,
+}
+#[derive(Subcommand)]
+pub enum Command {
+    /// Run batched commands
+    RunBatch(BatchArgs),
+}
 
 #[macro_use]
 extern crate rust_i18n;
@@ -79,7 +97,15 @@ fn init_locale() {
     info!(locale = &*locale(), "Init locale");
 }
 
-fn main() {
+fn main() -> Result<()> {
+    let arguments = Cli::parse();
+    if let Some(command) = &arguments.command
+        && let Command::RunBatch(args) = command
+    {
+        run_batch_actions(args)?;
+        return Ok(());
+    }
+
     if cfg!(debug_assertions) {
         println!("======== Running debug build ========");
     }
@@ -100,4 +126,6 @@ fn main() {
     });
 
     adw_application.run();
+
+    Ok(())
 }

@@ -1,3 +1,4 @@
+pub mod actions;
 mod css_provider;
 mod error_dialog;
 mod pages;
