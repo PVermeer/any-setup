@@ -102,8 +102,7 @@ fn main() -> Result<()> {
     if let Some(command) = &arguments.command
         && let Command::RunBatch(args) = command
     {
-        run_batch_actions(args)?;
-        return Ok(());
+        return run_batch_actions(args);
     }
 
     if cfg!(debug_assertions) {

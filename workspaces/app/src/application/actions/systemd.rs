@@ -27,7 +27,7 @@ pub enum SystemdAction {
     DisableUnit { name: String, scope: Scope },
 }
 impl IsAction for SystemdAction {
-    fn into_command(self) -> Command {
+    fn get_command(&self) -> Command {
         match self {
             Self::EnableUnit { name, scope } => {
                 let mut command = Command::new("systemctl");

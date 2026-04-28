@@ -1,14 +1,15 @@
 pub mod systemd;
 
 use crate::application::actions::systemd::SystemdAction;
-use anyhow::Result;
+use anyhow::{Context, Result};
 use common::utils;
 use serde::{Deserialize, Serialize};
 use serde_json::json;
-use std::{collections::VecDeque, process::Command};
+use std::process::{Command, Output};
+use tracing::debug;
 
 pub trait IsAction {
-    fn into_command(self) -> Command;
+    fn get_command(&self) -> Command;
     fn needs_elevation(&self) -> bool;
 }
 
@@ -17,9 +18,9 @@ pub enum Action {
     SystemD(SystemdAction),
 }
 impl IsAction for Action {
-    fn into_command(self) -> Command {
+    fn get_command(&self) -> Command {
         match self {
-            Self::SystemD(action) => action.into_command(),
+            Self::SystemD(action) => action.get_command(),
         }
     }
 
@@ -31,14 +32,32 @@ impl IsAction for Action {
 }
 
 #[derive(Serialize, Deserialize, Debug)]
+pub struct ActionResult {
+    action: Action,
+    success: bool,
+    stdout: String,
+    stderr: String,
+}
+impl ActionResult {
+    fn from_output(action: Action, output: &Output) -> Self {
+        Self {
+            action,
+            success: output.status.success(),
+            stdout: utils::command::parse_output(&output.stdout),
+            stderr: utils::command::parse_output(&output.stderr),
+        }
+    }
+}
+
+#[derive(Serialize, Deserialize, Debug)]
 pub struct ActionRunner {
-    queue: VecDeque<Action>,
+    queue: Vec<Action>,
     elevate: bool,
 }
 impl ActionRunner {
     pub fn new() -> Self {
         Self {
-            queue: VecDeque::new(),
+            queue: Vec::new(),
             elevate: false,
         }
     }
@@ -47,29 +66,35 @@ impl ActionRunner {
         if action.needs_elevation() {
             self.elevate = true;
         }
-        self.queue.push_back(action);
+        self.queue.push(action);
     }
 
-    pub fn run(&mut self) -> Result<()> {
-        if self.elevate {
-            self.run_elevated()?;
+    pub fn run(self) -> Result<Vec<ActionResult>> {
+        let action_results = if self.elevate {
+            self.run_elevated()
         } else {
-            self.run_actions()?;
-        }
+            self.run_actions()
+        };
 
-        Ok(())
+        debug!(?action_results, "Action results");
+
+        action_results
     }
 
-    pub fn run_actions(&mut self) -> Result<()> {
-        while let Some(action) = self.queue.pop_front() {
-            let mut cmd = action.into_command();
-            cmd.spawn()?;
+    pub fn run_actions(self) -> Result<Vec<ActionResult>> {
+        let mut results = Vec::new();
+
+        for action in self.queue {
+            let mut command = action.get_command();
+            let output = command.output().context("Failed to run command")?;
+            let action_result = ActionResult::from_output(action, &output);
+            results.push(action_result);
         }
 
-        Ok(())
+        Ok(results)
     }
 
-    fn run_elevated(&self) -> Result<()> {
+    fn run_elevated(&self) -> Result<Vec<ActionResult>> {
         let json = json!(&self).to_string();
 
         let current_exe = std::env::current_exe()?;
@@ -78,13 +103,15 @@ impl ActionRunner {
             command = "sudo";
         }
 
-        Command::new(command)
+        let output = Command::new(command)
             .arg(current_exe)
             .arg("run-batch")
             .arg("--json")
             .arg(json)
-            .spawn()?;
+            .output()
+            .context("Failed to run command")?;
+        let action_results: Vec<ActionResult> = serde_json::from_slice(&output.stdout)?;
 
-        Ok(())
+        Ok(action_results)
     }
 }
