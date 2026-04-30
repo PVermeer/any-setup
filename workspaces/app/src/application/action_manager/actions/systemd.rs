@@ -1,4 +1,4 @@
-use crate::application::actions::IsAction;
+use crate::application::action_manager::actions::IsAction;
 use serde::{Deserialize, Serialize};
 use std::{fmt::Display, process::Command};
 
@@ -25,6 +25,18 @@ impl Scope {
 pub enum SystemdAction {
     EnableUnit { name: String, scope: Scope },
     DisableUnit { name: String, scope: Scope },
+}
+impl Display for SystemdAction {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::EnableUnit { name, scope } => {
+                write!(f, "Systemd enable {scope} unit: {name}")
+            }
+            Self::DisableUnit { name, scope } => {
+                write!(f, "Systemd disable {scope} unit: {name}")
+            }
+        }
+    }
 }
 impl IsAction for SystemdAction {
     fn get_command(&self) -> Command {

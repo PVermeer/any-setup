@@ -7,13 +7,15 @@
     clippy::todo,
     clippy::panic
 )]
+#![allow(clippy::cast_precision_loss)]
 
 mod application;
-mod batch_run;
 
+use crate::application::action_manager::elevated_action_runner::{
+    BatchArgs, elevated_action_runner,
+};
 use anyhow::Result;
 use application::App;
-use batch_run::BatchArgs;
 use clap::{Parser, Subcommand};
 use common::{
     config::{self},
@@ -24,18 +26,16 @@ use rust_i18n::locale;
 use tracing::{Level, debug, info};
 use tracing_subscriber::{FmtSubscriber, util::SubscriberInitExt};
 
-use crate::batch_run::run_batch_actions;
-
 #[derive(Parser)]
 #[command(version, about, long_about = None)]
 pub struct Cli {
     #[command(subcommand)]
-    pub command: Option<Command>,
+    pub command: Option<AppCommand>,
 }
 #[derive(Subcommand)]
-pub enum Command {
+pub enum AppCommand {
     /// Run batched commands
-    RunBatch(BatchArgs),
+    ActionRunner(BatchArgs),
 }
 
 #[macro_use]
@@ -100,9 +100,9 @@ fn init_locale() {
 fn main() -> Result<()> {
     let arguments = Cli::parse();
     if let Some(command) = &arguments.command
-        && let Command::RunBatch(args) = command
+        && let AppCommand::ActionRunner(args) = command
     {
-        return run_batch_actions(args);
+        return elevated_action_runner(args);
     }
 
     if cfg!(debug_assertions) {

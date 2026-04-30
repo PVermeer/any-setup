@@ -16,6 +16,7 @@ documentation = "https://github.com/pvermeer/any-setup"
 [workspace.dependencies]
 clap = { version = "4.6.1", features = ["derive"] }
 common = { path = "workspaces/common" }
+crossbeam-channel = "0.5.15"
 anyhow = "1.0.102"
 freedesktop-desktop-entry = "0.8.1"
 gtk = { version = "0.11.2", features = ["v4_10"], package = "gtk4" }

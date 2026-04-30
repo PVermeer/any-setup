@@ -1,9 +1,10 @@
-pub mod actions;
+pub mod action_manager;
 mod css_provider;
 mod error_dialog;
 mod pages;
 mod window;
 
+use action_manager::ActionManager;
 use anyhow::{Error, Result};
 use common::{
     app_dirs::AppDirs,
@@ -26,6 +27,7 @@ pub struct App {
     icon_theme: Rc<IconTheme>,
     window: AppWindow,
     pages: Pages,
+    action_manager: RefCell<ActionManager>,
 }
 impl App {
     pub fn new(adw_application: &libadwaita::Application) -> Rc<Self> {
@@ -39,6 +41,7 @@ impl App {
             );
             let window = AppWindow::new(adw_application);
             let pages = Pages::new(&app_dirs);
+            let action_manager = RefCell::new(ActionManager::new());
             let error_dialog = ErrorDialog::new();
 
             Self::set_theme_settings(&settings);
@@ -51,6 +54,7 @@ impl App {
                 icon_theme,
                 window,
                 pages,
+                action_manager,
             }
         })
     }
