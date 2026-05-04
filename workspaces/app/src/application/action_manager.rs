@@ -92,28 +92,28 @@ impl ActionManager {
 
                 match result {
                     Ok(results) => {
-                        context.invoke(move || {
-                            for result in &results {
-                                if !result.success {
-                                    callback(TaskEvent::Failed {
-                                        task_name: action,
-                                        error: anyhow!(result.stderr.clone()),
-                                    });
-                                    return;
-                                }
+                        let mut has_failed = false;
+                        for result in &results {
+                            if !result.success {
+                                callback(TaskEvent::Failed {
+                                    task_name: action.clone(),
+                                    error: anyhow!(result.stderr.clone()),
+                                });
+                                has_failed = true;
+                                break;
                             }
+                        }
+                        if !has_failed {
                             callback(TaskEvent::Finished {
                                 task_name: action,
                                 results,
                             });
-                        });
+                        }
                     }
                     Err(error) => {
-                        context.invoke(move || {
-                            callback(TaskEvent::Failed {
-                                task_name: action,
-                                error,
-                            });
+                        callback(TaskEvent::Failed {
+                            task_name: action,
+                            error,
                         });
                     }
                 }
