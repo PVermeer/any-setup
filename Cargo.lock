@@ -74,7 +74,6 @@ dependencies = [
  "anyhow",
  "clap",
  "common",
- "crossbeam-channel",
  "gtk4",
  "libadwaita",
  "rust-i18n",
@@ -243,15 +242,6 @@ dependencies = [
  "serde_yaml",
  "toml 1.1.2+spec-1.1.0",
  "tracing",
-]
-
-[[package]]
-name = "crossbeam-channel"
-version = "0.5.15"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "82b8f8f868b36967f9606790d1903570de9ceaf870a7bf9fbbd3016d636a2cb2"
-dependencies = [
- "crossbeam-utils",
 ]
 
 [[package]]

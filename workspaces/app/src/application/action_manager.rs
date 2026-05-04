@@ -2,20 +2,22 @@ pub mod action_runner;
 pub mod actions;
 pub mod elevated_action_runner;
 
-use crate::application::action_manager::action_runner::{ActionResult, ActionRunner, ActionStatus};
+use action_runner::{ActionResult, ActionRunner, ActionStatus};
 use anyhow::{Error, Result, anyhow};
-use crossbeam_channel::{Sender, unbounded};
 use gtk::glib;
 use std::{
     fmt::Display,
-    sync::Arc,
+    sync::{
+        Arc,
+        mpsc::{self, Sender},
+    },
     thread::{self},
 };
 
 struct Task {
     name: String,
     runner: ActionRunner,
-    callback: Callback,
+    on_event: OnEvent,
 }
 impl Display for Task {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
@@ -45,9 +47,9 @@ pub enum TaskEvent {
         error: Error,
     },
 }
-pub trait CallbackFn: Fn(TaskEvent) + Sync + Send + 'static {}
-impl<T> CallbackFn for T where T: Fn(TaskEvent) + Sync + Send + 'static {}
-type Callback = Arc<dyn CallbackFn>;
+pub trait OnEventFn: Fn(TaskEvent) + Sync + Send + 'static {}
+impl<T> OnEventFn for T where T: Fn(TaskEvent) + Sync + Send + 'static {}
+type OnEvent = Arc<dyn OnEventFn>;
 
 /// Fifo Action manager
 pub struct ActionManager {
@@ -55,84 +57,79 @@ pub struct ActionManager {
 }
 impl ActionManager {
     pub fn new() -> Self {
-        let (tx, rx) = unbounded::<Task>();
+        let (tx, rx) = mpsc::channel::<Task>();
         let context = glib::MainContext::default();
 
         thread::spawn(move || {
             for task in rx {
                 // Started
-                let callback = task.callback.clone();
+                let on_event = task.on_event.clone();
                 let task_name = task.name.clone();
 
                 context.invoke(move || {
-                    callback(TaskEvent::Started { task_name });
+                    on_event(TaskEvent::Started { task_name });
                 });
 
                 // Run task
                 let result = task.runner.run(Some(&|runner_progress| {
-                    let callback = task.callback.clone();
+                    let callback = task.on_event.clone();
                     let task_name = task.name.clone();
-                    let action_progress = runner_progress.clone();
+                    let runner_progress = runner_progress.clone();
 
                     context.invoke(move || {
                         callback(TaskEvent::Progress {
                             task_name,
-                            action: action_progress.action,
-                            action_nr: action_progress.action_nr,
-                            total_actions: action_progress.total_actions,
-                            progress: action_progress.progress,
-                            status: action_progress.status,
+                            action: runner_progress.action,
+                            action_nr: runner_progress.action_nr,
+                            total_actions: runner_progress.total_actions,
+                            progress: runner_progress.progress,
+                            status: runner_progress.status,
                         });
                     });
                 }));
 
                 // Result
-                let callback = task.callback.clone();
-                let action = task.name.clone();
+                let on_event = task.on_event.clone();
+                let task_name = task.name.clone();
 
-                match result {
+                let message = match result {
                     Ok(results) => {
-                        let mut has_failed = false;
+                        let mut failed = None;
+
                         for result in &results {
                             if !result.success {
-                                callback(TaskEvent::Failed {
-                                    task_name: action.clone(),
-                                    error: anyhow!(result.stderr.clone()),
-                                });
-                                has_failed = true;
+                                failed = Some(result.stderr.clone());
                                 break;
                             }
                         }
-                        if !has_failed {
-                            callback(TaskEvent::Finished {
-                                task_name: action,
-                                results,
-                            });
+
+                        match failed {
+                            None => TaskEvent::Finished { task_name, results },
+
+                            Some(error) => TaskEvent::Failed {
+                                task_name,
+                                error: anyhow!(error),
+                            },
                         }
                     }
-                    Err(error) => {
-                        callback(TaskEvent::Failed {
-                            task_name: action,
-                            error,
-                        });
-                    }
-                }
+
+                    Err(error) => TaskEvent::Failed { task_name, error },
+                };
+
+                context.invoke(move || {
+                    on_event(message);
+                });
             }
         });
 
         Self { sender: tx }
     }
 
-    pub fn add<F: CallbackFn>(
-        &self,
-        name: &str,
-        runner: ActionRunner,
-        on_action_event: F,
-    ) -> Result<()> {
+    pub fn add<F: OnEventFn>(&self, name: &str, runner: ActionRunner, on_event: F) -> Result<()> {
         match self.sender.send(Task {
             name: name.to_string(),
             runner,
-            callback: Arc::new(on_action_event),
+            on_event: Arc::new(on_event),
         }) {
             Ok(()) => Ok(()),
             Err(error) => Err(anyhow!(error.to_string())),

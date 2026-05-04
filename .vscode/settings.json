@@ -4,4 +4,5 @@
         "https://raw.githubusercontent.com/flatpak/flatpak-builder/master/data/flatpak-manifest.schema.json": "file:///workspaces/any-setup/flatpak/manifest.yml"
     },
     "rust-analyzer.imports.granularity.enforce": true,
+    "rust-analyzer.imports.prefix": "plain",
 }
