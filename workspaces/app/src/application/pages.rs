@@ -3,6 +3,7 @@ mod fallback;
 mod page_config;
 mod settings;
 
+use super::action_manager::ActionManager;
 use crate::application::{
     App,
     pages::{fallback::FallbackPage, page_config::PageYaml},
@@ -14,7 +15,7 @@ use libadwaita::{
     gtk::{Image, prelude::WidgetExt},
     prelude::ActionRowExt,
 };
-use std::rc::Rc;
+use std::{cell::RefCell, rc::Rc};
 use tracing::error;
 
 pub type Page = Rc<dyn DynPage>;
@@ -23,8 +24,8 @@ pub struct Pages {
     pages: Vec<Page>,
 }
 impl Pages {
-    pub fn new(app_dirs: &Rc<AppDirs>) -> Self {
-        let pages = Self::load_page_configs(app_dirs);
+    pub fn new(app_dirs: &Rc<AppDirs>, action_manager: &Rc<RefCell<ActionManager>>) -> Self {
+        let pages = Self::load_page_configs(app_dirs, action_manager);
 
         Self { pages }
     }
@@ -41,7 +42,10 @@ impl Pages {
         self.pages.first()
     }
 
-    fn load_page_configs(app_dirs: &Rc<AppDirs>) -> Vec<Page> {
+    fn load_page_configs(
+        app_dirs: &Rc<AppDirs>,
+        action_manager: &Rc<RefCell<ActionManager>>,
+    ) -> Vec<Page> {
         let mut pages: Vec<Page> = Vec::new();
 
         if let Some(pages_dir) = &app_dirs.system_data_pages_dir
@@ -67,13 +71,13 @@ impl Pages {
                     }
                 };
 
-                let page = page_yaml.into_page();
+                let page = page_yaml.into_page(action_manager);
                 pages.push(page);
             }
         }
 
         if pages.is_empty() {
-            pages.push(FallbackPage::new().build_page());
+            pages.push(FallbackPage::new().build_page(action_manager));
         }
 
         pages
@@ -156,5 +160,5 @@ pub trait NavPage {
 }
 
 pub trait DynPage: NavPage {
-    fn build_page(self) -> Page;
+    fn build_page(self, action_manager: &Rc<RefCell<ActionManager>>) -> Page;
 }

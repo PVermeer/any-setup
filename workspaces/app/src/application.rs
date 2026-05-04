@@ -27,7 +27,6 @@ pub struct App {
     icon_theme: Rc<IconTheme>,
     window: AppWindow,
     pages: Pages,
-    action_manager: RefCell<ActionManager>,
 }
 impl App {
     pub fn new(adw_application: &libadwaita::Application) -> Rc<Self> {
@@ -40,8 +39,8 @@ impl App {
                 CacheSettings::new(&app_dirs).expect("Failed to load cached settings"),
             );
             let window = AppWindow::new(adw_application);
-            let pages = Pages::new(&app_dirs);
-            let action_manager = RefCell::new(ActionManager::new());
+            let action_manager = Rc::new(RefCell::new(ActionManager::new()));
+            let pages = Pages::new(&app_dirs, &action_manager);
             let error_dialog = ErrorDialog::new();
 
             Self::set_theme_settings(&settings);
@@ -54,7 +53,6 @@ impl App {
                 icon_theme,
                 window,
                 pages,
-                action_manager,
             }
         })
     }

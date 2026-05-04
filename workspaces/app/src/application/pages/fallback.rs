@@ -1,14 +1,17 @@
-use crate::application::pages::{DynPage, NavPage, NavPageBuild, Page};
+use crate::application::{
+    action_manager::ActionManager,
+    pages::{DynPage, NavPage, NavPageBuild, Page},
+};
 use gtk::{Align, Justification, Label, Orientation, ScrolledWindow, prelude::BoxExt};
 use libadwaita::{ActionRow, Clamp, NavigationPage};
-use std::rc::Rc;
+use std::{cell::RefCell, rc::Rc};
 
 pub struct FallbackPage {
     nav_page: NavigationPage,
     nav_row: ActionRow,
 }
 impl DynPage for FallbackPage {
-    fn build_page(self) -> Page {
+    fn build_page(self, _action_manager: &Rc<RefCell<ActionManager>>) -> Page {
         Rc::new(self)
     }
 }

@@ -1,4 +1,7 @@
-use crate::application::pages::{DynPage, NavPage, Page, PrefNavPageBuild};
+use crate::application::{
+    action_manager::ActionManager,
+    pages::{DynPage, NavPage, Page, PrefNavPageBuild},
+};
 use gtk::InputPurpose;
 use libadwaita::{
     ActionRow, EntryRow, NavigationPage, NavigationView, PreferencesGroup, PreferencesPage,
@@ -6,7 +9,7 @@ use libadwaita::{
     prelude::{ActionRowExt, PreferencesGroupExt, PreferencesPageExt},
 };
 use serde::Deserialize;
-use std::rc::Rc;
+use std::{cell::RefCell, rc::Rc};
 
 #[derive(PartialEq, Deserialize)]
 #[serde(rename_all = "lowercase")]
@@ -78,7 +81,7 @@ pub struct SettingsPage {
     prefs_page: PreferencesPage,
 }
 impl DynPage for SettingsPage {
-    fn build_page(mut self) -> Page {
+    fn build_page(mut self, action_manager: &Rc<RefCell<ActionManager>>) -> Page {
         let PrefNavPageBuild {
             nav_page,
             nav_row,
@@ -90,7 +93,7 @@ impl DynPage for SettingsPage {
         self.nav_view = nav_view;
         self.prefs_page = prefs_page;
 
-        self.build();
+        self.build(action_manager);
 
         Rc::new(self)
     }
@@ -105,7 +108,7 @@ impl NavPage for SettingsPage {
     }
 }
 impl SettingsPage {
-    fn build(&self) {
+    fn build(&self, action_manager: &Rc<RefCell<ActionManager>>) {
         for group in &self.groups {
             let pref_group = PreferencesGroup::builder().build();
 

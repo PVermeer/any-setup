@@ -1,11 +1,12 @@
-use crate::application::pages::{DynPage, NavPage, NavPageBuild, Page};
+use super::{DynPage, NavPage, NavPageBuild, Page};
+use crate::application::action_manager::ActionManager;
 use gtk::{
     Align, Image, Justification, Label, Orientation, ScrolledWindow,
     prelude::{BoxExt, WidgetExt},
 };
 use libadwaita::{ActionRow, Clamp, NavigationPage, ToolbarView};
 use serde::Deserialize;
-use std::rc::Rc;
+use std::{cell::RefCell, rc::Rc};
 
 #[derive(Deserialize, PartialEq, Default)]
 #[serde(rename_all = "lowercase")]
@@ -48,7 +49,7 @@ pub struct ContentPage {
     toolbar: ToolbarView,
 }
 impl DynPage for ContentPage {
-    fn build_page(mut self) -> Page {
+    fn build_page(mut self, _action_manager: &Rc<RefCell<ActionManager>>) -> Page {
         let NavPageBuild {
             nav_page,
             nav_row,
