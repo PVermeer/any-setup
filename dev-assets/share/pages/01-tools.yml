@@ -16,4 +16,4 @@ groups:
           - action: systemd
             type: enable
             scope: user
-            unit: sunshine
+            unit: some.service

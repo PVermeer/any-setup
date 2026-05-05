@@ -1,5 +1,9 @@
 use crate::application::{
-    action_manager::{ActionManager, action_runner::ActionRunner, actions::Action},
+    action_manager::{
+        ActionManager,
+        action_runner::ActionRunner,
+        actions::{Action, ActionState, IsAction},
+    },
     pages::{DynPage, NavPage, Page, PrefNavPageBuild},
 };
 use gtk::InputPurpose;
@@ -51,6 +55,28 @@ struct Switch {
     title: String,
     subtitle: Option<String>,
     actions: Vec<Action>,
+}
+impl Switch {
+    fn get_status(&self) -> ActionState {
+        let status: Vec<ActionState> = self
+            .actions
+            .iter()
+            .map(|action| action.get_status().unwrap_or_default())
+            .collect();
+
+        let done = status.iter().all(|status| *status == ActionState::Done);
+        let available = status
+            .iter()
+            .all(|status| *status != ActionState::UnAvailable);
+
+        if done {
+            return ActionState::Done;
+        }
+        if available {
+            return ActionState::Available;
+        }
+        ActionState::UnAvailable
+    }
 }
 
 #[derive(PartialEq, Deserialize)]
@@ -131,9 +157,12 @@ impl SettingsPage {
                     }
 
                     Setting::Switch(switch) => {
+                        let action_state = switch.get_status();
+
                         let switch_row = SwitchRow::builder()
                             .title(&switch.title)
-                            .active(false)
+                            .active(action_state != ActionState::Done)
+                            .sensitive(action_state == ActionState::Available)
                             .build();
                         if let Some(subtitle) = &switch.subtitle {
                             switch_row.set_subtitle(subtitle);

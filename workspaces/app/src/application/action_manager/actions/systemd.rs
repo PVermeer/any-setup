@@ -1,6 +1,10 @@
+use super::ActionState;
 use crate::application::action_manager::actions::IsAction;
+use anyhow::{Context, Result, anyhow};
+use common::utils;
 use serde::{Deserialize, Serialize};
-use std::{fmt::Display, process::Command};
+use std::{fmt::Display, process::Command, str::FromStr};
+use tracing::{debug, error};
 
 #[derive(Serialize, Deserialize, PartialEq, Clone, Debug)]
 #[serde(rename_all = "lowercase")]
@@ -19,6 +23,73 @@ impl Display for Scope {
 impl Scope {
     fn to_arg(&self) -> String {
         format!("--{self}")
+    }
+}
+
+enum IsEnabledOutput {
+    Enabled,        // will start at boot (has proper symlinks)
+    EnabledRuntime, // enabled, but only until next reboot
+    Disabled,       // not enabled
+    NotFound,       // not found
+    Masked,         // completely blocked (cannot be started at all)
+    MaskedRuntime,  // masked until next reboot
+    Static, // has no [Install] section; can’t be enabled directly (only pulled in as a dependency)
+    Indirect, // not enabled itself, but referenced by another unit’s install config
+    Alias,  // this name is just an alias of another unit
+    Linked, // unit file is symlinked from outside standard directories
+    LinkedRuntime, // same as above, but temporary
+    Generated, // created dynamically by systemd generators at boot
+    Transient, // created at runtime (e.g. via systemd-run)
+    Bad,    // invalid or broken unit file
+}
+impl Display for IsEnabledOutput {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::Enabled => write!(f, "enabled"),
+            Self::EnabledRuntime => write!(f, "enabled-runtime"),
+            Self::Disabled => write!(f, "disabled"),
+            Self::NotFound => write!(f, "not-found"),
+            Self::Masked => write!(f, "masked"),
+            Self::MaskedRuntime => write!(f, "masked-runtime"),
+            Self::Static => write!(f, "static"),
+            Self::Indirect => write!(f, "indirect"),
+            Self::Alias => write!(f, "alias"),
+            Self::Linked => write!(f, "linked"),
+            Self::LinkedRuntime => write!(f, "linked-runtime"),
+            Self::Generated => write!(f, "generated"),
+            Self::Transient => write!(f, "transient"),
+            Self::Bad => write!(f, "bad"),
+        }
+    }
+}
+impl FromStr for IsEnabledOutput {
+    type Err = anyhow::Error;
+
+    fn from_str(s: &str) -> Result<Self> {
+        let output_string = s.trim();
+        match output_string {
+            "enabled" => Ok(Self::Enabled),
+            "enabled-runtime" => Ok(Self::EnabledRuntime),
+            "disabled" => Ok(Self::Disabled),
+            "not-found" => Ok(Self::NotFound),
+            "masked" => Ok(Self::Masked),
+            "masked-runtime" => Ok(Self::MaskedRuntime),
+            "static" => Ok(Self::Static),
+            "indirect" => Ok(Self::Indirect),
+            "alias" => Ok(Self::Alias),
+            "linked" => Ok(Self::Linked),
+            "linked-runtime" => Ok(Self::LinkedRuntime),
+            "generated" => Ok(Self::Generated),
+            "transient" => Ok(Self::Transient),
+            "bad" => Ok(Self::Bad),
+            _ => {
+                error!(
+                    output = output_string,
+                    "Failed to match 'systemctl is-enabled' output"
+                );
+                Err(anyhow!("Failed to match 'systemctl is-enabled' output"))
+            }
+        }
     }
 }
 
@@ -43,24 +114,35 @@ impl Display for SystemdAction {
 impl IsAction for SystemdAction {
     fn get_command(&self) -> Command {
         match self {
-            Self::Enable { unit: name, scope } => {
+            Self::Enable { unit, scope } => {
                 let mut command = Command::new("systemctl");
                 command
                     .arg(scope.to_arg())
                     .arg("enable")
                     .arg("--now")
-                    .arg(name);
+                    .arg(unit);
 
                 command
             }
 
-            Self::Disable { unit: name, scope } => {
+            Self::Disable { unit, scope } => {
                 let mut command = Command::new("systemctl");
                 command
                     .arg(scope.to_arg())
                     .arg("disable")
                     .arg("--now")
-                    .arg(name);
+                    .arg(unit);
+
+                command
+            }
+        }
+    }
+
+    fn get_check_command(&self) -> Command {
+        match self {
+            Self::Enable { unit, scope } | Self::Disable { unit, scope } => {
+                let mut command = Command::new("systemctl");
+                command.arg(scope.to_arg()).arg("is-enabled").arg(unit);
 
                 command
             }
@@ -72,6 +154,27 @@ impl IsAction for SystemdAction {
             Self::Enable { unit: _, scope } | Self::Disable { unit: _, scope } => {
                 *scope == Scope::System
             }
+        }
+    }
+
+    fn get_status(&self) -> Result<ActionState> {
+        debug!(action = %self, "Running check command");
+
+        let output = self
+            .get_check_command()
+            .output()
+            .context("Failed to run command")?;
+
+        // Cannot test for success, it will be non-zero for disabled
+        let stdout = utils::command::parse_output(&output.stdout);
+        let is_enabled_output = IsEnabledOutput::from_str(&stdout)?;
+
+        debug!(action = %self, state = %stdout, "Action state");
+
+        match is_enabled_output {
+            IsEnabledOutput::Enabled => Ok(ActionState::Done),
+            IsEnabledOutput::Disabled => Ok(ActionState::Available),
+            _ => Ok(ActionState::UnAvailable),
         }
     }
 }
