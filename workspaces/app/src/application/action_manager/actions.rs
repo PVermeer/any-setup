@@ -9,7 +9,8 @@ pub trait IsAction: Display {
     fn needs_elevation(&self) -> bool;
 }
 
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, PartialEq, Clone, Debug)]
+#[serde(tag = "action", rename_all = "lowercase")]
 pub enum Action {
     SystemD(SystemdAction),
 }

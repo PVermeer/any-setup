@@ -13,15 +13,15 @@ use std::{
     },
     thread::{self},
 };
+use tracing::error;
 
 struct Task {
-    name: String,
     runner: ActionRunner,
     on_event: OnEvent,
 }
 impl Display for Task {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}", self.name)
+        write!(f, "{}", self.runner.name)
     }
 }
 
@@ -64,16 +64,18 @@ impl ActionManager {
             for task in rx {
                 // Started
                 let on_event = task.on_event.clone();
-                let task_name = task.name.clone();
+                let task_name = task.runner.name.clone();
 
                 context.invoke(move || {
                     on_event(TaskEvent::Started { task_name });
                 });
 
                 // Run task
+                let task_name = task.runner.name.clone();
+
                 let result = task.runner.run(Some(&|runner_progress| {
                     let callback = task.on_event.clone();
-                    let task_name = task.name.clone();
+                    let task_name = task_name.clone();
                     let runner_progress = runner_progress.clone();
 
                     context.invoke(move || {
@@ -90,7 +92,7 @@ impl ActionManager {
 
                 // Result
                 let on_event = task.on_event.clone();
-                let task_name = task.name.clone();
+                let task_name = task_name.clone();
 
                 let message = match result {
                     Ok(results) => {
@@ -125,14 +127,18 @@ impl ActionManager {
         Self { sender: tx }
     }
 
-    pub fn add<F: OnEventFn>(&self, name: &str, runner: ActionRunner, on_event: F) -> Result<()> {
+    pub fn add<F: OnEventFn>(&self, runner: ActionRunner, on_event: F) -> Result<()> {
+        let name = &runner.name.clone();
+
         match self.sender.send(Task {
-            name: name.to_string(),
             runner,
             on_event: Arc::new(on_event),
         }) {
             Ok(()) => Ok(()),
-            Err(error) => Err(anyhow!(error.to_string())),
+            Err(error) => {
+                error!(name, %error, "Failed to run task");
+                Err(anyhow!(error.to_string()))
+            }
         }
     }
 }

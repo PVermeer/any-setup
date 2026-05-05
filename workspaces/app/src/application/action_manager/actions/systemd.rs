@@ -2,7 +2,8 @@ use crate::application::action_manager::actions::IsAction;
 use serde::{Deserialize, Serialize};
 use std::{fmt::Display, process::Command};
 
-#[derive(Serialize, Deserialize, PartialEq, Debug)]
+#[derive(Serialize, Deserialize, PartialEq, Clone, Debug)]
+#[serde(rename_all = "lowercase")]
 pub enum Scope {
     System,
     User,
@@ -21,18 +22,19 @@ impl Scope {
     }
 }
 
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, PartialEq, Clone, Debug)]
+#[serde(tag = "type", rename_all = "lowercase")]
 pub enum SystemdAction {
-    EnableUnit { name: String, scope: Scope },
-    DisableUnit { name: String, scope: Scope },
+    Enable { unit: String, scope: Scope },
+    Disable { unit: String, scope: Scope },
 }
 impl Display for SystemdAction {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            Self::EnableUnit { name, scope } => {
+            Self::Enable { unit: name, scope } => {
                 write!(f, "Systemd enable {scope} unit: {name}")
             }
-            Self::DisableUnit { name, scope } => {
+            Self::Disable { unit: name, scope } => {
                 write!(f, "Systemd disable {scope} unit: {name}")
             }
         }
@@ -41,7 +43,7 @@ impl Display for SystemdAction {
 impl IsAction for SystemdAction {
     fn get_command(&self) -> Command {
         match self {
-            Self::EnableUnit { name, scope } => {
+            Self::Enable { unit: name, scope } => {
                 let mut command = Command::new("systemctl");
                 command
                     .arg(scope.to_arg())
@@ -52,7 +54,7 @@ impl IsAction for SystemdAction {
                 command
             }
 
-            Self::DisableUnit { name, scope } => {
+            Self::Disable { unit: name, scope } => {
                 let mut command = Command::new("systemctl");
                 command
                     .arg(scope.to_arg())
@@ -67,7 +69,7 @@ impl IsAction for SystemdAction {
 
     fn needs_elevation(&self) -> bool {
         match self {
-            Self::EnableUnit { name: _, scope } | Self::DisableUnit { name: _, scope } => {
+            Self::Enable { unit: _, scope } | Self::Disable { unit: _, scope } => {
                 *scope == Scope::System
             }
         }

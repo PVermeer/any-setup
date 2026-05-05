@@ -17,9 +17,9 @@ pub struct ActionResult {
     pub stderr: String,
 }
 impl ActionResult {
-    fn from_output(action: Action, output: &Output) -> Self {
+    fn from_output(action: &Action, output: &Output) -> Self {
         Self {
-            action,
+            action: action.clone(),
             success: output.status.success(),
             stdout: utils::command::parse_output(&output.stdout),
             stderr: utils::command::parse_output(&output.stderr),
@@ -45,32 +45,37 @@ pub enum ActionJsonMessage {
     ActionProgress(ActionProgress),
 }
 
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct ActionRunner {
+    pub name: String,
     queue: Vec<Action>,
     elevate: bool,
     is_elevated: bool,
 }
 impl ActionRunner {
-    pub fn new() -> Self {
+    pub fn new(name: &str) -> Self {
         Self {
+            name: name.to_string(),
             queue: Vec::new(),
             elevate: false,
             is_elevated: false,
         }
     }
 
-    pub fn add(&mut self, action: Action) {
+    pub fn add(&mut self, action: &Action) {
         if action.needs_elevation() {
             self.elevate = true;
         }
-        self.queue.push(action);
+        self.queue.push(action.clone());
     }
 
-    pub fn run(
-        mut self,
-        on_progress: Option<&dyn Fn(&ActionProgress)>,
-    ) -> Result<Vec<ActionResult>> {
+    pub fn add_many(&mut self, actions: &Vec<Action>) {
+        for action in actions {
+            self.add(action);
+        }
+    }
+
+    pub fn run(self, on_progress: Option<&dyn Fn(&ActionProgress)>) -> Result<Vec<ActionResult>> {
         let results = if self.elevate && !self.is_elevated {
             self.run_elevated(on_progress)
         } else {
@@ -89,7 +94,7 @@ impl ActionRunner {
         let queue_factor = 1.0 / queue_length as f64;
         let mut progress = 0.0;
 
-        for (i, action) in self.queue.into_iter().enumerate() {
+        for (i, action) in self.queue.iter().enumerate() {
             debug!(action = action.to_string(), "Running action");
 
             let action_progress = ActionProgress {
@@ -138,7 +143,7 @@ impl ActionRunner {
     }
 
     fn run_elevated(
-        &mut self,
+        mut self,
         on_progress: Option<&dyn Fn(&ActionProgress)>,
     ) -> Result<Vec<ActionResult>> {
         debug!("Running actions elevated");

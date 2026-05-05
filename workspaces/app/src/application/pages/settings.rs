@@ -1,5 +1,5 @@
 use crate::application::{
-    action_manager::ActionManager,
+    action_manager::{ActionManager, action_runner::ActionRunner, actions::Action},
     pages::{DynPage, NavPage, Page, PrefNavPageBuild},
 };
 use gtk::InputPurpose;
@@ -50,6 +50,7 @@ struct Input {
 struct Switch {
     title: String,
     subtitle: Option<String>,
+    actions: Vec<Action>,
 }
 
 #[derive(PartialEq, Deserialize)]
@@ -132,11 +133,27 @@ impl SettingsPage {
                     Setting::Switch(switch) => {
                         let switch_row = SwitchRow::builder()
                             .title(&switch.title)
-                            // .active()
+                            .active(false)
                             .build();
                         if let Some(subtitle) = &switch.subtitle {
                             switch_row.set_subtitle(subtitle);
                         }
+
+                        let mut action_runner = ActionRunner::new(&switch.title);
+                        action_runner.add_many(&switch.actions);
+
+                        let action_manager_clone = action_manager.clone();
+
+                        switch_row.connect_active_notify(move |switch_row| {
+                            if switch_row.is_active() {
+                                let _ = action_manager_clone.borrow_mut().add(
+                                    action_runner.clone(),
+                                    |task_event| {
+                                        dbg!("Runner 1", task_event);
+                                    },
+                                );
+                            }
+                        });
 
                         pref_group.add(&switch_row);
                     }

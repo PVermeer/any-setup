@@ -12,5 +12,8 @@ groups:
       - type: switch
         title: Don't do it!
         subtitle: ..do it...
-        check: some check
-        action: some action
+        actions:
+          - action: systemd
+            type: enable
+            scope: user
+            unit: sunshine
