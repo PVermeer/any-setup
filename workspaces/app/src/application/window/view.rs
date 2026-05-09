@@ -54,10 +54,8 @@ impl View {
         self.connect_updated_button(app);
     }
 
-    pub fn navigate(self: &Rc<Self>, app: &Rc<App>, page: &Page) {
-        page.load_page(&self.nav_split);
-        app.window.view.nav_split.set_show_content(true);
-        app.window.view.sidebar.select_nav_row(page);
+    pub fn navigate(self: &Rc<Self>, page: &Page) {
+        self.sidebar.select_page(page);
     }
 
     pub fn show_about(app: &Rc<App>) {

@@ -10,10 +10,8 @@ use crate::application::{
 };
 use common::{app_dirs::AppDirs, utils};
 use libadwaita::{
-    ActionRow, HeaderBar, NavigationPage, NavigationSplitView, NavigationView, PreferencesPage,
-    ToolbarView,
-    gtk::{Image, prelude::WidgetExt},
-    prelude::ActionRowExt,
+    HeaderBar, NavigationPage, NavigationSplitView, NavigationView, PreferencesPage, ToolbarView,
+    gtk::prelude::WidgetExt,
 };
 use std::{cell::RefCell, rc::Rc};
 use tracing::error;
@@ -34,7 +32,7 @@ impl Pages {
         let sidebar = &app.window.view.sidebar;
 
         for page in &self.pages {
-            sidebar.add_nav_row(app, page);
+            sidebar.add_page(app, page);
         }
     }
 
@@ -86,12 +84,10 @@ impl Pages {
 
 pub struct NavPageBuild {
     nav_page: NavigationPage,
-    nav_row: ActionRow,
     toolbar: ToolbarView,
 }
 pub struct PrefNavPageBuild {
     nav_page: NavigationPage,
-    nav_row: ActionRow,
     nav_view: NavigationView,
     prefs_page: PreferencesPage,
 }
@@ -99,7 +95,7 @@ pub struct PrefNavPageBuild {
 pub trait NavPage {
     fn get_navpage(&self) -> &NavigationPage;
 
-    fn get_nav_row(&self) -> &ActionRow;
+    fn get_icon(&self) -> Option<&str>;
 
     fn load_page(&self, view: &NavigationSplitView) {
         let nav_page = self.get_navpage();
@@ -109,7 +105,7 @@ pub trait NavPage {
         view.set_content(Some(nav_page));
     }
 
-    fn build_nav_page(title: &str, icon: &str) -> NavPageBuild
+    fn build_nav_page(title: &str) -> NavPageBuild
     where
         Self: Sized,
     {
@@ -123,36 +119,26 @@ pub trait NavPage {
             .child(&toolbar)
             .build();
 
-        let nav_row = ActionRow::builder().activatable(true).title(title).build();
-        let icon_prefix = Image::from_icon_name(icon);
-        nav_row.add_prefix(&icon_prefix);
-
-        NavPageBuild {
-            nav_page,
-            nav_row,
-            toolbar,
-        }
+        NavPageBuild { nav_page, toolbar }
     }
 
-    fn build_preferences_nav_page(title: &str, icon: &str) -> PrefNavPageBuild
+    fn build_preferences_nav_page(title: &str) -> PrefNavPageBuild
     where
         Self: Sized,
     {
-        let NavPageBuild {
-            nav_page,
-            nav_row,
-            toolbar,
-        } = Self::build_nav_page(title, icon);
+        let NavPageBuild { nav_page, toolbar } = Self::build_nav_page(title);
 
         let nav_view = NavigationView::new();
         let prefs_page = PreferencesPage::new();
-        let nav_view_page = NavigationPage::builder().child(&nav_view).build();
+        let nav_view_page = NavigationPage::builder()
+            .title(title)
+            .child(&nav_view)
+            .build();
         toolbar.set_content(Some(&prefs_page));
         nav_view.add(&nav_page);
 
         PrefNavPageBuild {
             nav_page: nav_view_page,
-            nav_row,
             nav_view,
             prefs_page,
         }

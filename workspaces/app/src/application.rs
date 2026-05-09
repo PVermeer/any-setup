@@ -79,13 +79,12 @@ impl App {
         }
     }
 
-    #[allow(clippy::unused_self, unused)]
     pub fn get_icon(self: &Rc<Self>) -> Image {
         Image::from_icon_name(config::APP_ID.get_value())
     }
 
     pub fn navigate(self: &Rc<Self>, page: &Page) {
-        self.window.view.navigate(self, page);
+        self.window.view.navigate(page);
     }
 
     pub fn show_error(self: &Rc<Self>, error: &Error) {

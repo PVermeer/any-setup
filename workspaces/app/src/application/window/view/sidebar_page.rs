@@ -4,65 +4,122 @@ use common::{
     config::{self},
     utils::{self, OnceLockExt},
 };
+use gtk::gio::prelude::ListModelExtManual;
 use libadwaita::{
-    ActionRow, HeaderBar, NavigationPage, ToolbarView,
-    gtk::{ListBox, SelectionMode},
-    prelude::ActionRowExt,
+    HeaderBar, NavigationPage, Sidebar, SidebarItem, SidebarSection, ToolbarView,
+    prelude::{NavigationPageExt, SidebarItemExt},
 };
-use std::rc::Rc;
+use std::{
+    cell::{OnceCell, RefCell},
+    collections::HashMap,
+    rc::Rc,
+};
+use tracing::error;
 
 pub struct SidebarPage {
     pub nav_page: NavigationPage,
     pub header: HeaderBar,
-    nav_row: ActionRow,
-    list: ListBox,
+    pages: Rc<RefCell<HashMap<SidebarItem, Page>>>,
+    sidebar: Sidebar,
+    page_section: SidebarSection,
+    is_connected: OnceCell<bool>,
 }
 impl NavPage for SidebarPage {
     fn get_navpage(&self) -> &NavigationPage {
         &self.nav_page
     }
 
-    fn get_nav_row(&self) -> &ActionRow {
-        &self.nav_row
+    fn get_icon(&self) -> Option<&str> {
+        None
     }
 }
 impl SidebarPage {
     pub fn new() -> Self {
-        let list = ListBox::builder()
-            .selection_mode(SelectionMode::Single)
-            .css_classes(["navigation-sidebar"])
-            .build();
+        let sidebar = Sidebar::builder().build();
+        let page_section = SidebarSection::new();
+        sidebar.append(page_section.clone());
+
         let header = HeaderBar::new();
         let toolbar = ToolbarView::new();
         toolbar.add_top_bar(&header);
-        toolbar.set_content(Some(&list));
+        toolbar.set_content(Some(&sidebar));
 
         let nav_page = NavigationPage::builder()
             .title(utils::strings::capitalize(config::APP_NAME.get_value()))
             .tag("sidebar")
             .child(&toolbar)
             .build();
-        let nav_row = ActionRow::new();
 
         Self {
             nav_page,
             header,
-            nav_row,
-            list,
+            pages: Rc::new(RefCell::new(HashMap::new())),
+            sidebar,
+            page_section,
+            is_connected: OnceCell::new(),
         }
     }
 
-    pub fn add_nav_row(&self, app: &Rc<App>, page: &Page) {
-        let nav_row = page.get_nav_row();
-        let page_clone = page.clone();
-        let app_clone = app.clone();
+    fn connect_sidebar(&self, app: &Rc<App>) {
+        if self.is_connected.get().is_none() {
+            let app_clone = app.clone();
+            let pages_clone = self.pages.clone();
 
-        nav_row.connect_activated(move |_| app_clone.navigate(&page_clone));
-        self.list.append(nav_row);
+            let load_page = move |sidebar: &Sidebar| {
+                let Some(selected_item) = sidebar.selected_item() else {
+                    return;
+                };
+                let pages_borrow = pages_clone.borrow();
+                let Some(page) = pages_borrow.get(&selected_item) else {
+                    return;
+                };
+                page.load_page(&app_clone.window.view.nav_split);
+            };
+            load_page(&self.sidebar); // Make sure it also runs at init
+            self.sidebar.connect_selected_item_notify(load_page);
+
+            let _ = self.is_connected.set(true);
+        }
     }
 
-    pub fn select_nav_row(&self, page: &Page) {
-        let nav_row = page.get_nav_row();
-        self.list.select_row(Some(nav_row));
+    pub fn add_page(&self, app: &Rc<App>, page: &Page) {
+        let item = SidebarItem::builder()
+            .title(page.get_navpage().title())
+            .build();
+        item.set_icon_name(page.get_icon());
+
+        self.pages.borrow_mut().insert(item.clone(), page.clone());
+        self.page_section.append(item);
+        self.connect_sidebar(app);
+    }
+
+    pub fn select_page(&self, page: &Page) {
+        let pages_borrow = self.pages.borrow();
+
+        let item_index = self
+            .sidebar
+            .items()
+            .iter::<SidebarItem>()
+            .position(move |sidebar_item| {
+                let Ok(item) = sidebar_item else {
+                    return false;
+                };
+                let Some(page_cached) = pages_borrow.get(&item) else {
+                    return false;
+                };
+
+                Rc::ptr_eq(page_cached, page)
+            })
+            .and_then(|index| index.try_into().ok());
+
+        match item_index {
+            Some(index) => self.sidebar.set_selected(index),
+            None => {
+                error!(
+                    page = &page.get_navpage().title().to_string(),
+                    "Failed to select page"
+                );
+            }
+        }
     }
 }

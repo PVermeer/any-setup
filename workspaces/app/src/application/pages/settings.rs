@@ -8,14 +8,13 @@ use crate::application::{
 };
 use gtk::InputPurpose;
 use libadwaita::{
-    ActionRow, EntryRow, NavigationPage, NavigationView, PreferencesGroup, PreferencesPage,
-    SwitchRow,
+    EntryRow, NavigationPage, NavigationView, PreferencesGroup, PreferencesPage, SwitchRow,
     prelude::{ActionRowExt, PreferencesGroupExt, PreferencesPageExt},
 };
 use serde::Deserialize;
 use std::{cell::RefCell, rc::Rc};
 
-#[derive(PartialEq, Deserialize)]
+#[derive(PartialEq, Deserialize, Debug)]
 #[serde(rename_all = "lowercase")]
 enum InputType {
     FreeForm,
@@ -44,13 +43,13 @@ impl InputType {
     }
 }
 
-#[derive(PartialEq, Deserialize)]
+#[derive(PartialEq, Deserialize, Debug)]
 struct Input {
     title: String,
     input_type: InputType,
 }
 
-#[derive(PartialEq, Deserialize)]
+#[derive(PartialEq, Deserialize, Debug)]
 struct Switch {
     title: String,
     subtitle: Option<String>,
@@ -79,20 +78,20 @@ impl Switch {
     }
 }
 
-#[derive(PartialEq, Deserialize)]
+#[derive(PartialEq, Deserialize, Debug)]
 #[serde(tag = "type", rename_all = "lowercase")]
 enum Setting {
     Input(Input),
     Switch(Switch),
 }
 
-#[derive(PartialEq, Deserialize)]
+#[derive(PartialEq, Deserialize, Debug)]
 struct Group {
     title: Option<String>,
     settings: Vec<Setting>,
 }
 
-#[derive(PartialEq, Deserialize)]
+#[derive(PartialEq, Deserialize, Debug)]
 pub struct SettingsPage {
     title: String,
     icon: String,
@@ -100,8 +99,6 @@ pub struct SettingsPage {
 
     #[serde(skip)]
     nav_page: NavigationPage,
-    #[serde(skip)]
-    nav_row: ActionRow,
     #[serde(skip)]
     nav_view: NavigationView,
     #[serde(skip)]
@@ -111,12 +108,10 @@ impl DynPage for SettingsPage {
     fn build_page(mut self, action_manager: &Rc<RefCell<ActionManager>>) -> Page {
         let PrefNavPageBuild {
             nav_page,
-            nav_row,
             nav_view,
             prefs_page,
-        } = Self::build_preferences_nav_page(&self.title, &self.icon);
+        } = Self::build_preferences_nav_page(&self.title);
         self.nav_page = nav_page;
-        self.nav_row = nav_row;
         self.nav_view = nav_view;
         self.prefs_page = prefs_page;
 
@@ -130,8 +125,8 @@ impl NavPage for SettingsPage {
         &self.nav_page
     }
 
-    fn get_nav_row(&self) -> &ActionRow {
-        &self.nav_row
+    fn get_icon(&self) -> Option<&str> {
+        Some(&self.icon)
     }
 }
 impl SettingsPage {

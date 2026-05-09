@@ -8,6 +8,7 @@
     clippy::panic
 )]
 #![allow(clippy::cast_precision_loss)]
+#![allow(clippy::unused_self)]
 
 mod application;
 

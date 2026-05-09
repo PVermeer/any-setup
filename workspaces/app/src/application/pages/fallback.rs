@@ -3,12 +3,12 @@ use crate::application::{
     pages::{DynPage, NavPage, NavPageBuild, Page},
 };
 use gtk::{Align, Justification, Label, Orientation, ScrolledWindow, prelude::BoxExt};
-use libadwaita::{ActionRow, Clamp, NavigationPage};
+use libadwaita::{Clamp, NavigationPage};
 use std::{cell::RefCell, rc::Rc};
 
 pub struct FallbackPage {
     nav_page: NavigationPage,
-    nav_row: ActionRow,
+    icon: String,
 }
 impl DynPage for FallbackPage {
     fn build_page(self, _action_manager: &Rc<RefCell<ActionManager>>) -> Page {
@@ -20,21 +20,18 @@ impl NavPage for FallbackPage {
         &self.nav_page
     }
 
-    fn get_nav_row(&self) -> &ActionRow {
-        &self.nav_row
+    fn get_icon(&self) -> Option<&str> {
+        Some(&self.icon)
     }
 }
 impl FallbackPage {
     pub fn new() -> Self {
-        let icon = "go-home-symbolic";
+        let icon = "go-home-symbolic".to_string();
         let title = &t!("pages.fallback.title");
 
         let NavPageBuild {
-            nav_page,
-            nav_row,
-            toolbar,
-            ..
-        } = Self::build_nav_page(title, icon);
+            nav_page, toolbar, ..
+        } = Self::build_nav_page(title);
 
         let margin = 20;
         let max_width = 600;
@@ -56,7 +53,7 @@ impl FallbackPage {
         let header_text = Self::build_header_text(&t!("pages.fallback.get_started"));
         content_box.append(&header_text);
 
-        Self { nav_page, nav_row }
+        Self { nav_page, icon }
     }
 
     fn build_header_text(text: &str) -> gtk::Box {

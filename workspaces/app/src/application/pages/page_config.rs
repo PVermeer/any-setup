@@ -4,7 +4,7 @@ use anyhow::{Context, Result};
 use serde::Deserialize;
 use std::{cell::RefCell, fs, path::PathBuf, rc::Rc};
 
-#[derive(PartialEq, Deserialize)]
+#[derive(PartialEq, Deserialize, Debug)]
 #[serde(tag = "page_type", rename_all = "lowercase")]
 pub enum PageYaml {
     Content(ContentPage),

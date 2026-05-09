@@ -8,7 +8,7 @@ use libadwaita::{ActionRow, Clamp, NavigationPage, ToolbarView};
 use serde::Deserialize;
 use std::{cell::RefCell, rc::Rc};
 
-#[derive(Deserialize, PartialEq, Default)]
+#[derive(Deserialize, PartialEq, Default, Debug)]
 #[serde(rename_all = "lowercase")]
 pub enum TextAlign {
     #[default]
@@ -17,13 +17,13 @@ pub enum TextAlign {
     Fill,
 }
 
-#[derive(PartialEq, Deserialize)]
+#[derive(PartialEq, Deserialize, Debug)]
 pub struct Header {
     pub icon: Option<String>,
     pub text: Option<String>,
 }
 
-#[derive(PartialEq, Deserialize)]
+#[derive(PartialEq, Deserialize, Debug)]
 pub struct Content {
     #[serde(default)]
     pub pango: bool,
@@ -34,7 +34,7 @@ pub struct Content {
     pub text: String,
 }
 
-#[derive(PartialEq, Deserialize)]
+#[derive(PartialEq, Deserialize, Debug)]
 pub struct ContentPage {
     title: String,
     icon: String,
@@ -50,13 +50,8 @@ pub struct ContentPage {
 }
 impl DynPage for ContentPage {
     fn build_page(mut self, _action_manager: &Rc<RefCell<ActionManager>>) -> Page {
-        let NavPageBuild {
-            nav_page,
-            nav_row,
-            toolbar,
-        } = Self::build_nav_page(&self.title, &self.icon);
+        let NavPageBuild { nav_page, toolbar } = Self::build_nav_page(&self.title);
         self.nav_page = nav_page;
-        self.nav_row = nav_row;
         self.toolbar = toolbar;
         self.build();
 
@@ -68,8 +63,8 @@ impl NavPage for ContentPage {
         &self.nav_page
     }
 
-    fn get_nav_row(&self) -> &ActionRow {
-        &self.nav_row
+    fn get_icon(&self) -> Option<&str> {
+        Some(&self.icon)
     }
 }
 impl ContentPage {
