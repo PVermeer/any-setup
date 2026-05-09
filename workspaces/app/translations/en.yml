@@ -5,6 +5,9 @@ pages:
     title: No pages found
     get_started: To get started add pages to <dir>
 
+sidebar:
+  progress_bar: Running actions
+
 app_menu:
   about:
     title: About %{app_name}

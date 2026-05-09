@@ -32,7 +32,7 @@ impl Pages {
         let sidebar = &app.window.view.sidebar;
 
         for page in &self.pages {
-            sidebar.add_page(app, page);
+            sidebar.add_page(page);
         }
     }
 

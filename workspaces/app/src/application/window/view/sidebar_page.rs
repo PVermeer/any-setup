@@ -4,13 +4,18 @@ use common::{
     config::{self},
     utils::{self, OnceLockExt},
 };
-use gtk::gio::prelude::ListModelExtManual;
+use gtk::{
+    ListBox, ListBoxRow, Orientation, ProgressBar,
+    gio::prelude::ListModelExtManual,
+    prelude::{BoxExt, WidgetExt},
+};
 use libadwaita::{
-    HeaderBar, NavigationPage, Sidebar, SidebarItem, SidebarMode, SidebarSection, ToolbarView,
+    ButtonRow, HeaderBar, NavigationPage, Sidebar, SidebarItem, SidebarMode, SidebarSection,
+    ToolbarView,
     prelude::{NavigationPageExt, SidebarItemExt},
 };
 use std::{
-    cell::{OnceCell, RefCell},
+    cell::RefCell,
     collections::{HashMap, HashSet},
     rc::Rc,
 };
@@ -23,7 +28,9 @@ pub struct SidebarPage {
     sections: RefCell<HashSet<SidebarSection>>,
     base_section: SidebarSection,
     sidebar: Sidebar,
-    is_connected: OnceCell<bool>,
+    bottom_box: ListBox,
+    progress_button: ButtonRow,
+    progress_bar: ProgressBar,
 }
 impl NavPage for SidebarPage {
     fn get_navpage(&self) -> &NavigationPage {
@@ -40,14 +47,20 @@ impl NavPage for SidebarPage {
 }
 impl SidebarPage {
     pub fn new() -> Self {
-        let sidebar = Sidebar::builder().mode(SidebarMode::Sidebar).build();
-        let base_section = SidebarSection::new();
-        sidebar.append(base_section.clone());
+        let (sidebar, base_section) = Self::build_side_bar();
+        let (bottom_box, progress_button, progress_bar) = Self::build_bottom_box();
+
+        let layout_box = gtk::Box::builder()
+            .orientation(Orientation::Vertical)
+            .spacing(6)
+            .build();
+        layout_box.append(&sidebar);
+        layout_box.append(&bottom_box);
 
         let header = HeaderBar::new();
         let toolbar = ToolbarView::new();
         toolbar.add_top_bar(&header);
-        toolbar.set_content(Some(&sidebar));
+        toolbar.set_content(Some(&layout_box));
 
         let nav_page = NavigationPage::builder()
             .title(utils::strings::capitalize(config::APP_NAME.get_value()))
@@ -62,34 +75,79 @@ impl SidebarPage {
             sections: RefCell::new(HashSet::new()),
             base_section,
             sidebar,
-            is_connected: OnceCell::new(),
+            bottom_box,
+            progress_bar,
+            progress_button,
         }
+    }
+
+    pub fn init(&self, app: &Rc<App>) {
+        self.connect_sidebar(app);
+        self.connect_progress_button();
+    }
+
+    fn build_side_bar() -> (Sidebar, SidebarSection) {
+        let sidebar = Sidebar::builder()
+            .mode(SidebarMode::Sidebar)
+            .vexpand(true)
+            .build();
+        let base_section = SidebarSection::new();
+        sidebar.append(base_section.clone());
+
+        (sidebar, base_section)
+    }
+
+    fn build_bottom_box() -> (ListBox, ButtonRow, ProgressBar) {
+        let progress_bar = ProgressBar::builder()
+            .text(t!("sidebar.progress_bar"))
+            .show_text(true)
+            .fraction(0.0)
+            .build();
+        progress_bar.set_hexpand(true);
+
+        let progress_button = ButtonRow::builder()
+            .child(&progress_bar)
+            .hexpand(true)
+            .build();
+
+        let bottom_box = ListBox::builder()
+            .css_classes(["navigation-sidebar"])
+            .build();
+        bottom_box.append(&progress_button);
+
+        (bottom_box, progress_button, progress_bar)
     }
 
     fn connect_sidebar(&self, app: &Rc<App>) {
-        if self.is_connected.get().is_none() {
-            let app_clone = app.clone();
-            let pages_clone = self.pages.clone();
+        let app_clone = app.clone();
+        let pages_clone = self.pages.clone();
+        let bottom_box_clone = self.bottom_box.clone();
 
-            let load_page = move |sidebar: &Sidebar| {
-                let Some(selected_item) = sidebar.selected_item() else {
-                    return;
-                };
-                let pages_borrow = pages_clone.borrow();
-                let Some(page) = pages_borrow.get(&selected_item) else {
-                    return;
-                };
-                page.load_page(&app_clone.window.view.nav_split);
-                app_clone.window.view.nav_split.set_show_content(true);
+        let load_page = move |sidebar: &Sidebar| {
+            let Some(selected_item) = sidebar.selected_item() else {
+                return;
             };
-            load_page(&self.sidebar); // Make sure it also runs at init
-            self.sidebar.connect_selected_item_notify(load_page);
-
-            let _ = self.is_connected.set(true);
-        }
+            let pages_borrow = pages_clone.borrow();
+            let Some(page) = pages_borrow.get(&selected_item) else {
+                return;
+            };
+            page.load_page(&app_clone.window.view.nav_split);
+            app_clone.window.view.nav_split.set_show_content(true);
+            bottom_box_clone.select_row(None::<&ListBoxRow>);
+        };
+        load_page(&self.sidebar); // Make sure it also runs at init
+        self.sidebar.connect_selected_item_notify(load_page);
     }
 
-    pub fn add_page(&self, app: &Rc<App>, page: &Page) {
+    fn connect_progress_button(&self) {
+        let sidebar_clone = self.sidebar.clone();
+
+        self.progress_button.connect_activated(move |_button_row| {
+            sidebar_clone.set_selected(u32::MAX); // Unselect
+        });
+    }
+
+    pub fn add_page(&self, page: &Page) {
         let item = SidebarItem::builder()
             .title(page.get_navpage().title())
             .build();
@@ -108,8 +166,6 @@ impl SidebarPage {
         } else {
             self.base_section.append(item);
         }
-
-        self.connect_sidebar(app);
     }
 
     pub fn select_page(&self, page: &Page) {

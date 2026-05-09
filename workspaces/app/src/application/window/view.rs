@@ -47,6 +47,7 @@ impl View {
 
     pub fn init(self: &Rc<Self>, app: &Rc<App>) {
         self.app_menu.init(app);
+        self.sidebar.init(app);
         self.sidebar.header.pack_end(&self.app_menu.button);
         self.sidebar.header.pack_start(&self.updated_button);
         self.breakpoint
