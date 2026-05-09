@@ -95,6 +95,8 @@ pub struct PrefNavPageBuild {
 pub trait NavPage {
     fn get_navpage(&self) -> &NavigationPage;
 
+    fn get_section(&self) -> Option<&str>;
+
     fn get_icon(&self) -> Option<&str>;
 
     fn load_page(&self, view: &NavigationSplitView) {

@@ -1,5 +1,6 @@
 page_type: settings
 title: Tools
+section: Tools
 icon: applications-utilities-symbolic
 groups:
   - title: Some settings

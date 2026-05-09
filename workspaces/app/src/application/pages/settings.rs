@@ -94,6 +94,7 @@ struct Group {
 #[derive(PartialEq, Deserialize, Debug)]
 pub struct SettingsPage {
     title: String,
+    section: Option<String>,
     icon: String,
     groups: Vec<Group>,
 
@@ -123,6 +124,10 @@ impl DynPage for SettingsPage {
 impl NavPage for SettingsPage {
     fn get_navpage(&self) -> &NavigationPage {
         &self.nav_page
+    }
+
+    fn get_section(&self) -> Option<&str> {
+        self.section.as_deref()
     }
 
     fn get_icon(&self) -> Option<&str> {

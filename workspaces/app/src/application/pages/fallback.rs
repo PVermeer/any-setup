@@ -20,6 +20,10 @@ impl NavPage for FallbackPage {
         &self.nav_page
     }
 
+    fn get_section(&self) -> Option<&str> {
+        None
+    }
+
     fn get_icon(&self) -> Option<&str> {
         Some(&self.icon)
     }

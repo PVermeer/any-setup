@@ -37,6 +37,7 @@ pub struct Content {
 #[derive(PartialEq, Deserialize, Debug)]
 pub struct ContentPage {
     title: String,
+    section: Option<String>,
     icon: String,
     header: Option<Header>,
     contents: Option<Vec<Content>>,
@@ -61,6 +62,10 @@ impl DynPage for ContentPage {
 impl NavPage for ContentPage {
     fn get_navpage(&self) -> &NavigationPage {
         &self.nav_page
+    }
+
+    fn get_section(&self) -> Option<&str> {
+        self.section.as_deref()
     }
 
     fn get_icon(&self) -> Option<&str> {

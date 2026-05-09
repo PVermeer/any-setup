@@ -11,7 +11,7 @@ use libadwaita::{
 };
 use std::{
     cell::{OnceCell, RefCell},
-    collections::HashMap,
+    collections::{HashMap, HashSet},
     rc::Rc,
 };
 use tracing::error;
@@ -20,13 +20,18 @@ pub struct SidebarPage {
     pub nav_page: NavigationPage,
     pub header: HeaderBar,
     pages: Rc<RefCell<HashMap<SidebarItem, Page>>>,
+    sections: RefCell<HashSet<SidebarSection>>,
+    base_section: SidebarSection,
     sidebar: Sidebar,
-    page_section: SidebarSection,
     is_connected: OnceCell<bool>,
 }
 impl NavPage for SidebarPage {
     fn get_navpage(&self) -> &NavigationPage {
         &self.nav_page
+    }
+
+    fn get_section(&self) -> Option<&str> {
+        None
     }
 
     fn get_icon(&self) -> Option<&str> {
@@ -36,8 +41,8 @@ impl NavPage for SidebarPage {
 impl SidebarPage {
     pub fn new() -> Self {
         let sidebar = Sidebar::builder().build();
-        let page_section = SidebarSection::new();
-        sidebar.append(page_section.clone());
+        let base_section = SidebarSection::new();
+        sidebar.append(base_section.clone());
 
         let header = HeaderBar::new();
         let toolbar = ToolbarView::new();
@@ -54,8 +59,9 @@ impl SidebarPage {
             nav_page,
             header,
             pages: Rc::new(RefCell::new(HashMap::new())),
+            sections: RefCell::new(HashSet::new()),
+            base_section,
             sidebar,
-            page_section,
             is_connected: OnceCell::new(),
         }
     }
@@ -89,7 +95,19 @@ impl SidebarPage {
         item.set_icon_name(page.get_icon());
 
         self.pages.borrow_mut().insert(item.clone(), page.clone());
-        self.page_section.append(item);
+
+        if let Some(section_name) = page.get_section() {
+            let section = SidebarSection::new();
+            section.set_title(Some(section_name));
+            section.append(item);
+
+            if self.sections.borrow_mut().insert(section.clone()) {
+                self.sidebar.append(section);
+            }
+        } else {
+            self.base_section.append(item);
+        }
+
         self.connect_sidebar(app);
     }
 
