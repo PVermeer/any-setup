@@ -6,7 +6,7 @@ use common::{
 };
 use gtk::gio::prelude::ListModelExtManual;
 use libadwaita::{
-    HeaderBar, NavigationPage, Sidebar, SidebarItem, SidebarSection, ToolbarView,
+    HeaderBar, NavigationPage, Sidebar, SidebarItem, SidebarMode, SidebarSection, ToolbarView,
     prelude::{NavigationPageExt, SidebarItemExt},
 };
 use std::{
@@ -40,7 +40,7 @@ impl NavPage for SidebarPage {
 }
 impl SidebarPage {
     pub fn new() -> Self {
-        let sidebar = Sidebar::builder().build();
+        let sidebar = Sidebar::builder().mode(SidebarMode::Sidebar).build();
         let base_section = SidebarSection::new();
         sidebar.append(base_section.clone());
 
@@ -80,6 +80,7 @@ impl SidebarPage {
                     return;
                 };
                 page.load_page(&app_clone.window.view.nav_split);
+                app_clone.window.view.nav_split.set_show_content(true);
             };
             load_page(&self.sidebar); // Make sure it also runs at init
             self.sidebar.connect_selected_item_notify(load_page);
