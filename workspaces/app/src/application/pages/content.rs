@@ -6,7 +6,7 @@ use gtk::{
 };
 use libadwaita::{ActionRow, Clamp, NavigationPage, ToolbarView};
 use serde::Deserialize;
-use std::{cell::RefCell, rc::Rc};
+use std::rc::Rc;
 
 #[derive(Deserialize, PartialEq, Default, Debug)]
 #[serde(rename_all = "lowercase")]
@@ -50,7 +50,7 @@ pub struct ContentPage {
     toolbar: ToolbarView,
 }
 impl DynPage for ContentPage {
-    fn build_page(mut self, _action_manager: &Rc<RefCell<ActionManager>>) -> Page {
+    fn build_page(mut self, _action_manager: &Rc<ActionManager>) -> Page {
         let NavPageBuild { nav_page, toolbar } = Self::build_nav_page(&self.title);
         self.nav_page = nav_page;
         self.toolbar = toolbar;

@@ -24,6 +24,7 @@ pub struct App {
     pub cache_settings: RefCell<CacheSettings>,
     pub dirs: Rc<AppDirs>,
     pub error_dialog: ErrorDialog,
+    pub action_manager: Rc<ActionManager>,
     icon_theme: Rc<IconTheme>,
     window: AppWindow,
     pages: Pages,
@@ -39,7 +40,7 @@ impl App {
                 CacheSettings::new(&app_dirs).expect("Failed to load cached settings"),
             );
             let window = AppWindow::new(adw_application);
-            let action_manager = Rc::new(RefCell::new(ActionManager::new()));
+            let action_manager = ActionManager::new();
             let pages = Pages::new(&app_dirs, &action_manager);
             let error_dialog = ErrorDialog::new();
 
@@ -50,6 +51,7 @@ impl App {
                 cache_settings,
                 dirs: app_dirs,
                 error_dialog,
+                action_manager,
                 icon_theme,
                 window,
                 pages,
@@ -66,6 +68,7 @@ impl App {
             self.error_dialog.init(self);
 
             assets::init(&self.dirs)?;
+            self.action_manager.init();
 
             // Last
             self.pages.init(self);

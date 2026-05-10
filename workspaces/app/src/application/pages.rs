@@ -13,7 +13,7 @@ use libadwaita::{
     HeaderBar, NavigationPage, NavigationSplitView, NavigationView, PreferencesPage, ToolbarView,
     gtk::prelude::WidgetExt,
 };
-use std::{cell::RefCell, rc::Rc};
+use std::rc::Rc;
 use tracing::error;
 
 pub type Page = Rc<dyn DynPage>;
@@ -22,7 +22,7 @@ pub struct Pages {
     pages: Vec<Page>,
 }
 impl Pages {
-    pub fn new(app_dirs: &Rc<AppDirs>, action_manager: &Rc<RefCell<ActionManager>>) -> Self {
+    pub fn new(app_dirs: &Rc<AppDirs>, action_manager: &Rc<ActionManager>) -> Self {
         let pages = Self::load_page_configs(app_dirs, action_manager);
 
         Self { pages }
@@ -40,10 +40,7 @@ impl Pages {
         self.pages.first()
     }
 
-    fn load_page_configs(
-        app_dirs: &Rc<AppDirs>,
-        action_manager: &Rc<RefCell<ActionManager>>,
-    ) -> Vec<Page> {
+    fn load_page_configs(app_dirs: &Rc<AppDirs>, action_manager: &Rc<ActionManager>) -> Vec<Page> {
         let mut pages: Vec<Page> = Vec::new();
 
         if let Some(pages_dir) = &app_dirs.system_data_pages_dir
@@ -148,5 +145,5 @@ pub trait NavPage {
 }
 
 pub trait DynPage: NavPage {
-    fn build_page(self, action_manager: &Rc<RefCell<ActionManager>>) -> Page;
+    fn build_page(self, action_manager: &Rc<ActionManager>) -> Page;
 }

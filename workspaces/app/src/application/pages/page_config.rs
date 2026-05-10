@@ -2,7 +2,7 @@ use super::{DynPage, Page, content::ContentPage, settings::SettingsPage};
 use crate::application::action_manager::ActionManager;
 use anyhow::{Context, Result};
 use serde::Deserialize;
-use std::{cell::RefCell, fs, path::PathBuf, rc::Rc};
+use std::{fs, path::PathBuf, rc::Rc};
 
 #[derive(PartialEq, Deserialize, Debug)]
 #[serde(tag = "page_type", rename_all = "lowercase")]
@@ -21,7 +21,7 @@ impl PageYaml {
             .context(format!("Not a valid page yaml: {}", file_path.display()))
     }
 
-    pub fn into_page(self, action_manager: &Rc<RefCell<ActionManager>>) -> Page {
+    pub fn into_page(self, action_manager: &Rc<ActionManager>) -> Page {
         match self {
             Self::Content(p) => p.build_page(action_manager),
             Self::Settings(p) => p.build_page(action_manager),

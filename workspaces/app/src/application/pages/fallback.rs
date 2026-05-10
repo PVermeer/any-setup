@@ -4,14 +4,14 @@ use crate::application::{
 };
 use gtk::{Align, Justification, Label, Orientation, ScrolledWindow, prelude::BoxExt};
 use libadwaita::{Clamp, NavigationPage};
-use std::{cell::RefCell, rc::Rc};
+use std::rc::Rc;
 
 pub struct FallbackPage {
     nav_page: NavigationPage,
     icon: String,
 }
 impl DynPage for FallbackPage {
-    fn build_page(self, _action_manager: &Rc<RefCell<ActionManager>>) -> Page {
+    fn build_page(self, _action_manager: &Rc<ActionManager>) -> Page {
         Rc::new(self)
     }
 }

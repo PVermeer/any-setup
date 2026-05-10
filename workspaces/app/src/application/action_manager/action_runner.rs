@@ -9,7 +9,7 @@ use std::{
 };
 use tracing::debug;
 
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct ActionResult {
     pub action: Action,
     pub success: bool,

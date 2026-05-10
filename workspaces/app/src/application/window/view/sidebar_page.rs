@@ -1,5 +1,8 @@
 use super::{NavPage, Page};
-use crate::application::App;
+use crate::application::{
+    App,
+    action_manager::{TaskEvent, TaskEventEnum},
+};
 use common::{
     config::{self},
     utils::{self, OnceLockExt},
@@ -83,6 +86,7 @@ impl SidebarPage {
 
     pub fn init(&self, app: &Rc<App>) {
         self.connect_sidebar(app);
+        self.connect_action_manager_progess(app);
         self.connect_progress_button();
     }
 
@@ -137,6 +141,28 @@ impl SidebarPage {
         };
         load_page(&self.sidebar); // Make sure it also runs at init
         self.sidebar.connect_selected_item_notify(load_page);
+    }
+
+    fn connect_action_manager_progess(&self, app: &Rc<App>) {
+        let progress_bar_clone = self.progress_bar.clone();
+
+        app.action_manager.listen(move |event: &TaskEvent| {
+            dbg!("From progress bar!", event);
+
+            match &event.event {
+                TaskEventEnum::Progress {
+                    task_name,
+                    action,
+                    action_nr,
+                    total_actions,
+                    progress,
+                    status,
+                } => {
+                    progress_bar_clone.set_fraction(progress.clone());
+                }
+                _ => {}
+            };
+        });
     }
 
     fn connect_progress_button(&self) {

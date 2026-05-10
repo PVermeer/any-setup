@@ -12,7 +12,7 @@ use libadwaita::{
     prelude::{ActionRowExt, PreferencesGroupExt, PreferencesPageExt},
 };
 use serde::Deserialize;
-use std::{cell::RefCell, rc::Rc};
+use std::rc::Rc;
 
 #[derive(PartialEq, Deserialize, Debug)]
 #[serde(rename_all = "lowercase")]
@@ -106,7 +106,7 @@ pub struct SettingsPage {
     prefs_page: PreferencesPage,
 }
 impl DynPage for SettingsPage {
-    fn build_page(mut self, action_manager: &Rc<RefCell<ActionManager>>) -> Page {
+    fn build_page(mut self, action_manager: &Rc<ActionManager>) -> Page {
         let PrefNavPageBuild {
             nav_page,
             nav_view,
@@ -135,7 +135,7 @@ impl NavPage for SettingsPage {
     }
 }
 impl SettingsPage {
-    fn build(&self, action_manager: &Rc<RefCell<ActionManager>>) {
+    fn build(&self, action_manager: &Rc<ActionManager>) {
         for group in &self.groups {
             let pref_group = PreferencesGroup::builder().build();
 
@@ -162,7 +162,7 @@ impl SettingsPage {
                         let switch_row = SwitchRow::builder()
                             .title(&switch.title)
                             .active(action_state != ActionState::Done)
-                            .sensitive(action_state == ActionState::Available)
+                            // .sensitive(action_state == ActionState::Available)
                             .build();
                         if let Some(subtitle) = &switch.subtitle {
                             switch_row.set_subtitle(subtitle);
@@ -175,12 +175,10 @@ impl SettingsPage {
 
                         switch_row.connect_active_notify(move |switch_row| {
                             if switch_row.is_active() {
-                                let _ = action_manager_clone.borrow_mut().add(
-                                    action_runner.clone(),
-                                    |task_event| {
+                                let _ =
+                                    action_manager_clone.add(action_runner.clone(), |task_event| {
                                         dbg!("Runner 1", task_event);
-                                    },
-                                );
+                                    });
                             }
                         });
 

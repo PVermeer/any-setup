@@ -4,20 +4,22 @@ pub mod elevated_action_runner;
 
 use action_runner::{ActionResult, ActionRunner, ActionStatus};
 use anyhow::{Error, Result, anyhow};
-use gtk::glib;
+use gtk::glib::{self};
 use std::{
+    cell::RefCell,
     fmt::Display,
+    rc::Rc,
     sync::{
         Arc,
-        mpsc::{self, Sender},
+        mpsc::{self, Receiver, Sender},
     },
     thread::{self},
 };
 use tracing::error;
 
 struct Task {
+    id: String,
     runner: ActionRunner,
-    on_event: OnEvent,
 }
 impl Display for Task {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
@@ -25,8 +27,8 @@ impl Display for Task {
     }
 }
 
-#[derive(Debug)]
-pub enum TaskEvent {
+#[derive(Clone, Debug)]
+pub enum TaskEventEnum {
     Started {
         task_name: String,
     },
@@ -44,55 +46,80 @@ pub enum TaskEvent {
     },
     Failed {
         task_name: String,
-        error: Error,
+        error: Arc<Error>,
     },
 }
-pub trait OnEventFn: Fn(TaskEvent) + Sync + Send + 'static {}
-impl<T> OnEventFn for T where T: Fn(TaskEvent) + Sync + Send + 'static {}
-type OnEvent = Arc<dyn OnEventFn>;
+#[derive(Clone, Debug)]
+pub struct TaskEvent {
+    pub id: String,
+    pub event: TaskEventEnum,
+}
+
+struct Listener {
+    task_id: Option<String>,
+    callback: Rc<dyn Fn(&TaskEvent)>,
+}
 
 /// Fifo Action manager
 pub struct ActionManager {
-    sender: Sender<Task>,
+    task_sender: Sender<Task>,
+    event_receiver: Receiver<TaskEvent>,
+    listeners: Rc<RefCell<Vec<Listener>>>,
 }
 impl ActionManager {
-    pub fn new() -> Self {
-        let (tx, rx) = mpsc::channel::<Task>();
-        let context = glib::MainContext::default();
+    pub fn new() -> Rc<Self> {
+        let (task_sender, task_receiver) = mpsc::channel::<Task>();
+        let (event_sender, event_receiver) = mpsc::channel::<TaskEvent>();
 
+        Self::run_actions_thread(task_receiver, event_sender);
+
+        Rc::new(Self {
+            task_sender,
+            event_receiver,
+            listeners: Rc::new(RefCell::new(Vec::new())),
+        })
+    }
+
+    pub fn init(self: &Rc<Self>) {
+        self.connect_listeners();
+    }
+
+    fn run_actions_thread(task_receiver: Receiver<Task>, event_sender: Sender<TaskEvent>) {
         thread::spawn(move || {
-            for task in rx {
+            for task in task_receiver {
                 // Started
-                let on_event = task.on_event.clone();
                 let task_name = task.runner.name.clone();
+                let task_id = task.id.clone();
 
-                context.invoke(move || {
-                    on_event(TaskEvent::Started { task_name });
+                event_sender.send(TaskEvent {
+                    id: task_id,
+                    event: TaskEventEnum::Started { task_name },
                 });
 
                 // Run task
                 let task_name = task.runner.name.clone();
 
                 let result = task.runner.run(Some(&|runner_progress| {
-                    let callback = task.on_event.clone();
                     let task_name = task_name.clone();
+                    let task_id = task.id.clone();
                     let runner_progress = runner_progress.clone();
 
-                    context.invoke(move || {
-                        callback(TaskEvent::Progress {
+                    event_sender.send(TaskEvent {
+                        id: task_id,
+                        event: TaskEventEnum::Progress {
                             task_name,
                             action: runner_progress.action,
                             action_nr: runner_progress.action_nr,
                             total_actions: runner_progress.total_actions,
                             progress: runner_progress.progress,
                             status: runner_progress.status,
-                        });
+                        },
                     });
                 }));
 
                 // Result
-                let on_event = task.on_event.clone();
                 let task_name = task_name.clone();
+                let task_id = task.id.clone();
 
                 let message = match result {
                     Ok(results) => {
@@ -106,39 +133,102 @@ impl ActionManager {
                         }
 
                         match failed {
-                            None => TaskEvent::Finished { task_name, results },
+                            None => TaskEvent {
+                                id: task_id,
+                                event: TaskEventEnum::Finished { task_name, results },
+                            },
 
-                            Some(error) => TaskEvent::Failed {
-                                task_name,
-                                error: anyhow!(error),
+                            Some(error) => TaskEvent {
+                                id: task_id,
+                                event: TaskEventEnum::Failed {
+                                    task_name,
+                                    error: Arc::new(anyhow!(error)),
+                                },
                             },
                         }
                     }
 
-                    Err(error) => TaskEvent::Failed { task_name, error },
+                    Err(error) => TaskEvent {
+                        id: task_id,
+                        event: TaskEventEnum::Failed {
+                            task_name,
+                            error: Arc::new(error),
+                        },
+                    },
                 };
 
-                context.invoke(move || {
-                    on_event(message);
-                });
+                event_sender.send(message);
             }
         });
-
-        Self { sender: tx }
     }
 
-    pub fn add<F: OnEventFn>(&self, runner: ActionRunner, on_event: F) -> Result<()> {
-        let name = &runner.name.clone();
+    fn connect_listeners(self: &Rc<Self>) {
+        let self_clone = self.clone();
 
-        match self.sender.send(Task {
+        glib::idle_add_local(move || {
+            while let Ok(event) = self_clone.event_receiver.try_recv() {
+                let mut done_task_indices = Vec::new();
+                let mut listeners_borrow = self_clone.listeners.borrow_mut();
+
+                for (i, listener) in listeners_borrow.iter().enumerate() {
+                    if let Some(task_id) = &listener.task_id {
+                        if event.id != *task_id {
+                            continue;
+                        }
+                        match event.event {
+                            TaskEventEnum::Finished {
+                                task_name: _,
+                                results: _,
+                            }
+                            | TaskEventEnum::Failed {
+                                task_name: _,
+                                error: _,
+                            } => {
+                                done_task_indices.push(i);
+                            }
+                            _ => {}
+                        }
+                    }
+
+                    (listener.callback)(&event);
+                }
+                for index in done_task_indices {
+                    listeners_borrow.remove(index);
+                }
+            }
+            glib::ControlFlow::Continue
+        });
+    }
+
+    pub fn add<F: Fn(&TaskEvent) + 'static>(
+        self: &Rc<Self>,
+        runner: ActionRunner,
+        on_event: F,
+    ) -> Result<()> {
+        let name = &runner.name.clone();
+        let task = Task {
+            id: runner.name.clone(),
             runner,
-            on_event: Arc::new(on_event),
-        }) {
+        };
+
+        self.listeners.borrow_mut().push(Listener {
+            task_id: Some(task.id.clone()),
+            callback: Rc::new(on_event),
+        });
+
+        match self.task_sender.send(task) {
             Ok(()) => Ok(()),
             Err(error) => {
                 error!(name, %error, "Failed to run task");
                 Err(anyhow!(error.to_string()))
             }
         }
+    }
+
+    pub fn listen<F: Fn(&TaskEvent) + 'static>(self: &Rc<Self>, on_event: F) {
+        self.listeners.borrow_mut().push(Listener {
+            task_id: None,
+            callback: Rc::new(on_event),
+        });
     }
 }
