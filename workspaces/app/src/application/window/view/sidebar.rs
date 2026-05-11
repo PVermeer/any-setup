@@ -2,22 +2,14 @@ mod task_page;
 mod task_progress;
 
 use super::{NavPage, Page};
-use crate::application::{
-    App,
-    task_manager::{TaskEvent, TaskStatus},
-};
+use crate::application::App;
 use common::{
     config::{self},
     utils::{self, OnceLockExt},
 };
-use gtk::{
-    ListBox, ListBoxRow, Orientation, ProgressBar,
-    gio::prelude::ListModelExtManual,
-    prelude::{BoxExt, WidgetExt},
-};
+use gtk::{ListBox, ListBoxRow, Orientation, gio::prelude::ListModelExtManual, prelude::BoxExt};
 use libadwaita::{
-    ButtonRow, HeaderBar, NavigationPage, Sidebar, SidebarItem, SidebarMode, SidebarSection,
-    ToolbarView,
+    HeaderBar, NavigationPage, Sidebar, SidebarItem, SidebarMode, SidebarSection, ToolbarView,
     prelude::{NavigationPageExt, SidebarItemExt},
 };
 use std::{
@@ -25,6 +17,7 @@ use std::{
     collections::{HashMap, HashSet},
     rc::Rc,
 };
+use task_page::TaskPage;
 use task_progress::TaskProgress;
 use tracing::error;
 
@@ -37,6 +30,7 @@ pub struct SidebarPage {
     sidebar: Sidebar,
     bottom_box: ListBox,
     task_progress: TaskProgress,
+    task_page: Rc<TaskPage>,
 }
 impl NavPage for SidebarPage {
     fn get_navpage(&self) -> &NavigationPage {
@@ -55,6 +49,7 @@ impl SidebarPage {
     pub fn new() -> Self {
         let (sidebar, base_section) = Self::build_side_bar();
         let (bottom_box, task_progress) = Self::build_bottom_box();
+        let task_page = Rc::new(TaskPage::new());
 
         let layout_box = gtk::Box::builder()
             .orientation(Orientation::Vertical)
@@ -83,13 +78,14 @@ impl SidebarPage {
             sidebar,
             bottom_box,
             task_progress,
+            task_page,
         }
     }
 
     pub fn init(&self, app: &Rc<App>) {
         self.connect_sidebar(app);
         self.task_progress.init(app);
-        self.connect_progress_button();
+        self.connect_progress_button(app);
     }
 
     fn build_side_bar() -> (Sidebar, SidebarSection) {
@@ -135,13 +131,16 @@ impl SidebarPage {
         self.sidebar.connect_selected_item_notify(load_page);
     }
 
-    fn connect_progress_button(&self) {
+    fn connect_progress_button(&self, app: &Rc<App>) {
+        let app_clone = app.clone();
         let sidebar_clone = self.sidebar.clone();
+        let task_page_clone = self.task_page.clone();
 
         self.task_progress
             .progress_button
             .connect_activated(move |_button_row| {
                 sidebar_clone.set_selected(u32::MAX); // Unselect
+                task_page_clone.load_page(&app_clone.window.view.nav_split);
             });
     }
 
