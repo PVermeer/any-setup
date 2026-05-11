@@ -4,15 +4,13 @@ pub mod elevated_action_runner;
 
 use action_runner::{ActionResult, ActionRunner, ActionStatus};
 use anyhow::{Error, Result, anyhow};
+use async_channel::{Receiver, Sender};
 use gtk::glib::{self};
 use std::{
     cell::RefCell,
     fmt::Display,
     rc::Rc,
-    sync::{
-        Arc,
-        mpsc::{self, Receiver, Sender},
-    },
+    sync::Arc,
     thread::{self},
 };
 use tracing::error;
@@ -64,8 +62,8 @@ pub struct TaskManager {
 }
 impl TaskManager {
     pub fn new() -> Rc<Self> {
-        let (task_sender, task_receiver) = mpsc::channel::<Task>();
-        let (event_sender, event_receiver) = mpsc::channel::<TaskEvent>();
+        let (task_sender, task_receiver) = async_channel::unbounded();
+        let (event_sender, event_receiver) = async_channel::unbounded();
 
         Self::run_actions_thread(task_receiver, event_sender);
 
@@ -82,12 +80,12 @@ impl TaskManager {
 
     fn run_actions_thread(task_receiver: Receiver<Task>, event_sender: Sender<TaskEvent>) {
         thread::spawn(move || {
-            for task in task_receiver {
+            while let Ok(task) = task_receiver.recv_blocking() {
                 // Started
                 let task_name = task.runner.name.clone();
                 let task_id = task.id.clone();
 
-                let _ = event_sender.send(TaskEvent {
+                let _ = event_sender.send_blocking(TaskEvent {
                     id: task_id,
                     name: task_name,
                     status: TaskStatus::Started,
@@ -101,7 +99,7 @@ impl TaskManager {
                     let task_id = task.id.clone();
                     let runner_progress = runner_progress.clone();
 
-                    let _ = event_sender.send(TaskEvent {
+                    let _ = event_sender.send_blocking(TaskEvent {
                         id: task_id,
                         name: task_name,
                         status: TaskStatus::Progress {
@@ -155,7 +153,7 @@ impl TaskManager {
                     },
                 };
 
-                let _ = event_sender.send(message);
+                let _ = event_sender.send_blocking(message);
             }
         });
     }
@@ -163,8 +161,8 @@ impl TaskManager {
     fn connect_listeners(self: &Rc<Self>) {
         let self_clone = self.clone();
 
-        glib::idle_add_local(move || {
-            while let Ok(event) = self_clone.event_receiver.try_recv() {
+        glib::spawn_future_local(async move {
+            while let Ok(event) = self_clone.event_receiver.recv().await {
                 let mut done_task_indices = Vec::new();
                 let mut listeners_borrow = self_clone.listeners.borrow_mut();
 
@@ -188,7 +186,6 @@ impl TaskManager {
                     listeners_borrow.remove(index);
                 }
             }
-            glib::ControlFlow::Continue
         });
     }
 
@@ -208,7 +205,7 @@ impl TaskManager {
             callback: Rc::new(on_event),
         });
 
-        match self.task_sender.send(task) {
+        match self.task_sender.send_blocking(task) {
             Ok(()) => Ok(()),
             Err(error) => {
                 error!(name, %error, "Failed to run task");

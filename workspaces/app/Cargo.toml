@@ -8,6 +8,7 @@ name = "any-setup"
 path = "src/main.rs"
 
 [dependencies]
+async-channel = { workspace = true }
 anyhow = { workspace = true }
 clap = { workspace = true }
 common = { workspace = true }

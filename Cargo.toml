@@ -14,6 +14,7 @@ homepage = "https://github.com/pvermeer/any-setup"
 documentation = "https://github.com/pvermeer/any-setup"
 
 [workspace.dependencies]
+async-channel = "2.5.0"
 clap = { version = "4.6.1", features = ["derive"] }
 common = { path = "workspaces/common" }
 anyhow = "1.0.102"
