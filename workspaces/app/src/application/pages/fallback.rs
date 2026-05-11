@@ -11,7 +11,7 @@ pub struct FallbackPage {
     icon: String,
 }
 impl DynPage for FallbackPage {
-    fn build_page(self, _action_manager: &Rc<TaskManager>) -> Page {
+    fn build_page(self, _task_manager: &Rc<TaskManager>) -> Page {
         Rc::new(self)
     }
 }

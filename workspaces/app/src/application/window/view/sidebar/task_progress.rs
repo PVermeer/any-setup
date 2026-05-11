@@ -31,13 +31,13 @@ impl TaskProgress {
     }
 
     pub fn init(&self, app: &Rc<App>) {
-        self.connect_action_manager_progess(app);
+        self.connect_task_manager_progess(app);
     }
 
-    fn connect_action_manager_progess(&self, app: &Rc<App>) {
+    fn connect_task_manager_progess(&self, app: &Rc<App>) {
         let progress_bar_clone = self.progress_bar.clone();
 
-        app.action_manager.listen(move |event: &TaskEvent| {
+        app.task_manager.listen(move |event: &TaskEvent| {
             dbg!("From progress bar!", event);
 
             match &event.status {

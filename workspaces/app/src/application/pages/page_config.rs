@@ -21,10 +21,10 @@ impl PageYaml {
             .context(format!("Not a valid page yaml: {}", file_path.display()))
     }
 
-    pub fn into_page(self, action_manager: &Rc<TaskManager>) -> Page {
+    pub fn into_page(self, task_manager: &Rc<TaskManager>) -> Page {
         match self {
-            Self::Content(p) => p.build_page(action_manager),
-            Self::Settings(p) => p.build_page(action_manager),
+            Self::Content(p) => p.build_page(task_manager),
+            Self::Settings(p) => p.build_page(task_manager),
         }
     }
 }

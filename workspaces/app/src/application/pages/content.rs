@@ -50,7 +50,7 @@ pub struct ContentPage {
     toolbar: ToolbarView,
 }
 impl DynPage for ContentPage {
-    fn build_page(mut self, _action_manager: &Rc<TaskManager>) -> Page {
+    fn build_page(mut self, _task_manager: &Rc<TaskManager>) -> Page {
         let NavPageBuild { nav_page, toolbar } = Self::build_nav_page(&self.title);
         self.nav_page = nav_page;
         self.toolbar = toolbar;

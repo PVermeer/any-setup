@@ -13,7 +13,7 @@ use common::{
     utils::OnceLockExt,
 };
 use error_dialog::ErrorDialog;
-use gtk::{IconTheme, Image, Settings, gdk};
+use gtk::{IconTheme, Image, Settings, gdk, gio::prelude::ApplicationExt};
 use pages::{Page, Pages};
 use std::{cell::RefCell, rc::Rc};
 use task_manager::TaskManager;
@@ -24,7 +24,7 @@ pub struct App {
     pub cache_settings: RefCell<CacheSettings>,
     pub dirs: Rc<AppDirs>,
     pub error_dialog: ErrorDialog,
-    pub action_manager: Rc<TaskManager>,
+    pub task_manager: Rc<TaskManager>,
     icon_theme: Rc<IconTheme>,
     window: AppWindow,
     pages: Pages,
@@ -40,8 +40,8 @@ impl App {
                 CacheSettings::new(&app_dirs).expect("Failed to load cached settings"),
             );
             let window = AppWindow::new(adw_application);
-            let action_manager = TaskManager::new();
-            let pages = Pages::new(&app_dirs, &action_manager);
+            let task_manager = TaskManager::new();
+            let pages = Pages::new(&app_dirs, &task_manager);
             let error_dialog = ErrorDialog::new();
 
             Self::set_theme_settings(&settings);
@@ -51,7 +51,7 @@ impl App {
                 cache_settings,
                 dirs: app_dirs,
                 error_dialog,
-                action_manager,
+                task_manager,
                 icon_theme,
                 window,
                 pages,
@@ -68,7 +68,7 @@ impl App {
             self.error_dialog.init(self);
 
             assets::init(&self.dirs)?;
-            self.action_manager.init();
+            self.task_manager.init();
 
             // Last
             self.pages.init(self);
