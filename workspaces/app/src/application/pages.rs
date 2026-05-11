@@ -80,8 +80,8 @@ impl Pages {
 }
 
 pub struct NavPageBuild {
-    nav_page: NavigationPage,
-    toolbar: ToolbarView,
+    pub nav_page: NavigationPage,
+    pub toolbar: ToolbarView,
 }
 pub struct PrefNavPageBuild {
     nav_page: NavigationPage,

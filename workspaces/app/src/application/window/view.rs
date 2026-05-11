@@ -1,6 +1,6 @@
 mod about;
 mod app_menu;
-mod sidebar_page;
+mod sidebar;
 
 use crate::application::{
     App,
@@ -14,7 +14,7 @@ use gtk::{
 use libadwaita::{
     Breakpoint, BreakpointCondition, NavigationSplitView, glib::Value, prelude::AdwDialogExt,
 };
-use sidebar_page::SidebarPage;
+use sidebar::SidebarPage;
 use std::rc::Rc;
 
 pub struct View {

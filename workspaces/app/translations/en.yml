@@ -4,6 +4,8 @@ pages:
   fallback:
     title: No pages found
     get_started: To get started add pages to <dir>
+  tasks:
+    title: Tasks
 
 sidebar:
   progress_bar: Running actions
