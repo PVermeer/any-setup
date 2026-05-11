@@ -1,5 +1,5 @@
 use super::{DynPage, Page, content::ContentPage, settings::SettingsPage};
-use crate::application::action_manager::ActionManager;
+use crate::application::task_manager::TaskManager;
 use anyhow::{Context, Result};
 use serde::Deserialize;
 use std::{fs, path::PathBuf, rc::Rc};
@@ -21,7 +21,7 @@ impl PageYaml {
             .context(format!("Not a valid page yaml: {}", file_path.display()))
     }
 
-    pub fn into_page(self, action_manager: &Rc<ActionManager>) -> Page {
+    pub fn into_page(self, action_manager: &Rc<TaskManager>) -> Page {
         match self {
             Self::Content(p) => p.build_page(action_manager),
             Self::Settings(p) => p.build_page(action_manager),

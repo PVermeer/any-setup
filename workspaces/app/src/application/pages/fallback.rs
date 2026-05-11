@@ -1,6 +1,6 @@
 use crate::application::{
-    action_manager::ActionManager,
     pages::{DynPage, NavPage, NavPageBuild, Page},
+    task_manager::TaskManager,
 };
 use gtk::{Align, Justification, Label, Orientation, ScrolledWindow, prelude::BoxExt};
 use libadwaita::{Clamp, NavigationPage};
@@ -11,7 +11,7 @@ pub struct FallbackPage {
     icon: String,
 }
 impl DynPage for FallbackPage {
-    fn build_page(self, _action_manager: &Rc<ActionManager>) -> Page {
+    fn build_page(self, _action_manager: &Rc<TaskManager>) -> Page {
         Rc::new(self)
     }
 }

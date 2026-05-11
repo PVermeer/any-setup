@@ -1,5 +1,5 @@
 use super::{DynPage, NavPage, NavPageBuild, Page};
-use crate::application::action_manager::ActionManager;
+use crate::application::task_manager::TaskManager;
 use gtk::{
     Align, Image, Justification, Label, Orientation, ScrolledWindow,
     prelude::{BoxExt, WidgetExt},
@@ -50,7 +50,7 @@ pub struct ContentPage {
     toolbar: ToolbarView,
 }
 impl DynPage for ContentPage {
-    fn build_page(mut self, _action_manager: &Rc<ActionManager>) -> Page {
+    fn build_page(mut self, _action_manager: &Rc<TaskManager>) -> Page {
         let NavPageBuild { nav_page, toolbar } = Self::build_nav_page(&self.title);
         self.nav_page = nav_page;
         self.toolbar = toolbar;

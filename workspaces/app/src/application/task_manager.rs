@@ -28,12 +28,9 @@ impl Display for Task {
 }
 
 #[derive(Clone, Debug)]
-pub enum TaskEventEnum {
-    Started {
-        task_name: String,
-    },
+pub enum TaskStatus {
+    Started,
     Progress {
-        task_name: String,
         action: Option<String>,
         action_nr: Option<i32>,
         total_actions: i32,
@@ -41,18 +38,17 @@ pub enum TaskEventEnum {
         status: ActionStatus,
     },
     Finished {
-        task_name: String,
         results: Vec<ActionResult>,
     },
     Failed {
-        task_name: String,
         error: Arc<Error>,
     },
 }
 #[derive(Clone, Debug)]
 pub struct TaskEvent {
     pub id: String,
-    pub event: TaskEventEnum,
+    pub name: String,
+    pub status: TaskStatus,
 }
 
 struct Listener {
@@ -61,12 +57,12 @@ struct Listener {
 }
 
 /// Fifo Action manager
-pub struct ActionManager {
+pub struct TaskManager {
     task_sender: Sender<Task>,
     event_receiver: Receiver<TaskEvent>,
     listeners: Rc<RefCell<Vec<Listener>>>,
 }
-impl ActionManager {
+impl TaskManager {
     pub fn new() -> Rc<Self> {
         let (task_sender, task_receiver) = mpsc::channel::<Task>();
         let (event_sender, event_receiver) = mpsc::channel::<TaskEvent>();
@@ -91,9 +87,10 @@ impl ActionManager {
                 let task_name = task.runner.name.clone();
                 let task_id = task.id.clone();
 
-                event_sender.send(TaskEvent {
+                let _ = event_sender.send(TaskEvent {
                     id: task_id,
-                    event: TaskEventEnum::Started { task_name },
+                    name: task_name,
+                    status: TaskStatus::Started,
                 });
 
                 // Run task
@@ -104,10 +101,10 @@ impl ActionManager {
                     let task_id = task.id.clone();
                     let runner_progress = runner_progress.clone();
 
-                    event_sender.send(TaskEvent {
+                    let _ = event_sender.send(TaskEvent {
                         id: task_id,
-                        event: TaskEventEnum::Progress {
-                            task_name,
+                        name: task_name,
+                        status: TaskStatus::Progress {
                             action: runner_progress.action,
                             action_nr: runner_progress.action_nr,
                             total_actions: runner_progress.total_actions,
@@ -135,13 +132,14 @@ impl ActionManager {
                         match failed {
                             None => TaskEvent {
                                 id: task_id,
-                                event: TaskEventEnum::Finished { task_name, results },
+                                name: task_name,
+                                status: TaskStatus::Finished { results },
                             },
 
                             Some(error) => TaskEvent {
                                 id: task_id,
-                                event: TaskEventEnum::Failed {
-                                    task_name,
+                                name: task_name,
+                                status: TaskStatus::Failed {
                                     error: Arc::new(anyhow!(error)),
                                 },
                             },
@@ -150,14 +148,14 @@ impl ActionManager {
 
                     Err(error) => TaskEvent {
                         id: task_id,
-                        event: TaskEventEnum::Failed {
-                            task_name,
+                        name: task_name,
+                        status: TaskStatus::Failed {
                             error: Arc::new(error),
                         },
                     },
                 };
 
-                event_sender.send(message);
+                let _ = event_sender.send(message);
             }
         });
     }
@@ -175,15 +173,9 @@ impl ActionManager {
                         if event.id != *task_id {
                             continue;
                         }
-                        match event.event {
-                            TaskEventEnum::Finished {
-                                task_name: _,
-                                results: _,
-                            }
-                            | TaskEventEnum::Failed {
-                                task_name: _,
-                                error: _,
-                            } => {
+                        match event.status {
+                            TaskStatus::Finished { results: _ }
+                            | TaskStatus::Failed { error: _ } => {
                                 done_task_indices.push(i);
                             }
                             _ => {}

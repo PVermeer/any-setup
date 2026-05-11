@@ -1,10 +1,10 @@
 use crate::application::{
-    action_manager::{
-        ActionManager,
+    pages::{DynPage, NavPage, Page, PrefNavPageBuild},
+    task_manager::{
+        TaskManager,
         action_runner::ActionRunner,
         actions::{Action, ActionState, IsAction},
     },
-    pages::{DynPage, NavPage, Page, PrefNavPageBuild},
 };
 use gtk::InputPurpose;
 use libadwaita::{
@@ -106,7 +106,7 @@ pub struct SettingsPage {
     prefs_page: PreferencesPage,
 }
 impl DynPage for SettingsPage {
-    fn build_page(mut self, action_manager: &Rc<ActionManager>) -> Page {
+    fn build_page(mut self, action_manager: &Rc<TaskManager>) -> Page {
         let PrefNavPageBuild {
             nav_page,
             nav_view,
@@ -135,7 +135,7 @@ impl NavPage for SettingsPage {
     }
 }
 impl SettingsPage {
-    fn build(&self, action_manager: &Rc<ActionManager>) {
+    fn build(&self, action_manager: &Rc<TaskManager>) {
         for group in &self.groups {
             let pref_group = PreferencesGroup::builder().build();
 

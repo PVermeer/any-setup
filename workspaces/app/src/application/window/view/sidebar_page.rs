@@ -1,7 +1,7 @@
 use super::{NavPage, Page};
 use crate::application::{
     App,
-    action_manager::{TaskEvent, TaskEventEnum},
+    task_manager::{TaskEvent, TaskStatus},
 };
 use common::{
     config::{self},
@@ -149,9 +149,8 @@ impl SidebarPage {
         app.action_manager.listen(move |event: &TaskEvent| {
             dbg!("From progress bar!", event);
 
-            match &event.event {
-                TaskEventEnum::Progress {
-                    task_name,
+            match &event.status {
+                TaskStatus::Progress {
                     action,
                     action_nr,
                     total_actions,

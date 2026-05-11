@@ -1,10 +1,9 @@
-pub mod action_manager;
 mod css_provider;
 mod error_dialog;
 mod pages;
+pub mod task_manager;
 mod window;
 
-use action_manager::ActionManager;
 use anyhow::{Error, Result};
 use common::{
     app_dirs::AppDirs,
@@ -17,6 +16,7 @@ use error_dialog::ErrorDialog;
 use gtk::{IconTheme, Image, Settings, gdk};
 use pages::{Page, Pages};
 use std::{cell::RefCell, rc::Rc};
+use task_manager::TaskManager;
 use tracing::{debug, error};
 use window::AppWindow;
 
@@ -24,7 +24,7 @@ pub struct App {
     pub cache_settings: RefCell<CacheSettings>,
     pub dirs: Rc<AppDirs>,
     pub error_dialog: ErrorDialog,
-    pub action_manager: Rc<ActionManager>,
+    pub action_manager: Rc<TaskManager>,
     icon_theme: Rc<IconTheme>,
     window: AppWindow,
     pages: Pages,
@@ -40,7 +40,7 @@ impl App {
                 CacheSettings::new(&app_dirs).expect("Failed to load cached settings"),
             );
             let window = AppWindow::new(adw_application);
-            let action_manager = ActionManager::new();
+            let action_manager = TaskManager::new();
             let pages = Pages::new(&app_dirs, &action_manager);
             let error_dialog = ErrorDialog::new();
 

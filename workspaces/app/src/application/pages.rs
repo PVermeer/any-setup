@@ -3,7 +3,7 @@ mod fallback;
 mod page_config;
 mod settings;
 
-use super::action_manager::ActionManager;
+use super::task_manager::TaskManager;
 use crate::application::{
     App,
     pages::{fallback::FallbackPage, page_config::PageYaml},
@@ -22,7 +22,7 @@ pub struct Pages {
     pages: Vec<Page>,
 }
 impl Pages {
-    pub fn new(app_dirs: &Rc<AppDirs>, action_manager: &Rc<ActionManager>) -> Self {
+    pub fn new(app_dirs: &Rc<AppDirs>, action_manager: &Rc<TaskManager>) -> Self {
         let pages = Self::load_page_configs(app_dirs, action_manager);
 
         Self { pages }
@@ -40,7 +40,7 @@ impl Pages {
         self.pages.first()
     }
 
-    fn load_page_configs(app_dirs: &Rc<AppDirs>, action_manager: &Rc<ActionManager>) -> Vec<Page> {
+    fn load_page_configs(app_dirs: &Rc<AppDirs>, action_manager: &Rc<TaskManager>) -> Vec<Page> {
         let mut pages: Vec<Page> = Vec::new();
 
         if let Some(pages_dir) = &app_dirs.system_data_pages_dir
@@ -145,5 +145,5 @@ pub trait NavPage {
 }
 
 pub trait DynPage: NavPage {
-    fn build_page(self, action_manager: &Rc<ActionManager>) -> Page;
+    fn build_page(self, action_manager: &Rc<TaskManager>) -> Page;
 }
