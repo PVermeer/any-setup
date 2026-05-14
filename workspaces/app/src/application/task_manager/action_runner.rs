@@ -4,6 +4,7 @@ use common::utils;
 use serde::{Deserialize, Serialize};
 use serde_json::json;
 use std::{
+    hash::{DefaultHasher, Hash, Hasher},
     io::{BufRead, BufReader},
     process::{Command, Output, Stdio},
 };
@@ -45,7 +46,7 @@ pub enum ActionJsonMessage {
     ActionProgress(ActionProgress),
 }
 
-#[derive(Serialize, Deserialize, Clone, Debug)]
+#[derive(Serialize, Deserialize, Hash, Clone, Debug)]
 pub struct ActionRunner {
     pub name: String,
     queue: Vec<Action>,
@@ -73,6 +74,12 @@ impl ActionRunner {
         for action in actions {
             self.add(action);
         }
+    }
+
+    pub fn create_id(&self) -> u64 {
+        let mut hasher = DefaultHasher::new();
+        self.hash(&mut hasher);
+        hasher.finish()
     }
 
     pub fn run(self, on_progress: Option<&dyn Fn(&ActionProgress)>) -> Result<Vec<ActionResult>> {

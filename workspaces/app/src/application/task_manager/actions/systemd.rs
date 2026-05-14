@@ -6,7 +6,7 @@ use serde::{Deserialize, Serialize};
 use std::{fmt::Display, process::Command, str::FromStr};
 use tracing::{debug, error};
 
-#[derive(Serialize, Deserialize, PartialEq, Clone, Debug)]
+#[derive(Serialize, Deserialize, PartialEq, Hash, Clone, Debug)]
 #[serde(rename_all = "lowercase")]
 pub enum Scope {
     System,
@@ -93,7 +93,7 @@ impl FromStr for IsEnabledOutput {
     }
 }
 
-#[derive(Serialize, Deserialize, PartialEq, Clone, Debug)]
+#[derive(Serialize, Deserialize, PartialEq, Hash, Clone, Debug)]
 #[serde(tag = "type", rename_all = "lowercase")]
 pub enum SystemdAction {
     Enable { unit: String, scope: Scope },

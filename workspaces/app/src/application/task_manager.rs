@@ -3,20 +3,22 @@ pub mod actions;
 pub mod elevated_action_runner;
 
 use action_runner::{ActionResult, ActionRunner, ActionStatus};
-use anyhow::{Error, Result, anyhow};
+use anyhow::{Error, Result, anyhow, bail};
 use async_channel::{Receiver, Sender};
 use gtk::glib::{self};
 use std::{
     cell::RefCell,
+    collections::HashSet,
     fmt::Display,
     rc::Rc,
     sync::Arc,
     thread::{self},
 };
-use tracing::error;
+use tracing::{debug, error, warn};
 
+#[derive(Debug)]
 struct Task {
-    id: String,
+    id: u64,
     runner: ActionRunner,
 }
 impl Display for Task {
@@ -44,13 +46,13 @@ pub enum TaskStatus {
 }
 #[derive(Clone, Debug)]
 pub struct TaskEvent {
-    pub id: String,
+    pub id: u64,
     pub name: String,
     pub status: TaskStatus,
 }
 
 struct Listener {
-    task_id: Option<String>,
+    task_id: Option<u64>,
     callback: Rc<dyn Fn(&TaskEvent)>,
 }
 
@@ -58,6 +60,7 @@ struct Listener {
 pub struct TaskManager {
     task_sender: Sender<Task>,
     event_receiver: Receiver<TaskEvent>,
+    active_tasks: Rc<RefCell<HashSet<u64>>>,
     listeners: Rc<RefCell<Vec<Listener>>>,
 }
 impl TaskManager {
@@ -70,12 +73,53 @@ impl TaskManager {
         Rc::new(Self {
             task_sender,
             event_receiver,
+            active_tasks: Rc::new(RefCell::new(HashSet::new())),
             listeners: Rc::new(RefCell::new(Vec::new())),
         })
     }
 
     pub fn init(self: &Rc<Self>) {
         self.connect_listeners();
+        self.connect_active_tasks();
+    }
+
+    /// Returns the task id
+    pub fn add<F: Fn(&TaskEvent) + 'static>(
+        self: &Rc<Self>,
+        runner: ActionRunner,
+        on_event: F,
+    ) -> Result<u64> {
+        let name = &runner.name.clone();
+        let id = runner.create_id();
+        let task = Task { id, runner };
+
+        debug!(?task, "Adding task");
+
+        if !self.active_tasks.borrow_mut().insert(id) {
+            let message = "Task already in queue";
+            warn!(task = name, "{message}");
+            bail!(message);
+        }
+
+        self.listeners.borrow_mut().push(Listener {
+            task_id: Some(id),
+            callback: Rc::new(on_event),
+        });
+
+        match self.task_sender.send_blocking(task) {
+            Ok(()) => Ok(id),
+            Err(error) => {
+                error!(name, %error, "Failed to run task");
+                Err(anyhow!(error.to_string()))
+            }
+        }
+    }
+
+    pub fn listen<F: Fn(&TaskEvent) + 'static>(self: &Rc<Self>, on_event: F) {
+        self.listeners.borrow_mut().push(Listener {
+            task_id: None,
+            callback: Rc::new(on_event),
+        });
     }
 
     fn run_actions_thread(task_receiver: Receiver<Task>, event_sender: Sender<TaskEvent>) {
@@ -83,10 +127,9 @@ impl TaskManager {
             while let Ok(task) = task_receiver.recv_blocking() {
                 // Started
                 let task_name = task.runner.name.clone();
-                let task_id = task.id.clone();
 
                 let _ = event_sender.send_blocking(TaskEvent {
-                    id: task_id,
+                    id: task.id,
                     name: task_name,
                     status: TaskStatus::Started,
                 });
@@ -96,11 +139,10 @@ impl TaskManager {
 
                 let result = task.runner.run(Some(&|runner_progress| {
                     let task_name = task_name.clone();
-                    let task_id = task.id.clone();
                     let runner_progress = runner_progress.clone();
 
                     let _ = event_sender.send_blocking(TaskEvent {
-                        id: task_id,
+                        id: task.id,
                         name: task_name,
                         status: TaskStatus::Progress {
                             action: runner_progress.action,
@@ -114,7 +156,6 @@ impl TaskManager {
 
                 // Result
                 let task_name = task_name.clone();
-                let task_id = task.id.clone();
 
                 let message = match result {
                     Ok(results) => {
@@ -129,13 +170,13 @@ impl TaskManager {
 
                         match failed {
                             None => TaskEvent {
-                                id: task_id,
+                                id: task.id,
                                 name: task_name,
                                 status: TaskStatus::Finished { results },
                             },
 
                             Some(error) => TaskEvent {
-                                id: task_id,
+                                id: task.id,
                                 name: task_name,
                                 status: TaskStatus::Failed {
                                     error: Arc::new(anyhow!(error)),
@@ -145,7 +186,7 @@ impl TaskManager {
                     }
 
                     Err(error) => TaskEvent {
-                        id: task_id,
+                        id: task.id,
                         name: task_name,
                         status: TaskStatus::Failed {
                             error: Arc::new(error),
@@ -189,35 +230,13 @@ impl TaskManager {
         });
     }
 
-    pub fn add<F: Fn(&TaskEvent) + 'static>(
-        self: &Rc<Self>,
-        runner: ActionRunner,
-        on_event: F,
-    ) -> Result<()> {
-        let name = &runner.name.clone();
-        let task = Task {
-            id: runner.name.clone(),
-            runner,
-        };
-
-        self.listeners.borrow_mut().push(Listener {
-            task_id: Some(task.id.clone()),
-            callback: Rc::new(on_event),
-        });
-
-        match self.task_sender.send_blocking(task) {
-            Ok(()) => Ok(()),
-            Err(error) => {
-                error!(name, %error, "Failed to run task");
-                Err(anyhow!(error.to_string()))
+    fn connect_active_tasks(self: &Rc<Self>) {
+        let self_clone = self.clone();
+        self.listen(move |event| match event.status {
+            TaskStatus::Failed { error: _ } | TaskStatus::Finished { results: _ } => {
+                let _ = self_clone.active_tasks.borrow_mut().remove(&event.id);
             }
-        }
-    }
-
-    pub fn listen<F: Fn(&TaskEvent) + 'static>(self: &Rc<Self>, on_event: F) {
-        self.listeners.borrow_mut().push(Listener {
-            task_id: None,
-            callback: Rc::new(on_event),
+            _ => {}
         });
     }
 }

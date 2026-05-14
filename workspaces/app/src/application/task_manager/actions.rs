@@ -5,16 +5,12 @@ use serde::{Deserialize, Serialize};
 use std::{fmt::Display, process::Command};
 use systemd::SystemdAction;
 
-#[derive(PartialEq)]
+#[derive(Default, PartialEq)]
 pub enum ActionState {
     Done,
     Available,
+    #[default]
     UnAvailable,
-}
-impl Default for ActionState {
-    fn default() -> Self {
-        ActionState::UnAvailable
-    }
 }
 
 pub trait IsAction: Display {
@@ -24,7 +20,7 @@ pub trait IsAction: Display {
     fn get_status(&self) -> Result<ActionState>;
 }
 
-#[derive(Serialize, Deserialize, PartialEq, Clone, Debug)]
+#[derive(Serialize, Deserialize, PartialEq, Hash, Clone, Debug)]
 #[serde(tag = "action", rename_all = "lowercase")]
 pub enum Action {
     SystemD(SystemdAction),
