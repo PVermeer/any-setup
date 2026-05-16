@@ -49,7 +49,7 @@ impl SidebarPage {
     pub fn new() -> Self {
         let (sidebar, base_section) = Self::build_side_bar();
         let (bottom_box, task_progress) = Self::build_bottom_box();
-        let task_page = Rc::new(TaskPage::new());
+        let task_page = TaskPage::new();
 
         let layout_box = gtk::Box::builder()
             .orientation(Orientation::Vertical)
@@ -85,6 +85,7 @@ impl SidebarPage {
     pub fn init(&self, app: &Rc<App>) {
         self.connect_sidebar(app);
         self.task_progress.init(app);
+        self.task_page.init(app);
         self.connect_progress_button(app);
     }
 

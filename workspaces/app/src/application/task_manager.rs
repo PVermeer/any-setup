@@ -6,6 +6,10 @@ use action_runner::{ActionResult, ActionRunner, ActionStatus};
 use anyhow::{Error, Result, anyhow, bail};
 use async_channel::{Receiver, Sender};
 use gtk::glib::{self};
+use rand::{
+    distr::{Alphanumeric, SampleString},
+    rng,
+};
 use std::{
     cell::RefCell,
     collections::HashSet,
@@ -19,6 +23,7 @@ use tracing::{debug, error, warn};
 #[derive(Debug)]
 struct Task {
     id: u64,
+    run_id: String,
     runner: ActionRunner,
 }
 impl Display for Task {
@@ -47,8 +52,16 @@ pub enum TaskStatus {
 #[derive(Clone, Debug)]
 pub struct TaskEvent {
     pub id: u64,
+    pub run_id: String,
     pub name: String,
     pub status: TaskStatus,
+}
+impl TaskEvent {
+    pub fn with_status(&self, status: TaskStatus) -> Self {
+        let mut self_clone = self.clone();
+        self_clone.status = status;
+        self_clone
+    }
 }
 
 struct Listener {
@@ -83,15 +96,16 @@ impl TaskManager {
         self.connect_active_tasks();
     }
 
-    /// Returns the task id
+    /// Returns the run id
     pub fn add<F: Fn(&TaskEvent) + 'static>(
         self: &Rc<Self>,
         runner: ActionRunner,
         on_event: F,
     ) -> Result<u64> {
         let name = &runner.name.clone();
-        let id = runner.create_id();
-        let task = Task { id, runner };
+        let id = runner.get_id();
+        let run_id = format!("{id}-{}", Alphanumeric.sample_string(&mut rng(), 8));
+        let task = Task { id, run_id, runner };
 
         debug!(?task, "Adding task");
 
@@ -125,38 +139,32 @@ impl TaskManager {
     fn run_actions_thread(task_receiver: Receiver<Task>, event_sender: Sender<TaskEvent>) {
         thread::spawn(move || {
             while let Ok(task) = task_receiver.recv_blocking() {
-                // Started
-                let task_name = task.runner.name.clone();
-
-                let _ = event_sender.send_blocking(TaskEvent {
+                let task_event = TaskEvent {
                     id: task.id,
-                    name: task_name,
+                    run_id: task.run_id.clone(),
+                    name: task.runner.name.clone(),
                     status: TaskStatus::Started,
-                });
+                };
+
+                // Started
+                let _ = event_sender.send_blocking(task_event.with_status(TaskStatus::Started));
 
                 // Run task
-                let task_name = task.runner.name.clone();
-
                 let result = task.runner.run(Some(&|runner_progress| {
-                    let task_name = task_name.clone();
                     let runner_progress = runner_progress.clone();
 
-                    let _ = event_sender.send_blocking(TaskEvent {
-                        id: task.id,
-                        name: task_name,
-                        status: TaskStatus::Progress {
+                    let _ = event_sender.send_blocking(task_event.clone().with_status(
+                        TaskStatus::Progress {
                             action: runner_progress.action,
                             action_nr: runner_progress.action_nr,
                             total_actions: runner_progress.total_actions,
                             progress: runner_progress.progress,
                             status: runner_progress.status,
                         },
-                    });
+                    ));
                 }));
 
                 // Result
-                let task_name = task_name.clone();
-
                 let message = match result {
                     Ok(results) => {
                         let mut failed = None;
@@ -169,29 +177,16 @@ impl TaskManager {
                         }
 
                         match failed {
-                            None => TaskEvent {
-                                id: task.id,
-                                name: task_name,
-                                status: TaskStatus::Finished { results },
-                            },
-
-                            Some(error) => TaskEvent {
-                                id: task.id,
-                                name: task_name,
-                                status: TaskStatus::Failed {
-                                    error: Arc::new(anyhow!(error)),
-                                },
-                            },
+                            None => task_event.with_status(TaskStatus::Finished { results }),
+                            Some(error) => task_event.with_status(TaskStatus::Failed {
+                                error: Arc::new(anyhow!(error)),
+                            }),
                         }
                     }
 
-                    Err(error) => TaskEvent {
-                        id: task.id,
-                        name: task_name,
-                        status: TaskStatus::Failed {
-                            error: Arc::new(error),
-                        },
-                    },
+                    Err(error) => task_event.with_status(TaskStatus::Failed {
+                        error: Arc::new(error),
+                    }),
                 };
 
                 let _ = event_sender.send_blocking(message);

@@ -38,8 +38,6 @@ impl TaskProgress {
         let progress_bar_clone = self.progress_bar.clone();
 
         app.task_manager.listen(move |event: &TaskEvent| {
-            dbg!("From progress bar!", event);
-
             match &event.status {
                 TaskStatus::Progress {
                     action,

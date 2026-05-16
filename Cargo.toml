@@ -22,6 +22,7 @@ freedesktop-desktop-entry = "0.8.1"
 gtk = { version = "0.11.2", features = ["v4_10"], package = "gtk4" }
 include_dir = "0.7.4"
 libadwaita = { version = "0.9.1", features = ["v1_9"] }
+rand = "0.10.1"
 rust-i18n = "4.0.0"
 semver = "1.0.28"
 serde = { version = "1.0.228", features = ["derive"] }

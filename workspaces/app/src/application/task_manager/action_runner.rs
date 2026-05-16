@@ -7,6 +7,7 @@ use std::{
     hash::{DefaultHasher, Hash, Hasher},
     io::{BufRead, BufReader},
     process::{Command, Output, Stdio},
+    time::Duration,
 };
 use tracing::debug;
 
@@ -76,7 +77,7 @@ impl ActionRunner {
         }
     }
 
-    pub fn create_id(&self) -> u64 {
+    pub fn get_id(&self) -> u64 {
         let mut hasher = DefaultHasher::new();
         self.hash(&mut hasher);
         hasher.finish()
@@ -124,6 +125,8 @@ impl ActionRunner {
             let mut command = action.get_command();
             let output = command.output().context("Failed to run command")?;
             let action_result = ActionResult::from_output(action, &output);
+
+            std::thread::sleep(Duration::from_secs(5));
 
             progress = (i + 1) as f64 * queue_factor;
             results.push(action_result);
