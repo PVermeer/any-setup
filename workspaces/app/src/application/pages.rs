@@ -9,9 +9,10 @@ use crate::application::{
     pages::{fallback::FallbackPage, page_config::PageYaml},
 };
 use common::{app_dirs::AppDirs, utils};
+use gtk::{Orientation, ScrolledWindow};
 use libadwaita::{
-    HeaderBar, NavigationPage, NavigationSplitView, NavigationView, PreferencesPage, ToolbarView,
-    gtk::prelude::WidgetExt,
+    Clamp, HeaderBar, NavigationPage, NavigationSplitView, NavigationView, PreferencesPage,
+    ToolbarView, gtk::prelude::WidgetExt,
 };
 use std::rc::Rc;
 use tracing::error;
@@ -84,9 +85,14 @@ pub struct NavPageBuild {
     pub toolbar: ToolbarView,
 }
 pub struct PrefNavPageBuild {
-    nav_page: NavigationPage,
-    nav_view: NavigationView,
-    prefs_page: PreferencesPage,
+    pub nav_page: NavigationPage,
+    pub nav_view: NavigationView,
+    pub prefs_page: PreferencesPage,
+}
+pub struct ContentNavPageBuild {
+    pub nav_page: NavigationPage,
+    pub toolbar: ToolbarView,
+    pub content: gtk::Box,
 }
 
 pub trait NavPage {
@@ -140,6 +146,36 @@ pub trait NavPage {
             nav_page: nav_view_page,
             nav_view,
             prefs_page,
+        }
+    }
+
+    fn build_content_nav_page(title: &str) -> ContentNavPageBuild
+    where
+        Self: Sized,
+    {
+        let NavPageBuild { nav_page, toolbar } = Self::build_nav_page(title);
+        let spacing = 20;
+        let max_width = 600;
+
+        let content_box = gtk::Box::builder()
+            .orientation(Orientation::Vertical)
+            .margin_top(spacing)
+            .margin_bottom(spacing)
+            .margin_start(spacing)
+            .margin_end(spacing)
+            .spacing(spacing)
+            .build();
+        let clamp = Clamp::builder()
+            .maximum_size(max_width)
+            .child(&content_box)
+            .build();
+        let scrolled_window = ScrolledWindow::builder().child(&clamp).build();
+        toolbar.set_content(Some(&scrolled_window));
+
+        ContentNavPageBuild {
+            nav_page,
+            toolbar,
+            content: content_box,
         }
     }
 }

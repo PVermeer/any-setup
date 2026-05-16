@@ -13,7 +13,7 @@ use common::{
     utils::OnceLockExt,
 };
 use error_dialog::ErrorDialog;
-use gtk::{IconTheme, Image, Settings, gdk, gio::prelude::ApplicationExt};
+use gtk::{IconTheme, Image, Settings, gdk};
 use pages::{Page, Pages};
 use std::{cell::RefCell, rc::Rc};
 use task_manager::TaskManager;

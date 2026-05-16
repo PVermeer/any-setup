@@ -1,10 +1,10 @@
-use super::{DynPage, NavPage, NavPageBuild, Page};
+use super::{ContentNavPageBuild, DynPage, NavPage, Page};
 use crate::application::task_manager::TaskManager;
 use gtk::{
-    Align, Image, Justification, Label, Orientation, ScrolledWindow,
+    Align, Image, Justification, Label, Orientation,
     prelude::{BoxExt, WidgetExt},
 };
-use libadwaita::{ActionRow, Clamp, NavigationPage, ToolbarView};
+use libadwaita::{NavigationPage, ToolbarView};
 use serde::Deserialize;
 use std::rc::Rc;
 
@@ -45,15 +45,20 @@ pub struct ContentPage {
     #[serde(skip)]
     nav_page: NavigationPage,
     #[serde(skip)]
-    nav_row: ActionRow,
-    #[serde(skip)]
     toolbar: ToolbarView,
+    #[serde(skip)]
+    content_box: gtk::Box,
 }
 impl DynPage for ContentPage {
     fn build_page(mut self, _task_manager: &Rc<TaskManager>) -> Page {
-        let NavPageBuild { nav_page, toolbar } = Self::build_nav_page(&self.title);
+        let ContentNavPageBuild {
+            nav_page,
+            toolbar,
+            content,
+        } = Self::build_content_nav_page(&self.title);
         self.nav_page = nav_page;
         self.toolbar = toolbar;
+        self.content_box = content;
         self.build();
 
         Rc::new(self)
@@ -73,33 +78,15 @@ impl NavPage for ContentPage {
     }
 }
 impl ContentPage {
-    const SPACING: i32 = 20;
-    const MAX_WIDTH: i32 = 600;
-
-    fn build(&self) {
-        let content_box = gtk::Box::builder()
-            .orientation(Orientation::Vertical)
-            .margin_top(Self::SPACING)
-            .margin_bottom(Self::SPACING)
-            .margin_start(Self::SPACING)
-            .margin_end(Self::SPACING)
-            .spacing(Self::SPACING)
-            .build();
-        let clamp = Clamp::builder()
-            .maximum_size(Self::MAX_WIDTH)
-            .child(&content_box)
-            .build();
-        let scrolled_window = ScrolledWindow::builder().child(&clamp).build();
-        self.toolbar.set_content(Some(&scrolled_window));
-
+    fn build(&mut self) {
         if let Some(header) = &self.header {
             let header_built = Self::build_header(header);
-            content_box.append(&header_built);
+            self.content_box.append(&header_built);
         }
 
         if let Some(contents) = &self.contents {
             let content_built = Self::build_content(contents);
-            content_box.append(&content_built);
+            self.content_box.append(&content_built);
         }
     }
 
