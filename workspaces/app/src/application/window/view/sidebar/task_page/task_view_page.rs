@@ -41,7 +41,7 @@ impl TextBufferTag {
 }
 
 pub struct TaskViewPage {
-    id: String,
+    run_id: String,
     nav_page: NavigationPage,
     prefs_page: PreferencesPage,
     status_prefs_group: PreferencesGroup,
@@ -95,7 +95,7 @@ impl TaskViewPage {
         status_prefs_group.add(&task_output_row);
 
         Rc::new(Self {
-            id,
+            run_id: id,
             nav_page,
             prefs_page,
             status_prefs_group,
@@ -166,9 +166,14 @@ impl TaskViewPage {
 
     fn connect_task_events(self: &Rc<Self>, app: &Rc<App>) {
         let self_clone = self.clone();
+        let run_id = self.run_id.clone();
 
-        app.task_manager
-            .listen(move |task_event| match &task_event.status {
+        app.task_manager.listen(move |task_event| {
+            if task_event.run_id != run_id {
+                return;
+            }
+
+            match &task_event.status {
                 TaskStatus::Started => {} // Self is created from start event
 
                 TaskStatus::Finished { results } => {
@@ -191,7 +196,8 @@ impl TaskViewPage {
                     *action_nr,
                     *total_actions,
                 ),
-            });
+            }
+        });
     }
 
     fn set_progress(
