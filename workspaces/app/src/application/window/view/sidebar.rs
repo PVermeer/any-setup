@@ -9,7 +9,7 @@ use common::{
 use gtk::{ListBox, ListBoxRow, Orientation, gio::prelude::ListModelExtManual, prelude::BoxExt};
 use libadwaita::{
     HeaderBar, NavigationPage, Sidebar, SidebarItem, SidebarMode, SidebarSection, ToolbarView,
-    prelude::{NavigationPageExt, SidebarItemExt},
+    prelude::{ActionRowExt, NavigationPageExt, SidebarItemExt},
 };
 use std::{
     cell::RefCell,
@@ -84,7 +84,7 @@ impl SidebarPage {
         self.connect_sidebar(app);
         self.task_progress.init(app);
         self.task_page.init(app);
-        self.connect_progress_button(app);
+        self.connect_progress_row(app);
     }
 
     fn build_side_bar() -> (Sidebar, SidebarSection) {
@@ -104,7 +104,7 @@ impl SidebarPage {
         let bottom_box = ListBox::builder()
             .css_classes(["navigation-sidebar"])
             .build();
-        bottom_box.append(task_progress.get_button_row());
+        bottom_box.append(task_progress.get_progress_row());
 
         (bottom_box, task_progress)
     }
@@ -130,14 +130,14 @@ impl SidebarPage {
         self.sidebar.connect_selected_item_notify(load_page);
     }
 
-    fn connect_progress_button(&self, app: &Rc<App>) {
+    fn connect_progress_row(&self, app: &Rc<App>) {
         let app_clone = app.clone();
         let sidebar_clone = self.sidebar.clone();
         let task_page_clone = self.task_page.clone();
 
         self.task_progress
-            .get_button_row()
-            .connect_activated(move |_button_row| {
+            .get_progress_row()
+            .connect_activated(move |_progress_row| {
                 sidebar_clone.set_selected(u32::MAX); // Unselect
                 task_page_clone.load_page(&app_clone.window.view.nav_split);
             });

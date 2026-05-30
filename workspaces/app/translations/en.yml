@@ -6,7 +6,7 @@ pages:
     get_started: To get started add pages to <dir>
   tasks:
     title: Tasks
-    progress_bar: Running actions
+    progress_bar: Running tasks
     details:
       status:
         title: Status

@@ -3,13 +3,13 @@ use crate::application::{
     task_manager::{TaskEvent, TaskStatus},
 };
 use gtk::{ProgressBar, prelude::ListBoxRowExt};
-use libadwaita::ButtonRow;
+use libadwaita::ActionRow;
 use std::rc::Rc;
 
 pub struct TaskProgress {
     task_run_id: Option<String>,
     progress_bar: ProgressBar,
-    progress_button: ButtonRow,
+    progress_row: ActionRow,
 }
 impl TaskProgress {
     pub fn new(task_run_id: Option<&str>) -> Self {
@@ -17,15 +17,14 @@ impl TaskProgress {
             .text(t!("pages.tasks.progress_bar"))
             .show_text(true)
             .fraction(0.0)
-            .hexpand(true)
             .build();
 
-        let progress_button = ButtonRow::builder().hexpand(true).build();
+        let progress_row = ActionRow::builder().activatable(true).build();
 
         Self {
             task_run_id: task_run_id.map(std::string::ToString::to_string),
             progress_bar,
-            progress_button,
+            progress_row,
         }
     }
 
@@ -37,15 +36,16 @@ impl TaskProgress {
         &self.progress_bar
     }
 
-    pub fn get_button_row(&self) -> &ButtonRow {
-        self.progress_button.set_child(Some(&self.progress_bar));
+    pub fn get_progress_row(&self) -> &ActionRow {
+        self.progress_row.set_child(Some(&self.progress_bar));
 
-        &self.progress_button
+        &self.progress_row
     }
 
     fn connect_task_manager_progess(&self, app: &Rc<App>) {
         let progress_bar_clone = self.progress_bar.clone();
         let task_run_id = self.task_run_id.clone();
+        let progress_bar_text = t!("pages.tasks.progress_bar");
 
         app.task_manager.listen(move |event: &TaskEvent| {
             if let Some(task_run_id) = &task_run_id
@@ -54,7 +54,13 @@ impl TaskProgress {
                 return;
             }
 
+            progress_bar_clone.set_text(Some(&format!(
+                "{progress_bar_text} ({})",
+                event.tasks_in_queue + 1
+            )));
+
             match &event.status {
+                TaskStatus::Started => {}
                 TaskStatus::Progress {
                     action,
                     action_nr,
@@ -64,8 +70,10 @@ impl TaskProgress {
                 } => {
                     progress_bar_clone.set_fraction(progress.clone());
                 }
-                _ => {}
-            };
+                TaskStatus::Failed { error: _ } | TaskStatus::Finished { results: _ } => {
+                    progress_bar_clone.set_text(Some(&format!("{progress_bar_text} ({})", 0)));
+                }
+            }
         });
     }
 }

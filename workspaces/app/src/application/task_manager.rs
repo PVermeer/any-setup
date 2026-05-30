@@ -55,6 +55,7 @@ pub struct TaskEvent {
     pub run_id: String,
     pub name: String,
     pub status: TaskStatus,
+    pub tasks_in_queue: u32,
 }
 impl TaskEvent {
     pub fn with_status(&self, status: TaskStatus) -> Self {
@@ -144,6 +145,7 @@ impl TaskManager {
                     run_id: task.run_id.clone(),
                     name: task.runner.name.clone(),
                     status: TaskStatus::Started,
+                    tasks_in_queue: u32::try_from(task_receiver.len()).unwrap_or_default(),
                 };
 
                 // Started
