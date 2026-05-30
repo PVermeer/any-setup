@@ -11,10 +11,15 @@ groups:
         input_type: name
 
       - type: switch
-        title: Don't do it!
-        subtitle: ..do it...
+        title: SystemD
+        subtitle: Enable some services
         actions:
           - action: systemd
             type: enable
             scope: user
-            unit: some.service
+            unit: some-user.service
+
+          - action: systemd
+            type: enable
+            scope: system
+            unit: some-system.service

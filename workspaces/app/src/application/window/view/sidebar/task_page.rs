@@ -1,3 +1,7 @@
+pub mod task_progress;
+mod task_vec;
+mod task_view_page;
+
 use super::NavPage;
 use crate::application::{
     App,
@@ -6,18 +10,16 @@ use crate::application::{
 };
 use gtk::{Image, prelude::WidgetExt};
 use libadwaita::{
-    ActionRow, NavigationPage, PreferencesGroup, Spinner,
+    ActionRow, NavigationPage, NavigationView, PreferencesGroup, Spinner,
     prelude::{ActionRowExt, PreferencesGroupExt, PreferencesPageExt},
 };
-use std::{
-    cell::RefCell,
-    ops::{Deref, DerefMut},
-    rc::Rc,
-};
+use std::{cell::RefCell, rc::Rc};
+use task_vec::{TaskVec, TaskVecExt};
+use task_view_page::TaskViewPage;
 use tracing::error;
 
 #[derive(Debug)]
-struct TaskUi {
+pub struct TaskUi {
     task_row: ActionRow,
     run_id: String,
     success_icon: Image,
@@ -26,14 +28,14 @@ struct TaskUi {
     results: Option<Vec<ActionResult>>,
 }
 impl TaskUi {
-    fn from_event(task_event: &TaskEvent) -> Self {
-        let task_event = task_event.clone();
-        let title = &task_event.name;
-        let (task_row, success_icon, fail_icon, running_icon) = Self::build_task_row(title);
+    fn from_event(task_event: &TaskEvent, nav_view: &NavigationView, app: &Rc<App>) -> Self {
+        let id = task_event.run_id.clone();
+        let (task_row, success_icon, fail_icon, running_icon) =
+            Self::build_task_row(app, task_event, nav_view);
 
         Self {
             task_row,
-            run_id: task_event.run_id,
+            run_id: id,
             success_icon,
             fail_icon,
             running_icon,
@@ -74,8 +76,13 @@ impl TaskUi {
         self.running_icon.set_visible(false);
     }
 
-    fn build_task_row(title: &str) -> (ActionRow, Image, Image, Spinner) {
-        let task_row = ActionRow::builder().title(title).build();
+    fn build_task_row(
+        app: &Rc<App>,
+        task_event: &TaskEvent,
+        nav_view: &NavigationView,
+    ) -> (ActionRow, Image, Image, Spinner) {
+        let title = &task_event.name;
+        let task_row = ActionRow::builder().title(title).activatable(true).build();
 
         let success_icon = Image::builder()
             .icon_name("object-select-symbolic")
@@ -94,43 +101,22 @@ impl TaskUi {
         task_row.add_suffix(&success_icon);
         task_row.add_suffix(&fail_icon);
 
+        let event_clone = task_event.clone();
+        let nav_view_clone = nav_view.clone();
+
+        let details_page = TaskViewPage::from_event(&event_clone).init(app);
+
+        task_row.connect_activated(move |_task_row| {
+            nav_view_clone.push(details_page.get_navpage());
+        });
+
         (task_row, success_icon, fail_icon, running_icon)
-    }
-}
-
-struct TaskVec(Vec<TaskUi>);
-trait TaskVecExt {
-    fn find_task_mut(&mut self, id: &str) -> Option<&mut TaskUi>;
-}
-impl Deref for TaskVec {
-    type Target = Vec<TaskUi>;
-
-    fn deref(&self) -> &Self::Target {
-        &self.0
-    }
-}
-impl DerefMut for TaskVec {
-    fn deref_mut(&mut self) -> &mut Self::Target {
-        &mut self.0
-    }
-}
-impl TaskVecExt for TaskVec {
-    fn find_task_mut(&mut self, id: &str) -> Option<&mut TaskUi> {
-        let last_matches = matches!(
-            self.last(),
-            Some(task) if task.run_id == id
-        );
-
-        if last_matches {
-            self.last_mut()
-        } else {
-            self.iter_mut().find(|task| task.run_id == id)
-        }
     }
 }
 
 pub struct TaskPage {
     nav_page: NavigationPage,
+    nav_view: NavigationView,
     tasks_pref_group: PreferencesGroup,
     tasks: RefCell<TaskVec>,
 }
@@ -151,8 +137,8 @@ impl TaskPage {
     pub fn new() -> Rc<Self> {
         let PrefNavPageBuild {
             nav_page,
+            nav_view,
             prefs_page,
-            ..
         } = Self::build_preferences_nav_page(&t!("pages.tasks.title"));
 
         let tasks_pref_group = PreferencesGroup::builder()
@@ -163,6 +149,7 @@ impl TaskPage {
 
         Rc::new(Self {
             nav_page,
+            nav_view,
             tasks_pref_group,
             tasks: RefCell::new(TaskVec(Vec::new())),
         })
@@ -174,10 +161,11 @@ impl TaskPage {
 
     fn connect_task_events(self: &Rc<Self>, app: &Rc<App>) {
         let self_clone = self.clone();
+        let app_clone = app.clone();
 
         app.task_manager
             .listen(move |task_event| match &task_event.status {
-                TaskStatus::Started => self_clone.add_task(task_event),
+                TaskStatus::Started => self_clone.add_task(&app_clone, task_event),
 
                 TaskStatus::Finished { results } => {
                     self_clone.set_task_results(&task_event.run_id, results);
@@ -202,8 +190,8 @@ impl TaskPage {
             });
     }
 
-    fn add_task(self: &Rc<Self>, task_event: &TaskEvent) {
-        let task_ui = TaskUi::from_event(task_event);
+    fn add_task(self: &Rc<Self>, app: &Rc<App>, task_event: &TaskEvent) {
+        let task_ui = TaskUi::from_event(task_event, &self.nav_view, app);
         let task_ui_run_id = task_ui.run_id.clone();
         self.tasks.borrow_mut().push(task_ui);
 

@@ -1,5 +1,4 @@
 mod task_page;
-mod task_progress;
 
 use super::{NavPage, Page};
 use crate::application::App;
@@ -17,8 +16,7 @@ use std::{
     collections::{HashMap, HashSet},
     rc::Rc,
 };
-use task_page::TaskPage;
-use task_progress::TaskProgress;
+use task_page::{TaskPage, task_progress::TaskProgress};
 use tracing::error;
 
 pub struct SidebarPage {
@@ -101,12 +99,12 @@ impl SidebarPage {
     }
 
     fn build_bottom_box() -> (ListBox, TaskProgress) {
-        let task_progress = TaskProgress::new();
+        let task_progress = TaskProgress::new(None);
 
         let bottom_box = ListBox::builder()
             .css_classes(["navigation-sidebar"])
             .build();
-        bottom_box.append(&task_progress.progress_button);
+        bottom_box.append(task_progress.get_button_row());
 
         (bottom_box, task_progress)
     }
@@ -138,7 +136,7 @@ impl SidebarPage {
         let task_page_clone = self.task_page.clone();
 
         self.task_progress
-            .progress_button
+            .get_button_row()
             .connect_activated(move |_button_row| {
                 sidebar_clone.set_selected(u32::MAX); // Unselect
                 task_page_clone.load_page(&app_clone.window.view.nav_split);

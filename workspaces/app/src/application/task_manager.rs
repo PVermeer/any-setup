@@ -199,25 +199,36 @@ impl TaskManager {
 
         glib::spawn_future_local(async move {
             while let Ok(event) = self_clone.event_receiver.recv().await {
-                let mut done_task_indices = Vec::new();
-                let mut listeners_borrow = self_clone.listeners.borrow_mut();
+                // Scope so that listener callbacks can call Self::listen()
+                let (callbacks_to_run, done_task_indices) = {
+                    let listeners = self_clone.listeners.borrow();
+                    let mut callbacks_to_run = Vec::new();
+                    let mut done_task_indices = Vec::new();
 
-                for (i, listener) in listeners_borrow.iter().enumerate() {
-                    if let Some(task_id) = &listener.task_id {
-                        if event.id != *task_id {
-                            continue;
-                        }
-                        match event.status {
-                            TaskStatus::Finished { results: _ }
-                            | TaskStatus::Failed { error: _ } => {
-                                done_task_indices.push(i);
+                    for (i, listener) in listeners.iter().enumerate() {
+                        if let Some(task_id) = &listener.task_id {
+                            if event.id != *task_id {
+                                continue;
                             }
-                            _ => {}
+                            match event.status {
+                                TaskStatus::Finished { results: _ }
+                                | TaskStatus::Failed { error: _ } => {
+                                    done_task_indices.push(i);
+                                }
+                                _ => {}
+                            }
                         }
-                    }
 
-                    (listener.callback)(&event);
+                        callbacks_to_run.push(listener.callback.clone());
+                    }
+                    (callbacks_to_run, done_task_indices)
+                };
+
+                for callback in callbacks_to_run {
+                    callback(&event);
                 }
+
+                let mut listeners_borrow = self_clone.listeners.borrow_mut();
                 for index in done_task_indices {
                     listeners_borrow.remove(index);
                 }

@@ -6,9 +6,12 @@ pages:
     get_started: To get started add pages to <dir>
   tasks:
     title: Tasks
-
-sidebar:
-  progress_bar: Running actions
+    progress_bar: Running actions
+    details:
+      status:
+        title: Status
+        success: Done
+        error: Failed
 
 app_menu:
   about:

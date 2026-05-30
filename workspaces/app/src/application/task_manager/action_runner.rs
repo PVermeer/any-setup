@@ -126,10 +126,16 @@ impl ActionRunner {
             let output = command.output().context("Failed to run command")?;
             let action_result = ActionResult::from_output(action, &output);
 
-            std::thread::sleep(Duration::from_secs(5));
+            if cfg!(debug_assertions) {
+                std::thread::sleep(Duration::from_secs(3));
+            }
 
             progress = (i + 1) as f64 * queue_factor;
             results.push(action_result);
+
+            if !output.status.success() {
+                break;
+            }
         }
 
         let progress_finished = ActionProgress {
