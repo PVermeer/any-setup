@@ -66,11 +66,23 @@ impl TaskEvent {
 }
 
 struct Listener {
-    task_id: Option<u64>,
+    run_id: Option<String>,
     callback: Rc<dyn Fn(&TaskEvent)>,
 }
+impl std::fmt::Debug for Listener {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let location = std::panic::Location::caller();
 
-/// Fifo Action manager
+        f.debug_struct("Listener")
+            .field("run_id", &self.run_id)
+            .field(
+                "callback",
+                &format!("{}:{}", location.file(), location.line()),
+            )
+            .finish()
+    }
+}
+
 pub struct TaskManager {
     task_sender: Sender<Task>,
     event_receiver: Receiver<TaskEvent>,
@@ -102,11 +114,15 @@ impl TaskManager {
         self: &Rc<Self>,
         runner: ActionRunner,
         on_event: F,
-    ) -> Result<u64> {
+    ) -> Result<String> {
         let name = &runner.name.clone();
         let id = runner.get_id();
         let run_id = format!("{id}-{}", Alphanumeric.sample_string(&mut rng(), 8));
-        let task = Task { id, run_id, runner };
+        let task = Task {
+            id,
+            run_id: run_id.clone(),
+            runner,
+        };
 
         debug!(?task, "Adding task");
 
@@ -117,12 +133,12 @@ impl TaskManager {
         }
 
         self.listeners.borrow_mut().push(Listener {
-            task_id: Some(id),
+            run_id: Some(run_id.clone()),
             callback: Rc::new(on_event),
         });
 
         match self.task_sender.send_blocking(task) {
-            Ok(()) => Ok(id),
+            Ok(()) => Ok(run_id),
             Err(error) => {
                 error!(name, %error, "Failed to run task");
                 Err(anyhow!(error.to_string()))
@@ -130,11 +146,18 @@ impl TaskManager {
         }
     }
 
-    pub fn listen<F: Fn(&TaskEvent) + 'static>(self: &Rc<Self>, on_event: F) {
-        self.listeners.borrow_mut().push(Listener {
-            task_id: None,
+    pub fn listen<F: Fn(&TaskEvent) + 'static>(
+        self: &Rc<Self>,
+        run_id: Option<String>,
+        on_event: F,
+    ) {
+        let listener = Listener {
+            run_id,
             callback: Rc::new(on_event),
-        });
+        };
+        debug!(?listener, "Adding task listener");
+
+        self.listeners.borrow_mut().push(listener);
     }
 
     fn run_actions_thread(task_receiver: Receiver<Task>, event_sender: Sender<TaskEvent>) {
@@ -202,20 +225,20 @@ impl TaskManager {
         glib::spawn_future_local(async move {
             while let Ok(event) = self_clone.event_receiver.recv().await {
                 // Scope so that listener callbacks can call Self::listen()
-                let (callbacks_to_run, done_task_indices) = {
+                let (callbacks_to_run, done_task_run_ids) = {
                     let listeners = self_clone.listeners.borrow();
                     let mut callbacks_to_run = Vec::new();
-                    let mut done_task_indices = Vec::new();
+                    let mut done_task_run_ids = HashSet::new();
 
-                    for (i, listener) in listeners.iter().enumerate() {
-                        if let Some(task_id) = &listener.task_id {
-                            if event.id != *task_id {
+                    for listener in listeners.iter() {
+                        if let Some(run_id) = &listener.run_id {
+                            if event.run_id != *run_id {
                                 continue;
                             }
                             match event.status {
                                 TaskStatus::Finished { results: _ }
                                 | TaskStatus::Failed { error: _ } => {
-                                    done_task_indices.push(i);
+                                    done_task_run_ids.insert(&event.run_id);
                                 }
                                 _ => {}
                             }
@@ -223,24 +246,26 @@ impl TaskManager {
 
                         callbacks_to_run.push(listener.callback.clone());
                     }
-                    (callbacks_to_run, done_task_indices)
+                    (callbacks_to_run, done_task_run_ids)
                 };
 
                 for callback in callbacks_to_run {
                     callback(&event);
                 }
 
-                let mut listeners_borrow = self_clone.listeners.borrow_mut();
-                for index in done_task_indices {
-                    listeners_borrow.remove(index);
-                }
+                self_clone.listeners.borrow_mut().retain(|listener| {
+                    !listener
+                        .run_id
+                        .as_ref()
+                        .is_some_and(|run_id| done_task_run_ids.contains(run_id))
+                });
             }
         });
     }
 
     fn connect_active_tasks(self: &Rc<Self>) {
         let self_clone = self.clone();
-        self.listen(move |event| match event.status {
+        self.listen(None, move |event| match event.status {
             TaskStatus::Failed { error: _ } | TaskStatus::Finished { results: _ } => {
                 let _ = self_clone.active_tasks.borrow_mut().remove(&event.id);
             }

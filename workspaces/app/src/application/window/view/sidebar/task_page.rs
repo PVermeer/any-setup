@@ -164,7 +164,7 @@ impl TaskPage {
         let app_clone = app.clone();
 
         app.task_manager
-            .listen(move |task_event| match &task_event.status {
+            .listen(None, move |task_event| match &task_event.status {
                 TaskStatus::Started => self_clone.add_task(&app_clone, task_event),
 
                 TaskStatus::Finished { results } => {

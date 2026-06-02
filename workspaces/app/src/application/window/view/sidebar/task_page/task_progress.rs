@@ -47,33 +47,28 @@ impl TaskProgress {
         let task_run_id = self.task_run_id.clone();
         let progress_bar_text = t!("pages.tasks.progress_bar");
 
-        app.task_manager.listen(move |event: &TaskEvent| {
-            if let Some(task_run_id) = &task_run_id
-                && event.run_id != *task_run_id
-            {
-                return;
-            }
+        app.task_manager
+            .listen(task_run_id, move |event: &TaskEvent| {
+                progress_bar_clone.set_text(Some(&format!(
+                    "{progress_bar_text} ({})",
+                    event.tasks_in_queue + 1
+                )));
 
-            progress_bar_clone.set_text(Some(&format!(
-                "{progress_bar_text} ({})",
-                event.tasks_in_queue + 1
-            )));
-
-            match &event.status {
-                TaskStatus::Started => {}
-                TaskStatus::Progress {
-                    action,
-                    action_nr,
-                    total_actions,
-                    progress,
-                    status,
-                } => {
-                    progress_bar_clone.set_fraction(progress.clone());
+                match &event.status {
+                    TaskStatus::Started => {}
+                    TaskStatus::Progress {
+                        action,
+                        action_nr,
+                        total_actions,
+                        progress,
+                        status,
+                    } => {
+                        progress_bar_clone.set_fraction(progress.clone());
+                    }
+                    TaskStatus::Failed { error: _ } | TaskStatus::Finished { results: _ } => {
+                        progress_bar_clone.set_text(Some(&format!("{progress_bar_text} ({})", 0)));
+                    }
                 }
-                TaskStatus::Failed { error: _ } | TaskStatus::Finished { results: _ } => {
-                    progress_bar_clone.set_text(Some(&format!("{progress_bar_text} ({})", 0)));
-                }
-            }
-        });
+            });
     }
 }

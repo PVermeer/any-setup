@@ -168,11 +168,7 @@ impl TaskViewPage {
         let self_clone = self.clone();
         let run_id = self.run_id.clone();
 
-        app.task_manager.listen(move |task_event| {
-            if task_event.run_id != run_id {
-                return;
-            }
-
+        app.task_manager.listen(Some(run_id), move |task_event| {
             match &task_event.status {
                 TaskStatus::Started => {} // Self is created from start event
 
