@@ -19,7 +19,7 @@
 		{
 			"label": "Build and run release app",
 			"type": "shell",
-			"command": "WAH_LOG=debug ./target/release/any-setup",
+			"command": "AS_LOG=debug ./target/release/any-setup",
 			"problemMatcher": [
 				"$rustc",
 			],

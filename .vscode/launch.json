@@ -11,7 +11,7 @@
       "env": {
         // "RUST_BACKTRACE": "1",
         // "LANG": "nl_NL.UTF-8",
-        "WAH_LOG": "debug",
+        "AS_LOG": "debug",
         "GSETTINGS_BACKEND": "memory"
       },
       "cargo": {
@@ -28,7 +28,7 @@
       "request": "launch",
       "name": "Debug unit tests",
       "env": {
-        "WAH_LOG": "debug",
+        "AS_LOG": "debug",
         "GSETTINGS_BACKEND": "memory"
       },
       "cargo": {

@@ -70,7 +70,7 @@ pub mod env {
     use tracing::Level;
 
     pub fn get_log_level() -> Option<Level> {
-        std::env::var("WAH_LOG")
+        std::env::var("AS_LOG")
             .with_context(|| {
                 let info = "No LOG environment variable set";
                 println!("{info}");
