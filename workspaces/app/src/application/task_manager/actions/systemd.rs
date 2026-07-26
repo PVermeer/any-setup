@@ -27,20 +27,34 @@ impl Scope {
 }
 
 enum IsEnabledOutput {
-    Enabled,        // will start at boot (has proper symlinks)
-    EnabledRuntime, // enabled, but only until next reboot
-    Disabled,       // not enabled
-    NotFound,       // not found
-    Masked,         // completely blocked (cannot be started at all)
-    MaskedRuntime,  // masked until next reboot
-    Static, // has no [Install] section; can’t be enabled directly (only pulled in as a dependency)
-    Indirect, // not enabled itself, but referenced by another unit’s install config
-    Alias,  // this name is just an alias of another unit
-    Linked, // unit file is symlinked from outside standard directories
-    LinkedRuntime, // same as above, but temporary
-    Generated, // created dynamically by systemd generators at boot
-    Transient, // created at runtime (e.g. via systemd-run)
-    Bad,    // invalid or broken unit file
+    /// Will start at boot (has proper symlinks)
+    Enabled,
+    /// Enabled, but only until next reboot
+    EnabledRuntime,
+    /// Not enabled
+    Disabled,
+    /// Not found
+    NotFound,
+    /// Completely blocked (cannot be started at all)
+    Masked,
+    /// Masked until next reboot
+    MaskedRuntime,
+    /// Has no [Install] section; can’t be enabled directly (only pulled in as a dependency)
+    Static,
+    /// Not enabled itself, but referenced by another unit’s install config
+    Indirect,
+    /// This name is just an alias of another unit
+    Alias,
+    /// Unit file is symlinked from outside standard directories
+    Linked,
+    /// Same as above, but temporary
+    LinkedRuntime,
+    /// Created dynamically by systemd generators at boot
+    Generated,
+    /// Created at runtime (e.g. via systemd-run)
+    Transient,
+    /// Invalid or broken unit file
+    Bad,
 }
 impl Display for IsEnabledOutput {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
