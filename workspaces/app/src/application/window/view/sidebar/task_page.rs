@@ -6,7 +6,7 @@ use super::NavPage;
 use crate::application::{
     App,
     pages::PrefNavPageBuild,
-    task_manager::{TaskEvent, TaskStatus, action_runner::ActionResult},
+    task_manager::{TaskEvent, TaskStatus, action_runner::ActionResult, actions::IsAction},
 };
 use gtk::{Image, prelude::WidgetExt};
 use libadwaita::{
@@ -67,7 +67,7 @@ impl TaskUi {
         self.running_icon.set_visible(false);
     }
 
-    fn set_error(&mut self, error: &anyhow::Error) {
+    fn set_error(&mut self, error: &str) {
         self.task_row.set_subtitle(&error.to_string());
         self.task_row.add_css_class("error");
 
@@ -172,7 +172,7 @@ impl TaskPage {
                 }
 
                 TaskStatus::Failed { error } => {
-                    self_clone.set_task_error(&task_event.run_id, error);
+                    self_clone.set_task_error(&task_event.run_id, &error.to_string());
                 }
 
                 TaskStatus::Progress {
@@ -221,15 +221,25 @@ impl TaskPage {
     }
 
     fn set_task_results(self: &Rc<Self>, id: &str, results: &[ActionResult]) {
+        let failures: Vec<&ActionResult> = results
+            .iter()
+            .filter(|result| !result.action.fail_allowed() && !result.success)
+            .collect();
+
         let mut tasks_borrow_mut = self.tasks.borrow_mut();
         let Some(task) = tasks_borrow_mut.find_task_mut(id) else {
             error!("Failed to get ui task by id for result");
             return;
         };
-        task.set_success(results);
+
+        if let Some(last_failure) = failures.last() {
+            task.set_error(&last_failure.stderr);
+        } else {
+            task.set_success(results);
+        }
     }
 
-    fn set_task_error(self: &Rc<Self>, id: &str, error: &anyhow::Error) {
+    fn set_task_error(self: &Rc<Self>, id: &str, error: &str) {
         let mut tasks_borrow_mut = self.tasks.borrow_mut();
         let Some(task) = tasks_borrow_mut.find_task_mut(id) else {
             error!("Failed to get ui task by id for error");

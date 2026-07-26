@@ -110,16 +110,27 @@ impl FromStr for IsEnabledOutput {
 #[derive(Serialize, Deserialize, PartialEq, Hash, Clone, Debug)]
 #[serde(tag = "type", rename_all = "lowercase")]
 pub enum SystemdAction {
-    Enable { unit: String, scope: Scope },
-    Disable { unit: String, scope: Scope },
+    Enable {
+        unit: String,
+        scope: Scope,
+        fail_allowed: Option<bool>,
+    },
+    Disable {
+        unit: String,
+        scope: Scope,
+    },
 }
 impl Display for SystemdAction {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            Self::Enable { unit: name, scope } => {
+            Self::Enable {
+                unit: name, scope, ..
+            } => {
                 write!(f, "Systemd enable {scope} unit: {name}")
             }
-            Self::Disable { unit: name, scope } => {
+            Self::Disable {
+                unit: name, scope, ..
+            } => {
                 write!(f, "Systemd disable {scope} unit: {name}")
             }
         }
@@ -128,7 +139,7 @@ impl Display for SystemdAction {
 impl IsAction for SystemdAction {
     fn get_command(&self) -> Command {
         match self {
-            Self::Enable { unit, scope } => {
+            Self::Enable { unit, scope, .. } => {
                 let mut command = Command::new("systemctl");
                 command
                     .arg(scope.to_arg())
@@ -154,7 +165,7 @@ impl IsAction for SystemdAction {
 
     fn get_check_command(&self) -> Command {
         match self {
-            Self::Enable { unit, scope } | Self::Disable { unit, scope } => {
+            Self::Enable { unit, scope, .. } | Self::Disable { unit, scope } => {
                 let mut command = Command::new("systemctl");
                 command.arg(scope.to_arg()).arg("is-enabled").arg(unit);
 
@@ -165,7 +176,7 @@ impl IsAction for SystemdAction {
 
     fn needs_elevation(&self) -> bool {
         match self {
-            Self::Enable { unit: _, scope } | Self::Disable { unit: _, scope } => {
+            Self::Enable { scope, .. } | Self::Disable { unit: _, scope } => {
                 *scope == Scope::System
             }
         }
@@ -189,6 +200,15 @@ impl IsAction for SystemdAction {
             IsEnabledOutput::Enabled => Ok(ActionState::Done),
             IsEnabledOutput::Disabled => Ok(ActionState::Available),
             _ => Ok(ActionState::UnAvailable),
+        }
+    }
+
+    fn fail_allowed(&self) -> bool {
+        match self {
+            Self::Enable { fail_allowed, .. } => {
+                fail_allowed.is_some_and(|fail_allowed| fail_allowed)
+            }
+            Self::Disable { .. } => false,
         }
     }
 }

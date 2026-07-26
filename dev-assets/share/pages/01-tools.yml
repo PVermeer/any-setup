@@ -18,8 +18,10 @@ groups:
             type: enable
             scope: user
             unit: some-user.service
+            fail_allowed: true
 
           - action: systemd
             type: enable
             scope: system
             unit: some-system.service
+            fail_allowed: true

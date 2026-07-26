@@ -191,24 +191,7 @@ impl TaskManager {
 
                 // Result
                 let message = match result {
-                    Ok(results) => {
-                        let mut failed = None;
-
-                        for result in &results {
-                            if !result.success {
-                                failed = Some(result.stderr.clone());
-                                break;
-                            }
-                        }
-
-                        match failed {
-                            None => task_event.with_status(TaskStatus::Finished { results }),
-                            Some(error) => task_event.with_status(TaskStatus::Failed {
-                                error: Arc::new(anyhow!(error)),
-                            }),
-                        }
-                    }
-
+                    Ok(results) => task_event.with_status(TaskStatus::Finished { results }),
                     Err(error) => task_event.with_status(TaskStatus::Failed {
                         error: Arc::new(error),
                     }),
@@ -236,8 +219,7 @@ impl TaskManager {
                                 continue;
                             }
                             match event.status {
-                                TaskStatus::Finished { results: _ }
-                                | TaskStatus::Failed { error: _ } => {
+                                TaskStatus::Finished { .. } | TaskStatus::Failed { .. } => {
                                     done_task_run_ids.insert(&event.run_id);
                                 }
                                 _ => {}

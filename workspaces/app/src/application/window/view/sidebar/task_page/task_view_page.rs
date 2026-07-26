@@ -2,7 +2,7 @@ use super::task_progress::TaskProgress;
 use crate::application::{
     App,
     pages::{NavPage, PrefNavPageBuild},
-    task_manager::{TaskEvent, TaskStatus, action_runner::ActionResult},
+    task_manager::{TaskEvent, TaskStatus, action_runner::ActionResult, actions::IsAction},
 };
 use gtk::{
     Image, TextBuffer, TextView, WrapMode,
@@ -173,11 +173,12 @@ impl TaskViewPage {
                 TaskStatus::Started => {} // Self is created from start event
 
                 TaskStatus::Finished { results } => {
-                    self_clone.set_success(results);
+                    self_clone.set_results(results);
                 }
 
                 TaskStatus::Failed { error } => {
-                    self_clone.set_error(error);
+                    self_clone.output_append_error(&error.to_string());
+                    self_clone.set_error();
                 }
 
                 TaskStatus::Progress {
@@ -218,7 +219,34 @@ impl TaskViewPage {
         self.output_append_line(action);
     }
 
-    fn set_success(self: &Rc<Self>, results: &[ActionResult]) {
+    fn set_results(self: &Rc<Self>, results: &[ActionResult]) {
+        let mut failed = false;
+
+        for result in results {
+            if !result.stdout.is_empty() {
+                self.output_append_line(&result.stdout);
+            }
+            if !result.stderr.is_empty() {
+                if result.action.fail_allowed() {
+                    self.output_append_success(&format!(
+                        "{} ({})",
+                        result.stderr,
+                        t!("pages.tasks.details.status.fail_allowed")
+                    ));
+                } else {
+                    self.output_append_error(&result.stderr);
+                    failed = true;
+                }
+            }
+        }
+        if failed {
+            self.set_error();
+        } else {
+            self.set_success();
+        }
+    }
+
+    fn set_success(self: &Rc<Self>) {
         self.status_row
             .set_subtitle(&t!("pages.tasks.details.status.success"));
 
@@ -227,15 +255,9 @@ impl TaskViewPage {
         self.status_running_icon.set_visible(false);
 
         self.output_append_success(&t!("pages.tasks.details.status.success"));
-        for result in results {
-            if result.stdout.is_empty() {
-                continue;
-            }
-            self.output_append_line(&result.stdout);
-        }
     }
 
-    fn set_error(self: &Rc<Self>, error: &anyhow::Error) {
+    fn set_error(self: &Rc<Self>) {
         self.status_row
             .set_subtitle(&t!("pages.tasks.details.status.error"));
         self.status_row.add_css_class("error");
@@ -244,7 +266,7 @@ impl TaskViewPage {
         self.status_fail_icon.set_visible(true);
         self.status_running_icon.set_visible(false);
 
-        self.output_append_error(&error.to_string());
+        self.output_append_error(&t!("pages.tasks.details.status.error"));
     }
 
     fn output_append(self: &Rc<Self>, line: &str, tag: Option<TextBufferTag>) {

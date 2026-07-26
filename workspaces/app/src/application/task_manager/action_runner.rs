@@ -133,7 +133,7 @@ impl ActionRunner {
             progress = (i + 1) as f64 * queue_factor;
             results.push(action_result);
 
-            if !output.status.success() {
+            if !action.fail_allowed() && !output.status.success() {
                 break;
             }
         }

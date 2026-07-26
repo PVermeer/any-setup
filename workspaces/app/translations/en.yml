@@ -12,6 +12,7 @@ pages:
         title: Status
         success: Done
         error: Failed
+        fail_allowed: Allowed to fail
 
 app_menu:
   about:

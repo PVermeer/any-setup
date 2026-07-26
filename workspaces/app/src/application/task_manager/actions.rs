@@ -18,6 +18,7 @@ pub trait IsAction: Display {
     fn get_check_command(&self) -> Command;
     fn needs_elevation(&self) -> bool;
     fn get_status(&self) -> Result<ActionState>;
+    fn fail_allowed(&self) -> bool;
 }
 
 #[derive(Serialize, Deserialize, PartialEq, Hash, Clone, Debug)]
@@ -54,6 +55,11 @@ impl IsAction for Action {
     fn get_status(&self) -> Result<ActionState> {
         match self {
             Self::SystemD(action) => action.get_status(),
+        }
+    }
+    fn fail_allowed(&self) -> bool {
+        match self {
+            Self::SystemD(action) => action.fail_allowed(),
         }
     }
 }
