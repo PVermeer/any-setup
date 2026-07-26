@@ -16,10 +16,14 @@ fn main() -> Result<()> {
     println!("cargo:warning=Debug: App build script is running!");
     config::init();
     let app_dirs = AppDirs::new()?;
+    let is_in_dev_container =
+        option_env!("RUN_IN_VSCODE_DEVCONTAINER").is_some_and(|value| value == "true");
 
-    create_config_symlinks(&app_dirs);
-    create_data_symlinks(&app_dirs);
-    create_cache_symlinks(&app_dirs);
+    if cfg!(debug_assertions) && is_in_dev_container {
+        create_config_symlinks(&app_dirs);
+        create_data_symlinks(&app_dirs);
+        create_cache_symlinks(&app_dirs);
+    }
 
     install_app_desktop_file(&app_dirs)?;
     install_app_icon(&app_dirs)?;
