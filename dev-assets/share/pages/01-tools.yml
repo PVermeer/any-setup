@@ -55,3 +55,14 @@ groups:
               - some-package
             remove:
               - some-other-package
+
+      - type: switch
+        title: Rpm Ostree kargs
+        subtitle: Configure kargs
+        actions:
+          - action: rpmostree
+            type: kargs
+            add:
+              - some=karg
+            remove:
+              - some=karg
