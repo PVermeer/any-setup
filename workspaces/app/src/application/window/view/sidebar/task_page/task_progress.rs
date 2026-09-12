@@ -63,7 +63,7 @@ impl TaskProgress {
                         progress,
                         status,
                     } => {
-                        progress_bar_clone.set_fraction(progress.clone());
+                        progress_bar_clone.set_fraction(*progress);
                     }
                     TaskStatus::Failed { error: _ } | TaskStatus::Finished { results: _ } => {
                         progress_bar_clone.set_text(Some(&format!("{progress_bar_text} ({})", 0)));

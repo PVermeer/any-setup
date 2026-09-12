@@ -68,7 +68,7 @@ impl TaskUi {
     }
 
     fn set_error(&mut self, error: &str) {
-        self.task_row.set_subtitle(&error.to_string());
+        self.task_row.set_subtitle(error);
         self.task_row.add_css_class("error");
 
         self.success_icon.set_visible(false);

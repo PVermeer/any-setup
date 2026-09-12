@@ -162,7 +162,7 @@ impl SettingsPage {
                         let switch_row = SwitchRow::builder()
                             .title(&switch.title)
                             .active(action_state == ActionState::Done)
-                            // .sensitive(action_state == ActionState::Available)
+                            .sensitive(action_state == ActionState::Available)
                             .build();
                         if let Some(subtitle) = &switch.subtitle {
                             switch_row.set_subtitle(subtitle);

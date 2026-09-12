@@ -178,6 +178,9 @@ impl TaskViewPage {
 
                 TaskStatus::Failed { error } => {
                     self_clone.output_append_error(&error.to_string());
+                    if let Some(source_error) = error.source() {
+                        self_clone.output_append_error(&source_error.to_string());
+                    }
                     self_clone.set_error();
                 }
 
