@@ -7,6 +7,7 @@
     clippy::todo,
     clippy::panic
 )]
+#![deny(clippy::unwrap_used)]
 #![allow(clippy::cast_precision_loss)]
 #![allow(clippy::unused_self)]
 
