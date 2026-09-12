@@ -25,3 +25,33 @@ groups:
             scope: system
             unit: some-system.service
             fail_allowed: true
+
+          - action: systemd
+            type: disable
+            scope: user
+            unit: some-user.service
+            fail_allowed: true
+
+      - type: switch
+        title: Rpm Ostree layer
+        subtitle: Layer some packages
+        actions:
+          - action: rpmostree
+            type: install
+            fail_allowed: true
+            packages:
+              - some-package
+
+          - action: rpmostree
+            type: remove
+            fail_allowed: true
+            packages:
+              - some-package
+
+          - action: rpmostree
+            type: compound
+            fail_allowed: true
+            install:
+              - some-package
+            remove:
+              - some-other-package
