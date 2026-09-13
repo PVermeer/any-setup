@@ -50,14 +50,6 @@ groups:
             packages:
               - some-package
 
-          - action: rpmostree
-            type: compound
-            fail_allowed: true
-            install:
-              - some-package
-            remove:
-              - some-other-package
-
       - type: switch
         title: Rpm Ostree kargs
         subtitle: Configure kargs

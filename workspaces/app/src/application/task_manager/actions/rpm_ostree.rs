@@ -103,11 +103,6 @@ pub enum RpmOstreeAction {
         packages: Vec<String>,
         fail_allowed: Option<bool>,
     },
-    Compound {
-        install: Vec<String>,
-        remove: Vec<String>,
-        fail_allowed: Option<bool>,
-    },
     Kargs {
         add: Option<Vec<String>>,
         remove: Option<Vec<String>>,
@@ -121,16 +116,6 @@ impl Display for RpmOstreeAction {
             }
             Self::Remove { packages, .. } => {
                 write!(f, "Rpm Ostree removing: {}.", packages.join(","))
-            }
-            Self::Compound {
-                install, remove, ..
-            } => {
-                write!(
-                    f,
-                    "Rpm Ostree removing: {}.\nRpm Ostree installing {}.",
-                    install.join(","),
-                    remove.join(",")
-                )
             }
             Self::Kargs { add, remove, .. } => {
                 let mut fmt_string = String::new();
@@ -164,19 +149,6 @@ impl IsAction for RpmOstreeAction {
             Self::Remove { packages, .. } => {
                 let mut command = Command::new("rpm-ostree");
                 command.arg("remove").arg(packages.join(" "));
-
-                command
-            }
-
-            Self::Compound {
-                install, remove, ..
-            } => {
-                let mut command = Command::new("rpm-ostree");
-                command
-                    .arg("remove")
-                    .arg(remove.join(" "))
-                    .arg("--install")
-                    .arg(install.join(" "));
 
                 command
             }
@@ -225,9 +197,7 @@ impl IsAction for RpmOstreeAction {
 
     fn fail_allowed(&self) -> bool {
         match self {
-            Self::Install { fail_allowed, .. }
-            | Self::Remove { fail_allowed, .. }
-            | Self::Compound { fail_allowed, .. } => {
+            Self::Install { fail_allowed, .. } | Self::Remove { fail_allowed, .. } => {
                 fail_allowed.is_some_and(|fail_allowed| fail_allowed)
             }
             Self::Kargs { .. } => false,
@@ -249,16 +219,6 @@ impl IsAction for RpmOstreeAction {
                 fail_allowed,
             } => Self::Install {
                 packages,
-                fail_allowed,
-            },
-
-            Self::Compound {
-                install,
-                remove,
-                fail_allowed,
-            } => Self::Compound {
-                install: remove,
-                remove: install,
                 fail_allowed,
             },
 
@@ -290,30 +250,6 @@ impl RpmOstreeAction {
                 RpmCommands {
                     install: None,
                     remove: Some(command),
-                    kargs: None,
-                }
-            }
-
-            Self::Compound {
-                install,
-                remove,
-                fail_allowed,
-            } => {
-                let install_command = Self::Install {
-                    packages: install.to_owned(),
-                    fail_allowed: *fail_allowed,
-                }
-                .get_check_commands();
-
-                let remove_command = Self::Remove {
-                    packages: remove.to_owned(),
-                    fail_allowed: *fail_allowed,
-                }
-                .get_check_commands();
-
-                RpmCommands {
-                    install: install_command.install,
-                    remove: remove_command.remove,
                     kargs: None,
                 }
             }
@@ -392,21 +328,6 @@ mod tests {
         let commands = action.get_check_commands();
 
         assert!(commands.install.is_none());
-        assert!(commands.remove.is_some());
-        assert!(commands.kargs.is_none());
-    }
-
-    #[test]
-    fn compound_action_creates_install_and_remove_checks() {
-        let action = RpmOstreeAction::Compound {
-            install: Vec::from(["foo".to_string()]),
-            remove: Vec::from(["bar".to_string()]),
-            fail_allowed: Some(false),
-        };
-
-        let commands = action.get_check_commands();
-
-        assert!(commands.install.is_some());
         assert!(commands.remove.is_some());
         assert!(commands.kargs.is_none());
     }

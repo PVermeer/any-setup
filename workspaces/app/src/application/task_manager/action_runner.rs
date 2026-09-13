@@ -7,7 +7,6 @@ use std::{
     hash::{DefaultHasher, Hash, Hasher},
     io::{BufRead, BufReader},
     process::{Command, Output, Stdio},
-    time::Duration,
 };
 use tracing::debug;
 
