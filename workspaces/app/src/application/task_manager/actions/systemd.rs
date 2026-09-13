@@ -244,6 +244,7 @@ mod tests {
         SystemdAction::Enable {
             unit: "some-unit".to_string(),
             scope: Scope::User,
+            now: Some(true),
             fail_allowed: Some(false),
         }
     }
@@ -252,8 +253,17 @@ mod tests {
         SystemdAction::Disable {
             unit: "some-unit".to_string(),
             scope: Scope::User,
+            now: Some(true),
             fail_allowed: Some(false),
         }
+    }
+
+    fn command_args(action: &SystemdAction) -> Vec<String> {
+        action
+            .get_command()
+            .get_args()
+            .map(|arg| arg.to_string_lossy().into_owned())
+            .collect()
     }
 
     #[test]
@@ -262,6 +272,7 @@ mod tests {
             type: enable
             unit: some-unit
             scope: user
+            now: true
             fail_allowed: false
             ";
 
@@ -272,9 +283,16 @@ mod tests {
             SystemdAction::Enable {
                 unit: "some-unit".to_string(),
                 scope: Scope::User,
+                now: Some(true),
                 fail_allowed: Some(false),
             }
         );
+        assert_eq!(
+            command_args(&action),
+            vec!["--user", "enable", "--now", "some-unit"]
+        );
+        assert!(!action.fail_allowed());
+        assert!(!action.needs_elevation());
     }
 
     #[test]
@@ -283,6 +301,7 @@ mod tests {
             type: disable
             unit: some-unit
             scope: system
+            now: false
             fail_allowed: true
             ";
 
@@ -293,13 +312,20 @@ mod tests {
             SystemdAction::Disable {
                 unit: "some-unit".to_string(),
                 scope: Scope::System,
+                now: Some(false),
                 fail_allowed: Some(true),
             }
         );
+        assert_eq!(
+            command_args(&action),
+            vec!["--system", "disable", "some-unit"]
+        );
+        assert!(action.fail_allowed());
+        assert!(action.needs_elevation());
     }
 
     #[test]
-    fn serde_yaml_parses_missing_fail_allowed() {
+    fn serde_yaml_parses_optional_values() {
         let yaml = r"
             type: enable
             unit: some-unit
@@ -313,9 +339,16 @@ mod tests {
             SystemdAction::Enable {
                 unit: "some-unit".to_string(),
                 scope: Scope::User,
+                now: None,
                 fail_allowed: None,
             }
         );
+        assert_eq!(
+            command_args(&action),
+            vec!["--user", "enable", "--now", "some-unit"]
+        );
+        assert!(!action.fail_allowed());
+        assert!(!action.needs_elevation());
     }
 
     #[test]
