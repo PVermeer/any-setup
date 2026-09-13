@@ -131,11 +131,13 @@ pub enum SystemdAction {
     Enable {
         unit: String,
         scope: Scope,
+        now: Option<bool>,
         fail_allowed: Option<bool>,
     },
     Disable {
         unit: String,
         scope: Scope,
+        now: Option<bool>,
         fail_allowed: Option<bool>,
     },
 }
@@ -158,24 +160,30 @@ impl Display for SystemdAction {
 impl IsAction for SystemdAction {
     fn get_command(&self) -> Command {
         match self {
-            Self::Enable { unit, scope, .. } => {
+            Self::Enable {
+                unit, scope, now, ..
+            } => {
                 let mut command = Command::new("systemctl");
-                command
-                    .arg(scope.to_arg())
-                    .arg("enable")
-                    .arg("--now")
-                    .arg(unit);
+                command.arg(scope.to_arg());
+                command.arg("enable");
+                if now.is_none_or(|now| now) {
+                    command.arg("--now");
+                }
+                command.arg(unit);
 
                 command
             }
 
-            Self::Disable { unit, scope, .. } => {
+            Self::Disable {
+                unit, scope, now, ..
+            } => {
                 let mut command = Command::new("systemctl");
-                command
-                    .arg(scope.to_arg())
-                    .arg("disable")
-                    .arg("--now")
-                    .arg(unit);
+                command.arg(scope.to_arg());
+                command.arg("disable");
+                if now.is_none_or(|now| now) {
+                    command.arg("--now");
+                }
+                command.arg(unit);
 
                 command
             }
