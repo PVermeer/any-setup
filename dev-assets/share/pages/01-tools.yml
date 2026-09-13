@@ -17,12 +17,14 @@ groups:
           - action: systemd
             type: enable
             scope: user
+            now: true
             unit: some-user.service
             fail_allowed: true
 
           - action: systemd
             type: enable
             scope: system
+            now: false
             unit: some-system.service
             fail_allowed: true
 

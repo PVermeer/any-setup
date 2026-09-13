@@ -29,6 +29,7 @@ pub trait IsAction: Display {
     fn needs_elevation(&self) -> bool;
     fn get_status(&self) -> Result<ActionState>;
     fn fail_allowed(&self) -> bool;
+    fn to_undo(&self) -> Self;
 }
 
 #[derive(Serialize, Deserialize, PartialEq, Hash, Clone, Debug)]
@@ -71,6 +72,13 @@ impl IsAction for Action {
         match self {
             Self::SystemD(action) => action.fail_allowed(),
             Self::RpmOstree(action) => action.fail_allowed(),
+        }
+    }
+
+    fn to_undo(&self) -> Self {
+        match self {
+            Self::SystemD(action) => Self::SystemD(action.to_undo()),
+            Self::RpmOstree(action) => Self::RpmOstree(action.to_undo()),
         }
     }
 }

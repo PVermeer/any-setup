@@ -233,6 +233,41 @@ impl IsAction for RpmOstreeAction {
             Self::Kargs { .. } => false,
         }
     }
+
+    fn to_undo(&self) -> Self {
+        match self.clone() {
+            Self::Install {
+                packages,
+                fail_allowed,
+            } => Self::Remove {
+                packages,
+                fail_allowed,
+            },
+
+            Self::Remove {
+                packages,
+                fail_allowed,
+            } => Self::Install {
+                packages,
+                fail_allowed,
+            },
+
+            Self::Compound {
+                install,
+                remove,
+                fail_allowed,
+            } => Self::Compound {
+                install: remove,
+                remove: install,
+                fail_allowed,
+            },
+
+            Self::Kargs { add, remove } => Self::Kargs {
+                add: remove,
+                remove: add,
+            },
+        }
+    }
 }
 impl RpmOstreeAction {
     fn get_check_commands(&self) -> RpmCommands {

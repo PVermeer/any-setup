@@ -1,12 +1,12 @@
 use crate::application::{
     pages::{DynPage, NavPage, Page, PrefNavPageBuild},
     task_manager::{
-        TaskManager,
+        TaskEvent, TaskManager, TaskStatus,
         action_runner::ActionRunner,
         actions::{Action, ActionState, IsAction},
     },
 };
-use gtk::InputPurpose;
+use gtk::{InputPurpose, prelude::WidgetExt};
 use libadwaita::{
     EntryRow, NavigationPage, NavigationView, PreferencesGroup, PreferencesPage, SwitchRow,
     prelude::{ActionRowExt, PreferencesGroupExt, PreferencesPageExt},
@@ -162,23 +162,44 @@ impl SettingsPage {
                         let switch_row = SwitchRow::builder()
                             .title(&switch.title)
                             .active(action_state == ActionState::Done)
-                            .sensitive(action_state == ActionState::Available)
+                            // .sensitive(action_state == ActionState::Available)
                             .build();
                         if let Some(subtitle) = &switch.subtitle {
                             switch_row.set_subtitle(subtitle);
                         }
 
                         let mut action_runner = ActionRunner::new(&switch.title);
+                        let mut action_runner_undo = action_runner.clone();
                         action_runner.add_many(&switch.actions);
+                        action_runner_undo
+                            .add_many(&switch.actions.iter().map(IsAction::to_undo).collect());
+                        action_runner_undo.set_undo(true);
 
                         let task_manager_clone = task_manager.clone();
+                        let handle_task_event =
+                            |event: &TaskEvent, switch_row: &SwitchRow| match event.status {
+                                TaskStatus::Finished { .. } | TaskStatus::Failed { .. } => {
+                                    switch_row.set_sensitive(true);
+                                }
+                                _ => {}
+                            };
 
                         switch_row.connect_active_notify(move |switch_row| {
+                            switch_row.set_sensitive(false);
+                            let switch_row_clone = switch_row.clone();
+
                             if switch_row.is_active() {
                                 let _ =
-                                    task_manager_clone.add(action_runner.clone(), |task_event| {
-                                        dbg!("Runner 1", task_event);
+                                    task_manager_clone.add(action_runner.clone(), move |event| {
+                                        handle_task_event(event, &switch_row_clone);
                                     });
+                            } else {
+                                let _ = task_manager_clone.add(
+                                    action_runner_undo.clone(),
+                                    move |event| {
+                                        handle_task_event(event, &switch_row_clone);
+                                    },
+                                );
                             }
                         });
 

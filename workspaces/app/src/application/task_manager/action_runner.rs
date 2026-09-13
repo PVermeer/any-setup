@@ -53,6 +53,7 @@ pub struct ActionRunner {
     queue: Vec<Action>,
     elevate: bool,
     is_elevated: bool,
+    is_undo: bool,
 }
 impl ActionRunner {
     pub fn new(name: &str) -> Self {
@@ -61,6 +62,7 @@ impl ActionRunner {
             queue: Vec::new(),
             elevate: false,
             is_elevated: false,
+            is_undo: false,
         }
     }
 
@@ -81,6 +83,10 @@ impl ActionRunner {
         let mut hasher = DefaultHasher::new();
         self.hash(&mut hasher);
         hasher.finish()
+    }
+
+    pub fn set_undo(&mut self, undo: bool) {
+        self.is_undo = undo;
     }
 
     pub fn run(self, on_progress: Option<&dyn Fn(&ActionProgress)>) -> Result<Vec<ActionResult>> {

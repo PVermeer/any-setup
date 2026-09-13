@@ -250,6 +250,34 @@ impl IsAction for SystemdAction {
             }
         }
     }
+
+    fn to_undo(&self) -> Self {
+        match self.clone() {
+            Self::Enable {
+                unit,
+                scope,
+                now,
+                fail_allowed,
+            } => Self::Disable {
+                unit,
+                scope,
+                now,
+                fail_allowed,
+            },
+
+            Self::Disable {
+                unit,
+                scope,
+                now,
+                fail_allowed,
+            } => Self::Enable {
+                unit,
+                scope,
+                now,
+                fail_allowed,
+            },
+        }
+    }
 }
 impl SystemdAction {
     fn get_check_command(&self) -> Command {
