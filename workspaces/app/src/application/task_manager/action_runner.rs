@@ -6,7 +6,7 @@ use serde_json::json;
 use std::{
     hash::{DefaultHasher, Hash, Hasher},
     io::{BufRead, BufReader},
-    process::{Command, Output, Stdio},
+    process::{Command, ExitStatus, Output, Stdio},
 };
 use tracing::debug;
 
@@ -18,7 +18,7 @@ pub struct ActionResult {
     pub stderr: String,
 }
 impl ActionResult {
-    fn from_output(action: &Action, output: &Output) -> Self {
+    pub fn from_output(action: &Action, output: &Output) -> Self {
         Self {
             action: action.clone(),
             success: output.status.success(),
@@ -127,8 +127,52 @@ impl ActionRunner {
                 );
             }
 
-            let mut command = action.get_command();
-            let output = command.output().context("Failed to run command")?;
+            let mut output = Output {
+                status: ExitStatus::default(),
+                stderr: Vec::new(),
+                stdout: Vec::new(),
+            };
+            output
+                .stdout
+                .extend_from_slice(format!("==== Running action {} ====\n", i + 1).as_bytes());
+
+            let command_output = action
+                .get_command()
+                .output()
+                .context("Failed to run action command")?;
+
+            output.stdout.extend(command_output.stdout);
+            output.stderr.extend(command_output.stderr);
+            output.status = command_output.status;
+
+            if !output.status.success()
+                && let Some(mut on_error_command) = action.on_error(&output)
+            {
+                output
+                    .stdout
+                    .extend_from_slice("\n== Running on_error command\n".as_bytes());
+
+                let on_error_output = on_error_command
+                    .output()
+                    .context("Failed to run on_error command")?;
+
+                output.stdout.extend(on_error_output.stdout);
+                output.stderr.extend(on_error_output.stderr);
+
+                output
+                    .stdout
+                    .extend_from_slice("\n== Retrying action command\n".as_bytes());
+
+                let retry_output = action
+                    .get_command()
+                    .output()
+                    .context("Failed to re-run action command")?;
+
+                output.stdout.extend(retry_output.stdout);
+                output.stderr.extend(retry_output.stderr);
+                output.status = retry_output.status;
+            }
+
             let action_result = ActionResult::from_output(action, &output);
 
             progress = (i + 1) as f64 * queue_factor;

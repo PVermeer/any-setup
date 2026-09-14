@@ -4,7 +4,10 @@ pub mod systemd;
 use anyhow::Result;
 use rpm_ostree::RpmOstreeAction;
 use serde::{Deserialize, Serialize};
-use std::{fmt::Display, process::Command};
+use std::{
+    fmt::Display,
+    process::{Command, Output},
+};
 use systemd::SystemdAction;
 
 #[derive(Default, PartialEq, Debug)]
@@ -30,6 +33,7 @@ pub trait IsAction: Display {
     fn get_status(&self) -> Result<ActionState>;
     fn fail_allowed(&self) -> bool;
     fn to_undo(&self) -> Self;
+    fn on_error(&self, output: &Output) -> Option<Command>;
 }
 
 #[derive(Serialize, Deserialize, PartialEq, Hash, Clone, Debug)]
@@ -79,6 +83,13 @@ impl IsAction for Action {
         match self {
             Self::SystemD(action) => Self::SystemD(action.to_undo()),
             Self::RpmOstree(action) => Self::RpmOstree(action.to_undo()),
+        }
+    }
+
+    fn on_error(&self, output: &Output) -> Option<Command> {
+        match self {
+            Self::SystemD(action) => action.on_error(output),
+            Self::RpmOstree(action) => action.on_error(output),
         }
     }
 }

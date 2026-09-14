@@ -42,13 +42,13 @@ groups:
             type: install
             fail_allowed: true
             packages:
-              - some-package
+              - some-package-install
 
           - action: rpmostree
             type: remove
             fail_allowed: true
             packages:
-              - some-package
+              - some-package-remove
 
       - type: switch
         title: Rpm Ostree kargs

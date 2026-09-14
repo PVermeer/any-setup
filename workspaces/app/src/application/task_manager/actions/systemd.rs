@@ -278,6 +278,10 @@ impl IsAction for SystemdAction {
             },
         }
     }
+
+    fn on_error(&self, _output: &std::process::Output) -> Option<Command> {
+        None
+    }
 }
 impl SystemdAction {
     fn get_check_command(&self) -> Command {

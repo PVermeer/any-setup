@@ -1,7 +1,10 @@
 use super::ActionState;
 use crate::application::task_manager::actions::IsAction;
 use anyhow::{Context, Result};
-use common::utils;
+use common::{
+    dbus_query::{self, DbusConnectionType, DbusPropertyQuery},
+    utils,
+};
 use serde::{Deserialize, Serialize};
 use std::fmt::Write;
 use std::{fmt::Display, process::Command};
@@ -226,6 +229,31 @@ impl IsAction for RpmOstreeAction {
                 add: remove,
                 remove: add,
             },
+        }
+    }
+
+    fn on_error(&self, _output: &std::process::Output) -> Option<Command> {
+        let rpm_ostree_is_idle = dbus_query::get_property::<String>(DbusPropertyQuery {
+            connection_type: DbusConnectionType::System,
+            destination: "org.projectatomic.rpmostree1",
+            path: "/org/projectatomic/rpmostree1/Sysroot",
+            interface: "org.projectatomic.rpmostree1.Sysroot",
+            property: "ActiveTransactionPath",
+        })
+        .map(|property| property.is_empty())
+        .ok()?;
+
+        if rpm_ostree_is_idle {
+            return None;
+        }
+
+        match self {
+            Self::Install { .. } | Self::Remove { .. } | Self::Kargs { .. } => {
+                let mut command = Command::new("rpm-ostree");
+                command.arg("cancel");
+
+                Some(command)
+            }
         }
     }
 }
