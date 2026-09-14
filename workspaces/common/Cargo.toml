@@ -5,6 +5,7 @@ edition = { workspace = true }
 
 [dependencies]
 anyhow = { workspace = true }
+dbus = { workspace = true }
 freedesktop-desktop-entry = { workspace = true }
 gtk = { workspace = true }
 include_dir = { workspace = true }

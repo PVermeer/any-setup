@@ -16,5 +16,6 @@ pub mod app_dirs;
 pub mod assets;
 pub mod cache_settings;
 pub mod config;
+pub mod dbus_query;
 pub mod desktop_assets;
 pub mod utils;

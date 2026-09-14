@@ -14,10 +14,11 @@ homepage = "https://github.com/pvermeer/any-setup"
 documentation = "https://github.com/pvermeer/any-setup"
 
 [workspace.dependencies]
+anyhow = "1.0.102"
 async-channel = "2.5.0"
 clap = { version = "4.6.1", features = ["derive"] }
+dbus = "0.9.12"
 common = { path = "workspaces/common" }
-anyhow = "1.0.102"
 freedesktop-desktop-entry = "0.8.1"
 gtk = { version = "0.11.2", features = ["v4_10"], package = "gtk4" }
 include_dir = "0.7.4"
