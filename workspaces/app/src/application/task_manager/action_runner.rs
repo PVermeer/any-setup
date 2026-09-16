@@ -1,11 +1,16 @@
 use crate::application::task_manager::actions::{Action, IsAction};
 use anyhow::{Context, Result, bail};
-use common::utils;
+use common::{
+    dbus_query::{self, DbusConnectionType},
+    utils,
+};
 use serde::{Deserialize, Serialize};
 use serde_json::json;
 use std::{
+    collections::HashMap,
     hash::{DefaultHasher, Hash, Hasher},
     io::{BufRead, BufReader},
+    os::unix::process::CommandExt,
     process::{Command, ExitStatus, Output, Stdio},
 };
 use tracing::debug;
@@ -46,23 +51,65 @@ pub enum ActionJsonMessage {
     ActionProgress(ActionProgress),
 }
 
-#[derive(Serialize, Deserialize, Hash, Clone, Debug)]
+#[derive(Serialize, Deserialize, Clone, Debug)]
+struct UserExecutionContext {
+    user_id: u32,
+    environment: HashMap<String, String>,
+}
+impl UserExecutionContext {
+    fn new() -> Result<Self> {
+        let environment = HashMap::from([
+            (
+                "XDG_RUNTIME_DIR".to_string(),
+                utils::env::get_user_runtime_dir(),
+            ),
+            (
+                "DBUS_SESSION_BUS_ADDRESS".to_string(),
+                dbus_query::get_address(&DbusConnectionType::Session)?,
+            ),
+        ]);
+
+        Ok(Self {
+            user_id: utils::env::get_user_id(),
+            environment,
+        })
+    }
+
+    fn apply_to(&self, command: &mut Command) {
+        command.uid(self.user_id).envs(&self.environment);
+    }
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct ActionRunner {
     pub name: String,
     queue: Vec<Action>,
     elevate: bool,
     is_elevated: bool,
     is_undo: bool,
+    user_context: UserExecutionContext,
+}
+impl Hash for ActionRunner {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        self.name.hash(state);
+        self.queue.hash(state);
+        self.elevate.hash(state);
+        self.is_elevated.hash(state);
+        self.is_undo.hash(state);
+    }
 }
 impl ActionRunner {
-    pub fn new(name: &str) -> Self {
-        Self {
+    pub fn new(name: &str) -> Result<Self> {
+        let user_context = UserExecutionContext::new()?;
+
+        Ok(Self {
             name: name.to_string(),
             queue: Vec::new(),
             elevate: false,
             is_elevated: false,
             is_undo: false,
-        }
+            user_context,
+        })
     }
 
     pub fn add(&mut self, action: &Action) {
@@ -136,10 +183,13 @@ impl ActionRunner {
                 .stdout
                 .extend_from_slice(format!("==== Running action {} ====\n", i + 1).as_bytes());
 
-            let command_output = action
-                .get_command()
-                .output()
-                .context("Failed to run action command")?;
+            let mut command = action.get_command();
+
+            if self.is_elevated && !action.needs_elevation() {
+                self.user_context.apply_to(&mut command);
+            }
+
+            let command_output = command.output().context("Failed to run action command")?;
 
             output.stdout.extend(command_output.stdout);
             output.stderr.extend(command_output.stderr);

@@ -20,6 +20,16 @@ pub struct DbusPropertyQuery<'a> {
     pub property: &'a str,
 }
 
+pub fn get_address(connection_type: &DbusConnectionType) -> Result<String> {
+    match connection_type {
+        DbusConnectionType::System => std::env::var("DBUS_SESSION_BUS_ADDRESS")
+            .context("DBUS_SESSION_BUS_ADDRESS environment variable is not defined"),
+
+        DbusConnectionType::Session => std::env::var("DBUS_SYSTEM_BUS_ADDRESS")
+            .or(Ok("unix:path=/var/run/dbus/system_bus_socket".into())),
+    }
+}
+
 #[tracing::instrument(err)]
 pub fn get_property<T>(query: DbusPropertyQuery) -> Result<T>
 where

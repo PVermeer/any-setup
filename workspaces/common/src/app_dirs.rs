@@ -12,6 +12,7 @@ pub struct AppDirs {
     pub user_data: PathBuf,
     pub user_config: PathBuf,
     pub user_cache: PathBuf,
+    pub user_runtime: PathBuf,
     pub system_data_dir: Option<PathBuf>,
     pub system_data_pages_dir: Option<PathBuf>,
 }
@@ -23,6 +24,7 @@ impl AppDirs {
         let user_data = glib::user_data_dir();
         let user_config = glib::user_config_dir();
         let user_cache = glib::user_cache_dir();
+        let user_runtime = glib::user_runtime_dir();
 
         let mut system_data_dir = glib::system_data_dirs()
             .into_iter()
@@ -39,6 +41,7 @@ impl AppDirs {
             user_data,
             user_config,
             user_cache,
+            user_runtime,
             system_data_dir,
             system_data_pages_dir,
         }))

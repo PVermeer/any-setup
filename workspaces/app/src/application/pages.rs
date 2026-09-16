@@ -8,6 +8,7 @@ use crate::application::{
     App,
     pages::{fallback::FallbackPage, page_config::PageYaml},
 };
+use anyhow::{Context, Result};
 use common::{app_dirs::AppDirs, utils};
 use gtk::{Orientation, ScrolledWindow};
 use libadwaita::{
@@ -23,10 +24,10 @@ pub struct Pages {
     pages: Vec<Page>,
 }
 impl Pages {
-    pub fn new(app_dirs: &Rc<AppDirs>, task_manager: &Rc<TaskManager>) -> Self {
-        let pages = Self::load_page_configs(app_dirs, task_manager);
+    pub fn new(app_dirs: &Rc<AppDirs>, task_manager: &Rc<TaskManager>) -> Result<Self> {
+        let pages = Self::load_page_configs(app_dirs, task_manager)?;
 
-        Self { pages }
+        Ok(Self { pages })
     }
 
     pub fn init(&self, app: &Rc<App>) {
@@ -41,7 +42,10 @@ impl Pages {
         self.pages.first()
     }
 
-    fn load_page_configs(app_dirs: &Rc<AppDirs>, task_manager: &Rc<TaskManager>) -> Vec<Page> {
+    fn load_page_configs(
+        app_dirs: &Rc<AppDirs>,
+        task_manager: &Rc<TaskManager>,
+    ) -> Result<Vec<Page>> {
         let mut pages: Vec<Page> = Vec::new();
 
         if let Some(pages_dir) = &app_dirs.system_data_pages_dir
@@ -67,16 +71,26 @@ impl Pages {
                     }
                 };
 
-                let page = page_yaml.into_page(task_manager);
+                let page = match page_yaml
+                    .into_page(task_manager)
+                    .context("Failed to create page from yaml")
+                {
+                    Ok(page) => page,
+                    Err(error) => {
+                        error!(?error);
+                        continue;
+                    }
+                };
+
                 pages.push(page);
             }
         }
 
         if pages.is_empty() {
-            pages.push(FallbackPage::new().build_page(task_manager));
+            pages.push(FallbackPage::new().build_page(task_manager)?);
         }
 
-        pages
+        Ok(pages)
     }
 }
 
@@ -181,5 +195,5 @@ pub trait NavPage {
 }
 
 pub trait DynPage: NavPage {
-    fn build_page(self, task_manager: &Rc<TaskManager>) -> Page;
+    fn build_page(self, task_manager: &Rc<TaskManager>) -> Result<Page>;
 }

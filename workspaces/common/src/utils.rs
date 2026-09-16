@@ -66,6 +66,7 @@ pub mod files {
 
 pub mod env {
     use anyhow::Context;
+    use gtk::glib;
     use std::{env, str::FromStr};
     use tracing::Level;
 
@@ -102,6 +103,18 @@ pub mod env {
                 .next()
                 .map(std::string::ToString::to_string)
         })
+    }
+
+    pub fn get_user_id() -> u32 {
+        unsafe extern "C" {
+            fn getuid() -> u32;
+        }
+
+        unsafe { getuid() }
+    }
+
+    pub fn get_user_runtime_dir() -> String {
+        glib::user_runtime_dir().to_string_lossy().to_string()
     }
 }
 

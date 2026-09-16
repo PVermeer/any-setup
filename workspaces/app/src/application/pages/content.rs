@@ -1,5 +1,6 @@
 use super::{ContentNavPageBuild, DynPage, NavPage, Page};
 use crate::application::task_manager::TaskManager;
+use anyhow::Result;
 use gtk::{
     Align, Image, Justification, Label, Orientation,
     prelude::{BoxExt, WidgetExt},
@@ -50,7 +51,7 @@ pub struct ContentPage {
     content_box: gtk::Box,
 }
 impl DynPage for ContentPage {
-    fn build_page(mut self, _task_manager: &Rc<TaskManager>) -> Page {
+    fn build_page(mut self, _task_manager: &Rc<TaskManager>) -> Result<Page> {
         let ContentNavPageBuild {
             nav_page,
             toolbar,
@@ -61,7 +62,7 @@ impl DynPage for ContentPage {
         self.content_box = content;
         self.build();
 
-        Rc::new(self)
+        Ok(Rc::new(self))
     }
 }
 impl NavPage for ContentPage {

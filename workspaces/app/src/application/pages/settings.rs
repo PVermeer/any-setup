@@ -6,6 +6,7 @@ use crate::application::{
         actions::{Action, ActionState, IsAction},
     },
 };
+use anyhow::{Context, Result};
 use gtk::{InputPurpose, prelude::WidgetExt};
 use libadwaita::{
     EntryRow, NavigationPage, NavigationView, PreferencesGroup, PreferencesPage, SwitchRow,
@@ -106,7 +107,7 @@ pub struct SettingsPage {
     prefs_page: PreferencesPage,
 }
 impl DynPage for SettingsPage {
-    fn build_page(mut self, task_manager: &Rc<TaskManager>) -> Page {
+    fn build_page(mut self, task_manager: &Rc<TaskManager>) -> Result<Page> {
         let PrefNavPageBuild {
             nav_page,
             nav_view,
@@ -116,9 +117,10 @@ impl DynPage for SettingsPage {
         self.nav_view = nav_view;
         self.prefs_page = prefs_page;
 
-        self.build(task_manager);
+        self.build(task_manager)
+            .context("Failed to build Setttings Page")?;
 
-        Rc::new(self)
+        Ok(Rc::new(self))
     }
 }
 impl NavPage for SettingsPage {
@@ -135,7 +137,7 @@ impl NavPage for SettingsPage {
     }
 }
 impl SettingsPage {
-    fn build(&self, task_manager: &Rc<TaskManager>) {
+    fn build(&self, task_manager: &Rc<TaskManager>) -> Result<()> {
         for group in &self.groups {
             let pref_group = PreferencesGroup::builder().build();
 
@@ -168,7 +170,7 @@ impl SettingsPage {
                             switch_row.set_subtitle(subtitle);
                         }
 
-                        let mut action_runner = ActionRunner::new(&switch.title);
+                        let mut action_runner = ActionRunner::new(&switch.title)?;
                         let mut action_runner_undo = action_runner.clone();
                         action_runner.add_many(&switch.actions);
                         action_runner_undo
@@ -210,5 +212,7 @@ impl SettingsPage {
 
             self.prefs_page.add(&pref_group);
         }
+
+        Ok(())
     }
 }

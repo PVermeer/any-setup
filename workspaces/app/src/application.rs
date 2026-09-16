@@ -41,7 +41,8 @@ impl App {
             );
             let window = AppWindow::new(adw_application);
             let task_manager = TaskManager::new();
-            let pages = Pages::new(&app_dirs, &task_manager);
+            let pages =
+                Pages::new(&app_dirs, &task_manager).expect("Failed to create config pages");
             let error_dialog = ErrorDialog::new();
 
             Self::set_theme_settings(&settings);
