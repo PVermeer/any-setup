@@ -177,7 +177,10 @@ impl IsAction for RpmOstreeAction {
     }
 
     fn needs_elevation(&self) -> bool {
-        false
+        match self {
+            Self::Install { .. } | Self::Remove { .. } => false,
+            Self::Kargs { .. } => true,
+        }
     }
 
     fn get_status(&self) -> Result<ActionState> {
