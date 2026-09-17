@@ -55,7 +55,7 @@ impl TaskProgress {
                 )));
 
                 match &event.status {
-                    TaskStatus::Started => {}
+                    TaskStatus::Added | TaskStatus::Started => {}
                     TaskStatus::Progress {
                         action,
                         action_nr,

@@ -60,3 +60,12 @@ groups:
               - some=karg
             remove:
               - some=karg
+
+          - action: rpmostree
+            type: kargs
+            add:
+              - some=karg
+          - action: rpmostree
+            type: kargs
+            remove:
+              - some=karg

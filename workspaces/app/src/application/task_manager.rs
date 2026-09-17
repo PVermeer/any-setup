@@ -3,7 +3,7 @@ pub mod actions;
 pub mod elevated_action_runner;
 
 use action_runner::{ActionResult, ActionRunner, ActionStatus};
-use anyhow::{Error, Result, anyhow, bail};
+use anyhow::{Context, Error, Result, bail};
 use async_channel::{Receiver, Sender};
 use gtk::glib::{self};
 use rand::{
@@ -34,6 +34,7 @@ impl Display for Task {
 
 #[derive(Clone, Debug)]
 pub enum TaskStatus {
+    Added,
     Started,
     Progress {
         action: Option<String>,
@@ -58,6 +59,22 @@ pub struct TaskEvent {
     pub tasks_in_queue: u32,
 }
 impl TaskEvent {
+    fn new(
+        id: u64,
+        run_id: String,
+        name: String,
+        status: TaskStatus,
+        task_receiver: &Receiver<Task>,
+    ) -> Self {
+        Self {
+            id,
+            run_id,
+            name,
+            status,
+            tasks_in_queue: u32::try_from(task_receiver.len()).unwrap_or_default(),
+        }
+    }
+
     pub fn with_status(&self, status: TaskStatus) -> Self {
         let mut self_clone = self.clone();
         self_clone.status = status;
@@ -85,6 +102,8 @@ impl std::fmt::Debug for Listener {
 
 pub struct TaskManager {
     task_sender: Sender<Task>,
+    task_receiver: Receiver<Task>,
+    event_sender: Sender<TaskEvent>,
     event_receiver: Receiver<TaskEvent>,
     active_tasks: Rc<RefCell<HashSet<u64>>>,
     listeners: Rc<RefCell<Vec<Listener>>>,
@@ -94,10 +113,12 @@ impl TaskManager {
         let (task_sender, task_receiver) = async_channel::unbounded();
         let (event_sender, event_receiver) = async_channel::unbounded();
 
-        Self::run_actions_thread(task_receiver, event_sender);
+        Self::run_actions_thread(task_receiver.clone(), event_sender.clone());
 
         Rc::new(Self {
             task_sender,
+            task_receiver,
+            event_sender,
             event_receiver,
             active_tasks: Rc::new(RefCell::new(HashSet::new())),
             listeners: Rc::new(RefCell::new(Vec::new())),
@@ -137,13 +158,23 @@ impl TaskManager {
             callback: Rc::new(on_event),
         });
 
-        match self.task_sender.send_blocking(task) {
-            Ok(()) => Ok(run_id),
-            Err(error) => {
-                error!(name, %error, "Failed to run task");
-                Err(anyhow!(error.to_string()))
-            }
-        }
+        self.task_sender
+            .send_blocking(task)
+            .context("Failed to add task")
+            .inspect_err(|error| error!(%error))?;
+
+        self.event_sender
+            .send_blocking(TaskEvent::new(
+                id,
+                run_id.clone(),
+                name.clone(),
+                TaskStatus::Added,
+                &self.task_receiver.clone(),
+            ))
+            .context("Failed to send add task event")
+            .inspect_err(|error| error!(%error))?;
+
+        Ok(run_id)
     }
 
     pub fn listen<F: Fn(&TaskEvent) + 'static>(

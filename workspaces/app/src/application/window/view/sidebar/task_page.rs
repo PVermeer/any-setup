@@ -22,6 +22,7 @@ use tracing::error;
 pub struct TaskUi {
     task_row: ActionRow,
     run_id: String,
+    pending_icon: Image,
     success_icon: Image,
     fail_icon: Image,
     running_icon: Spinner,
@@ -30,17 +31,23 @@ pub struct TaskUi {
 impl TaskUi {
     fn from_event(task_event: &TaskEvent, nav_view: &NavigationView, app: &Rc<App>) -> Self {
         let id = task_event.run_id.clone();
-        let (task_row, success_icon, fail_icon, running_icon) =
+        let (task_row, pending_icon, success_icon, fail_icon, running_icon) =
             Self::build_task_row(app, task_event, nav_view);
 
         Self {
             task_row,
             run_id: id,
+            pending_icon,
             success_icon,
             fail_icon,
             running_icon,
             results: None,
         }
+    }
+
+    fn set_running(&mut self) {
+        self.pending_icon.set_visible(false);
+        self.running_icon.set_visible(true);
     }
 
     fn set_progress(&mut self, action: Option<&str>, action_nr: Option<i32>, total_actions: i32) {
@@ -80,10 +87,13 @@ impl TaskUi {
         app: &Rc<App>,
         task_event: &TaskEvent,
         nav_view: &NavigationView,
-    ) -> (ActionRow, Image, Image, Spinner) {
+    ) -> (ActionRow, Image, Image, Image, Spinner) {
         let title = &task_event.name;
         let task_row = ActionRow::builder().title(title).activatable(true).build();
 
+        let pending_icon = Image::builder()
+            .icon_name("content-loading-symbolic")
+            .build();
         let success_icon = Image::builder()
             .icon_name("object-select-symbolic")
             .css_classes(["success"])
@@ -94,9 +104,11 @@ impl TaskUi {
             .css_classes(["error"])
             .visible(false)
             .build();
-        let running_icon = Spinner::new();
+        let running_icon = Spinner::builder().visible(false).build();
 
         task_row.add_prefix(&Image::from_icon_name("system-run-symbolic"));
+
+        task_row.add_suffix(&pending_icon);
         task_row.add_suffix(&running_icon);
         task_row.add_suffix(&success_icon);
         task_row.add_suffix(&fail_icon);
@@ -110,7 +122,13 @@ impl TaskUi {
             nav_view_clone.push(details_page.get_navpage());
         });
 
-        (task_row, success_icon, fail_icon, running_icon)
+        (
+            task_row,
+            pending_icon,
+            success_icon,
+            fail_icon,
+            running_icon,
+        )
     }
 }
 
@@ -165,7 +183,9 @@ impl TaskPage {
 
         app.task_manager
             .listen(None, move |task_event| match &task_event.status {
-                TaskStatus::Started => self_clone.add_task(&app_clone, task_event),
+                TaskStatus::Added => self_clone.add_task(&app_clone, task_event),
+
+                TaskStatus::Started => self_clone.set_task_started(&task_event.run_id),
 
                 TaskStatus::Finished { results } => {
                     self_clone.set_task_results(&task_event.run_id, results);
@@ -202,6 +222,16 @@ impl TaskPage {
             }
             self.tasks_pref_group.add(&task.task_row);
         }
+    }
+
+    fn set_task_started(self: &Rc<Self>, id: &str) {
+        let mut tasks_borrow_mut = self.tasks.borrow_mut();
+        let Some(task) = tasks_borrow_mut.find_task_mut(id) else {
+            error!("Failed to get ui task by id for progress");
+            return;
+        };
+
+        task.set_running();
     }
 
     fn set_task_progress(

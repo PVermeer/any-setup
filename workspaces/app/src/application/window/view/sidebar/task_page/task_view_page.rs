@@ -170,7 +170,7 @@ impl TaskViewPage {
 
         app.task_manager.listen(Some(run_id), move |task_event| {
             match &task_event.status {
-                TaskStatus::Started => {} // Self is created from start event
+                TaskStatus::Added | TaskStatus::Started => {} // Self is created from start event
 
                 TaskStatus::Finished { results } => {
                     self_clone.set_results(results);
