@@ -171,11 +171,8 @@ impl SettingsPage {
                         }
 
                         let mut action_runner = ActionRunner::new(&switch.title)?;
-                        let mut action_runner_undo = action_runner.clone();
                         action_runner.add_many(&switch.actions);
-                        action_runner_undo
-                            .add_many(&switch.actions.iter().map(IsAction::to_undo).collect());
-                        action_runner_undo.set_undo(true);
+                        let action_runner_undo = action_runner.to_undo();
 
                         let task_manager_clone = task_manager.clone();
                         let handle_task_event =

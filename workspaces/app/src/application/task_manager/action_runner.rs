@@ -131,8 +131,17 @@ impl ActionRunner {
         hasher.finish()
     }
 
-    pub fn set_undo(&mut self, undo: bool) {
-        self.is_undo = undo;
+    pub fn to_undo(&self) -> Self {
+        let mut self_clone = self.clone();
+        self_clone.queue = self_clone
+            .queue
+            .iter()
+            .map(|action| action.to_undo())
+            .collect();
+
+        self_clone.is_undo = true;
+
+        self_clone
     }
 
     pub fn run(self, on_progress: Option<&dyn Fn(&ActionProgress)>) -> Result<Vec<ActionResult>> {
