@@ -9,7 +9,7 @@ use gtk::{
     prelude::{TextBufferExt, TextBufferExtManual, TextTagExt, TextViewExt, WidgetExt},
 };
 use libadwaita::{
-    ActionRow, NavigationPage, PreferencesGroup, PreferencesPage, PreferencesRow, Spinner,
+    ActionRow, NavigationPage, PreferencesGroup, PreferencesRow, Spinner,
     prelude::{ActionRowExt, PreferencesGroupExt, PreferencesPageExt, PreferencesRowExt},
 };
 use std::{fmt::Display, rc::Rc};
@@ -43,8 +43,6 @@ impl TextBufferTag {
 pub struct TaskViewPage {
     run_id: String,
     nav_page: NavigationPage,
-    prefs_page: PreferencesPage,
-    status_prefs_group: PreferencesGroup,
     task_progress: TaskProgress,
     status_row: ActionRow,
     status_running_icon: Spinner,
@@ -97,8 +95,6 @@ impl TaskViewPage {
         Rc::new(Self {
             run_id: id,
             nav_page,
-            prefs_page,
-            status_prefs_group,
             task_progress,
             status_row,
             status_running_icon,
@@ -189,20 +185,14 @@ impl TaskViewPage {
                     action_nr,
                     total_actions,
                     progress: _,
-                    status: _,
-                } => self_clone.set_progress(
-                    &task_event.run_id,
-                    action.as_deref(),
-                    *action_nr,
-                    *total_actions,
-                ),
+                    _status: _,
+                } => self_clone.set_progress(action.as_deref(), *action_nr, *total_actions),
             }
         });
     }
 
     fn set_progress(
         self: &Rc<Self>,
-        id: &str,
         action: Option<&str>,
         action_nr: Option<i32>,
         total_actions: i32,

@@ -1,6 +1,6 @@
 use crate::application::{
     pages::{DynPage, NavPage, NavPageBuild, Page},
-    task_manager::TaskManager,
+    task_manager::{TaskManager, user_execution_context::UserExecutionContext},
 };
 use anyhow::Result;
 use gtk::{Align, Justification, Label, Orientation, ScrolledWindow, prelude::BoxExt};
@@ -12,7 +12,11 @@ pub struct FallbackPage {
     icon: String,
 }
 impl DynPage for FallbackPage {
-    fn build_page(self, _task_manager: &Rc<TaskManager>) -> Result<Page> {
+    fn build_page(
+        self,
+        _task_manager: &Rc<TaskManager>,
+        _user_context: &UserExecutionContext,
+    ) -> Result<Page> {
         Ok(Rc::new(self))
     }
 }

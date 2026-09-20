@@ -95,7 +95,7 @@ impl RpmCommands {
     }
 }
 
-#[derive(Serialize, Deserialize, PartialEq, Hash, Clone, Debug)]
+#[derive(Serialize, Deserialize, Hash, Clone, Debug)]
 #[serde(tag = "type", rename_all = "lowercase")]
 pub enum RpmOstreeAction {
     Install {

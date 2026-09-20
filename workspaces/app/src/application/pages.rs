@@ -1,9 +1,13 @@
 mod content;
+mod content_yaml;
 mod fallback;
-mod page_config;
+pub mod page_config;
 mod settings;
+mod settings_yaml;
 
-use super::task_manager::TaskManager;
+use super::task_manager::{
+    TaskManager, action_runner::ActionRunner, user_execution_context::UserExecutionContext,
+};
 use crate::application::{
     App,
     pages::{fallback::FallbackPage, page_config::PageYaml},
@@ -15,17 +19,21 @@ use libadwaita::{
     Clamp, HeaderBar, NavigationPage, NavigationSplitView, NavigationView, PreferencesPage,
     ToolbarView, gtk::prelude::WidgetExt,
 };
-use std::rc::Rc;
-use tracing::error;
+use std::{collections::HashMap, rc::Rc, sync::Arc};
+use tracing::{debug, error};
 
 pub type Page = Rc<dyn DynPage>;
 
 pub struct Pages {
-    pages: Vec<Page>,
+    pub pages: Vec<Page>,
 }
 impl Pages {
-    pub fn new(app_dirs: &Rc<AppDirs>, task_manager: &Rc<TaskManager>) -> Result<Self> {
-        let pages = Self::load_page_configs(app_dirs, task_manager)?;
+    pub fn new(
+        app_dirs: &Rc<AppDirs>,
+        task_manager: &Rc<TaskManager>,
+        user_context: &UserExecutionContext,
+    ) -> Result<Self> {
+        let pages = Self::load_page_configs(app_dirs, task_manager, user_context)?;
 
         Ok(Self { pages })
     }
@@ -45,12 +53,15 @@ impl Pages {
     fn load_page_configs(
         app_dirs: &Rc<AppDirs>,
         task_manager: &Rc<TaskManager>,
+        user_context: &UserExecutionContext,
     ) -> Result<Vec<Page>> {
         let mut pages: Vec<Page> = Vec::new();
 
         if let Some(pages_dir) = &app_dirs.system_data_pages_dir
             && let Ok(mut pages_dir_entries) = utils::files::get_entries_in_dir(pages_dir)
         {
+            debug!(?pages_dir, "Loading page files");
+
             pages_dir_entries.sort_by_key(std::fs::DirEntry::file_name);
 
             for dir_entry in pages_dir_entries {
@@ -72,7 +83,7 @@ impl Pages {
                 };
 
                 let page = match page_yaml
-                    .into_page(task_manager)
+                    .into_page(task_manager, user_context)
                     .context("Failed to create page from yaml")
                 {
                     Ok(page) => page,
@@ -87,7 +98,7 @@ impl Pages {
         }
 
         if pages.is_empty() {
-            pages.push(FallbackPage::new().build_page(task_manager)?);
+            pages.push(FallbackPage::new().build_page(task_manager, user_context)?);
         }
 
         Ok(pages)
@@ -105,7 +116,7 @@ pub struct PrefNavPageBuild {
 }
 pub struct ContentNavPageBuild {
     pub nav_page: NavigationPage,
-    pub toolbar: ToolbarView,
+    pub _toolbar: ToolbarView,
     pub content: gtk::Box,
 }
 
@@ -188,12 +199,23 @@ pub trait NavPage {
 
         ContentNavPageBuild {
             nav_page,
-            toolbar,
+            _toolbar: toolbar,
             content: content_box,
         }
     }
 }
 
 pub trait DynPage: NavPage {
-    fn build_page(self, task_manager: &Rc<TaskManager>) -> Result<Page>;
+    fn build_page(
+        self,
+        task_manager: &Rc<TaskManager>,
+        user_context: &UserExecutionContext,
+    ) -> Result<Page>;
+}
+
+pub trait YamlPage {
+    fn get_action_runners(
+        &self,
+        user_context: &UserExecutionContext,
+    ) -> Result<HashMap<u64, Arc<ActionRunner>>>;
 }

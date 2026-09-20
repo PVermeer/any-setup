@@ -67,7 +67,7 @@ pub mod files {
 pub mod env {
     use anyhow::Context;
     use gtk::glib;
-    use std::{env, str::FromStr};
+    use std::{env, path::PathBuf, str::FromStr};
     use tracing::Level;
 
     pub fn get_log_level() -> Option<Level> {
@@ -105,6 +105,10 @@ pub mod env {
         })
     }
 
+    pub fn get_user_name() -> String {
+        glib::user_name().to_string_lossy().to_string()
+    }
+
     pub fn get_user_id() -> u32 {
         unsafe extern "C" {
             fn getuid() -> u32;
@@ -115,6 +119,10 @@ pub mod env {
 
     pub fn get_user_runtime_dir() -> String {
         glib::user_runtime_dir().to_string_lossy().to_string()
+    }
+
+    pub fn get_current_dir() -> PathBuf {
+        std::env::current_dir().unwrap_or(glib::current_dir())
     }
 }
 

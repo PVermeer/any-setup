@@ -200,7 +200,7 @@ impl TaskPage {
                     action_nr,
                     total_actions,
                     progress: _,
-                    status: _,
+                    _status: _,
                 } => self_clone.set_task_progress(
                     &task_event.run_id,
                     action.as_deref(),

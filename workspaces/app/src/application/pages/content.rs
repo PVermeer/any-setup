@@ -1,65 +1,27 @@
-use super::{ContentNavPageBuild, DynPage, NavPage, Page};
-use crate::application::task_manager::TaskManager;
+use super::{
+    ContentNavPageBuild, DynPage, NavPage, Page,
+    content_yaml::{Content, ContentPageYaml, Header, TextAlign},
+};
+use crate::application::task_manager::{TaskManager, user_execution_context::UserExecutionContext};
 use anyhow::Result;
 use gtk::{
     Align, Image, Justification, Label, Orientation,
     prelude::{BoxExt, WidgetExt},
 };
-use libadwaita::{NavigationPage, ToolbarView};
-use serde::Deserialize;
+use libadwaita::NavigationPage;
 use std::rc::Rc;
 
-#[derive(Deserialize, PartialEq, Default, Debug)]
-#[serde(rename_all = "lowercase")]
-pub enum TextAlign {
-    #[default]
-    Left,
-    Center,
-    Fill,
-}
-
-#[derive(PartialEq, Deserialize, Debug)]
-pub struct Header {
-    pub icon: Option<String>,
-    pub text: Option<String>,
-}
-
-#[derive(PartialEq, Deserialize, Debug)]
-pub struct Content {
-    #[serde(default)]
-    pub pango: bool,
-
-    #[serde(default)]
-    pub align: TextAlign,
-
-    pub text: String,
-}
-
-#[derive(PartialEq, Deserialize, Debug)]
 pub struct ContentPage {
-    title: String,
-    section: Option<String>,
-    icon: String,
-    header: Option<Header>,
-    contents: Option<Vec<Content>>,
-
-    #[serde(skip)]
+    yaml: ContentPageYaml,
     nav_page: NavigationPage,
-    #[serde(skip)]
-    toolbar: ToolbarView,
-    #[serde(skip)]
     content_box: gtk::Box,
 }
 impl DynPage for ContentPage {
-    fn build_page(mut self, _task_manager: &Rc<TaskManager>) -> Result<Page> {
-        let ContentNavPageBuild {
-            nav_page,
-            toolbar,
-            content,
-        } = Self::build_content_nav_page(&self.title);
-        self.nav_page = nav_page;
-        self.toolbar = toolbar;
-        self.content_box = content;
+    fn build_page(
+        mut self,
+        _task_manager: &Rc<TaskManager>,
+        _user_context: &UserExecutionContext,
+    ) -> Result<Page> {
         self.build();
 
         Ok(Rc::new(self))
@@ -71,21 +33,35 @@ impl NavPage for ContentPage {
     }
 
     fn get_section(&self) -> Option<&str> {
-        self.section.as_deref()
+        self.yaml.section.as_deref()
     }
 
     fn get_icon(&self) -> Option<&str> {
-        Some(&self.icon)
+        Some(&self.yaml.icon)
     }
 }
 impl ContentPage {
+    pub fn new(yaml: ContentPageYaml) -> Self {
+        let ContentNavPageBuild {
+            nav_page,
+            _toolbar,
+            content,
+        } = Self::build_content_nav_page(&yaml.title);
+
+        Self {
+            yaml,
+            nav_page,
+            content_box: content,
+        }
+    }
+
     fn build(&mut self) {
-        if let Some(header) = &self.header {
+        if let Some(header) = &self.yaml.header {
             let header_built = Self::build_header(header);
             self.content_box.append(&header_built);
         }
 
-        if let Some(contents) = &self.contents {
+        if let Some(contents) = &self.yaml.contents {
             let content_built = Self::build_content(contents);
             self.content_box.append(&content_built);
         }

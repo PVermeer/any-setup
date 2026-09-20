@@ -56,15 +56,11 @@ impl TaskProgress {
 
                 match &event.status {
                     TaskStatus::Added | TaskStatus::Started => {}
-                    TaskStatus::Progress {
-                        action,
-                        action_nr,
-                        total_actions,
-                        progress,
-                        status,
-                    } => {
+
+                    TaskStatus::Progress { progress, .. } => {
                         progress_bar_clone.set_fraction(*progress);
                     }
+
                     TaskStatus::Failed { error: _ } | TaskStatus::Finished { results: _ } => {
                         progress_bar_clone.set_text(Some(&format!("{progress_bar_text} ({})", 0)));
                     }

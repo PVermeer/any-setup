@@ -1,19 +1,17 @@
-use crate::application::task_manager::actions::{Action, IsAction};
+use super::user_execution_context::UserExecutionContext;
+use crate::application::{
+    pages::page_config::PageYaml,
+    task_manager::actions::{Action, IsAction},
+};
 use anyhow::{Context, Result, bail};
-use common::{
-    dbus_query::{self, DbusConnectionType},
-    utils,
-};
+use common::{app_dirs::AppDirs, utils};
 use serde::{Deserialize, Serialize};
-use serde_json::json;
 use std::{
-    collections::HashMap,
     hash::{DefaultHasher, Hash, Hasher},
-    io::{BufRead, BufReader},
-    os::unix::process::CommandExt,
-    process::{Command, ExitStatus, Output, Stdio},
+    process::{ExitStatus, Output},
+    sync::Arc,
 };
-use tracing::debug;
+use tracing::{debug, error};
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct ActionResult {
@@ -45,47 +43,12 @@ pub struct ActionProgress {
     pub progress: f64,
     pub status: ActionStatus,
 }
-#[derive(Serialize, Deserialize, Debug)]
-pub enum ActionJsonMessage {
-    ActionResults(Vec<ActionResult>),
-    ActionProgress(ActionProgress),
-}
 
-#[derive(Serialize, Deserialize, Clone, Debug)]
-struct UserExecutionContext {
-    user_id: u32,
-    environment: HashMap<String, String>,
-}
-impl UserExecutionContext {
-    fn new() -> Result<Self> {
-        let environment = HashMap::from([
-            (
-                "XDG_RUNTIME_DIR".to_string(),
-                utils::env::get_user_runtime_dir(),
-            ),
-            (
-                "DBUS_SESSION_BUS_ADDRESS".to_string(),
-                dbus_query::get_address(&DbusConnectionType::Session)?,
-            ),
-        ]);
-
-        Ok(Self {
-            user_id: utils::env::get_user_id(),
-            environment,
-        })
-    }
-
-    fn apply_to(&self, command: &mut Command) {
-        command.uid(self.user_id).envs(&self.environment);
-    }
-}
-
-#[derive(Serialize, Deserialize, Clone, Debug)]
+#[derive(Clone, Debug)]
 pub struct ActionRunner {
     pub name: String,
     queue: Vec<Action>,
     elevate: bool,
-    is_elevated: bool,
     is_undo: bool,
     user_context: UserExecutionContext,
 }
@@ -94,35 +57,65 @@ impl Hash for ActionRunner {
         self.name.hash(state);
         self.queue.hash(state);
         self.elevate.hash(state);
-        self.is_elevated.hash(state);
         self.is_undo.hash(state);
     }
 }
 impl ActionRunner {
-    pub fn new(name: &str) -> Result<Self> {
-        let user_context = UserExecutionContext::new()?;
-
-        Ok(Self {
+    pub fn new(name: &str, actions: &[Action], user_context: &UserExecutionContext) -> Arc<Self> {
+        Arc::new(Self {
             name: name.to_string(),
-            queue: Vec::new(),
-            elevate: false,
-            is_elevated: false,
+            queue: actions.to_vec(),
+            elevate: actions.iter().any(IsAction::needs_elevation),
             is_undo: false,
-            user_context,
+            user_context: user_context.clone(),
         })
     }
 
-    pub fn add(&mut self, action: &Action) {
-        if action.needs_elevation() {
-            self.elevate = true;
-        }
-        self.queue.push(action.clone());
-    }
+    pub fn from_id(
+        action_runner_id: u64,
+        user_context: &UserExecutionContext,
+    ) -> Result<Arc<Self>> {
+        let app_dirs = AppDirs::new()?;
 
-    pub fn add_many(&mut self, actions: &Vec<Action>) {
-        for action in actions {
-            self.add(action);
+        if let Some(pages_dir) = &app_dirs.system_data_pages_dir
+            && let Ok(pages_dir_entries) = utils::files::get_entries_in_dir(pages_dir)
+        {
+            for dir_entry in pages_dir_entries {
+                let path = dir_entry.path();
+
+                if path
+                    .extension()
+                    .is_none_or(|extension| extension != "yml" && extension != "yaml")
+                {
+                    continue;
+                }
+
+                let page_yaml = match PageYaml::from_file(&path) {
+                    Ok(page_yaml) => page_yaml,
+                    Err(error) => {
+                        error!(?error);
+                        continue;
+                    }
+                };
+
+                let action_runners = match page_yaml
+                    .into_action_runners(user_context)
+                    .context("Failed to create ActionRunners from yaml")
+                {
+                    Ok(action_runners) => action_runners,
+                    Err(error) => {
+                        error!(?error);
+                        continue;
+                    }
+                };
+
+                if let Some(action_runner) = action_runners.get(&action_runner_id) {
+                    return Ok(action_runner.clone());
+                }
+            }
         }
+
+        bail!("Failed to find the ActionRunner")
     }
 
     pub fn get_id(&self) -> u64 {
@@ -131,31 +124,21 @@ impl ActionRunner {
         hasher.finish()
     }
 
-    pub fn to_undo(&self) -> Self {
+    pub fn to_undo(&self) -> Arc<Self> {
         let mut self_clone = self.clone();
-        self_clone.queue = self_clone
-            .queue
-            .iter()
-            .map(|action| action.to_undo())
-            .collect();
+        self_clone.queue = self_clone.queue.iter().map(IsAction::to_undo).collect();
 
         self_clone.is_undo = true;
 
-        self_clone
+        Arc::new(self_clone)
     }
 
-    pub fn run(self, on_progress: Option<&dyn Fn(&ActionProgress)>) -> Result<Vec<ActionResult>> {
-        let results = if self.elevate && !self.is_elevated {
-            self.run_elevated(on_progress)
-        } else {
-            self.run_actions(on_progress)
-        };
-
-        results.context("Internal action-runner error")
+    pub fn needs_elevation(&self) -> bool {
+        self.elevate
     }
 
-    fn run_actions(
-        self,
+    pub fn run_actions(
+        &self,
         on_progress: Option<&dyn Fn(&ActionProgress)>,
     ) -> Result<Vec<ActionResult>> {
         let mut results = Vec::new();
@@ -176,12 +159,6 @@ impl ActionRunner {
             if let Some(on_progress) = &on_progress {
                 on_progress(&action_progress);
             }
-            if self.is_elevated {
-                println!(
-                    "{}",
-                    json!(ActionJsonMessage::ActionProgress(action_progress))
-                );
-            }
 
             let mut output = Output {
                 status: ExitStatus::default(),
@@ -194,7 +171,7 @@ impl ActionRunner {
 
             let mut command = action.get_command();
 
-            if self.is_elevated && !action.needs_elevation() {
+            if self.needs_elevation() && !action.needs_elevation() {
                 self.user_context.apply_to(&mut command);
             }
 
@@ -252,78 +229,7 @@ impl ActionRunner {
         if let Some(on_progress) = &on_progress {
             on_progress(&progress_finished);
         }
-        if self.is_elevated {
-            println!(
-                "{}",
-                json!(ActionJsonMessage::ActionProgress(progress_finished))
-            );
-        }
 
         Ok(results)
-    }
-
-    fn run_elevated(
-        mut self,
-        on_progress: Option<&dyn Fn(&ActionProgress)>,
-    ) -> Result<Vec<ActionResult>> {
-        debug!("Running actions elevated");
-
-        self.is_elevated = true;
-        let json = json!(&self).to_string();
-        self.is_elevated = false;
-
-        let current_exe = std::env::current_exe()?;
-        let mut command = "pkexec";
-        if utils::env::is_devcontainer() {
-            command = "sudo";
-        }
-
-        let mut command = Command::new(command);
-        command
-            .arg(current_exe)
-            .arg("action-runner")
-            .arg("--json")
-            .arg(json);
-
-        if let Some(on_progress) = on_progress {
-            let mut piped = command
-                .stdout(Stdio::piped())
-                .spawn()
-                .context("Failed to run command")?;
-
-            let stdout = piped.stdout.take().context("Failed to capture stdout")?;
-            let out_reader = BufReader::new(stdout);
-
-            let mut action_results = None;
-
-            for line in out_reader.lines() {
-                let line = line.context("Failed to read line from stdout buffer")?;
-                let json_parsed: ActionJsonMessage = serde_json::from_str(&line)?;
-
-                match json_parsed {
-                    ActionJsonMessage::ActionProgress(progress) => {
-                        on_progress(&progress);
-                    }
-                    ActionJsonMessage::ActionResults(results) => {
-                        action_results = Some(results);
-                    }
-                }
-            }
-
-            let Some(action_results) = action_results else {
-                bail!("No results recieved from elevated action-runner");
-            };
-
-            return Ok(action_results);
-        }
-
-        let output = command
-            .stdout(Stdio::piped())
-            .output()
-            .context("Failed to run command")?;
-
-        let action_results: Vec<ActionResult> = serde_json::from_slice(&output.stdout)?;
-
-        Ok(action_results)
     }
 }

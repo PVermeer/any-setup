@@ -6,7 +6,8 @@ use serde::{Deserialize, Serialize};
 use std::{fmt::Display, process::Command, str::FromStr};
 use tracing::{debug, error};
 
-#[derive(Serialize, Deserialize, PartialEq, Hash, Clone, Debug)]
+#[derive(Serialize, Deserialize, Hash, Clone, Debug)]
+#[cfg_attr(test, derive(PartialEq))]
 #[serde(rename_all = "lowercase")]
 pub enum Scope {
     System,
@@ -161,7 +162,8 @@ impl IsEnabledOutput {
     }
 }
 
-#[derive(Serialize, Deserialize, PartialEq, Hash, Clone, Debug)]
+#[derive(Serialize, Deserialize, Hash, Clone, Debug)]
+#[cfg_attr(test, derive(PartialEq))]
 #[serde(tag = "type", rename_all = "lowercase")]
 pub enum SystemdAction {
     Enable {
@@ -228,7 +230,9 @@ impl IsAction for SystemdAction {
 
     fn needs_elevation(&self) -> bool {
         match self {
-            Self::Enable { scope, .. } | Self::Disable { scope, .. } => *scope == Scope::System,
+            Self::Enable { scope, .. } | Self::Disable { scope, .. } => {
+                matches!(scope, Scope::System)
+            }
         }
     }
 

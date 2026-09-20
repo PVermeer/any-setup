@@ -1,6 +1,6 @@
 mod css_provider;
 mod error_dialog;
-mod pages;
+pub mod pages;
 pub mod task_manager;
 mod window;
 
@@ -16,7 +16,7 @@ use error_dialog::ErrorDialog;
 use gtk::{IconTheme, Image, Settings, gdk};
 use pages::{Page, Pages};
 use std::{cell::RefCell, rc::Rc};
-use task_manager::TaskManager;
+use task_manager::{TaskManager, user_execution_context::UserExecutionContext};
 use tracing::{debug, error};
 use window::AppWindow;
 
@@ -40,9 +40,10 @@ impl App {
                 CacheSettings::new(&app_dirs).expect("Failed to load cached settings"),
             );
             let window = AppWindow::new(adw_application);
-            let task_manager = TaskManager::new();
-            let pages =
-                Pages::new(&app_dirs, &task_manager).expect("Failed to create config pages");
+            let user_context = UserExecutionContext::new().expect("Failed to load UserContext");
+            let task_manager = TaskManager::new(&user_context);
+            let pages = Pages::new(&app_dirs, &task_manager, &user_context)
+                .expect("Failed to create config pages");
             let error_dialog = ErrorDialog::new();
 
             Self::set_theme_settings(&settings);
@@ -83,7 +84,7 @@ impl App {
         }
     }
 
-    pub fn get_icon(self: &Rc<Self>) -> Image {
+    pub fn _get_icon(self: &Rc<Self>) -> Image {
         Image::from_icon_name(config::APP_ID.get_value())
     }
 

@@ -10,7 +10,8 @@ use std::{
 };
 use systemd::SystemdAction;
 
-#[derive(Default, PartialEq, Debug)]
+#[derive(Default, Debug)]
+#[cfg_attr(test, derive(PartialEq))]
 pub enum ActionState {
     Done,
     Available,
@@ -36,7 +37,7 @@ pub trait IsAction: Display {
     fn on_error(&self, output: &Output) -> Option<Command>;
 }
 
-#[derive(Serialize, Deserialize, PartialEq, Hash, Clone, Debug)]
+#[derive(Serialize, Deserialize, Hash, Clone, Debug)]
 #[serde(tag = "action", rename_all = "lowercase")]
 pub enum Action {
     SystemD(SystemdAction),
