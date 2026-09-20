@@ -4,8 +4,9 @@ pub mod elevated_action_runner;
 pub mod user_execution_context;
 
 use action_runner::{ActionResult, ActionRunner, ActionStatus};
-use anyhow::{Error, Result, bail};
+use anyhow::{Error, Result, anyhow, bail};
 use async_channel::{Receiver, Sender};
+use common::utils;
 use elevated_action_runner::ElevatedActionRunner;
 use gtk::glib;
 use rand::{
@@ -13,12 +14,7 @@ use rand::{
     rng,
 };
 use std::{
-    cell::{OnceCell, RefCell},
-    collections::HashSet,
-    fmt::Display,
-    rc::Rc,
-    sync::Arc,
-    thread,
+    cell::RefCell, collections::HashSet, fmt::Display, rc::Rc, sync::Arc, thread, time::Duration,
 };
 use user_execution_context::UserExecutionContext;
 
@@ -35,6 +31,11 @@ impl Display for Task {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "{}", self.runner.name)
     }
+}
+
+enum ElevatedActionRunnerCommand {
+    EnsureStarted,
+    Run(Task),
 }
 
 #[derive(Clone, Debug)]
@@ -63,6 +64,7 @@ pub struct TaskEvent {
     pub name: String,
     pub status: TaskStatus,
     pub tasks_in_queue: u32,
+    task_receiver: Receiver<Task>,
 }
 
 impl TaskEvent {
@@ -79,13 +81,16 @@ impl TaskEvent {
             name,
             status,
             tasks_in_queue: u32::try_from(task_receiver.len()).unwrap_or_default(),
+            task_receiver: task_receiver.clone(),
         }
     }
 
     pub fn with_status(&self, status: TaskStatus) -> Self {
-        let mut event = self.clone();
-        event.status = status;
-        event
+        let mut self_clone = self.clone();
+        self_clone.status = status;
+        self_clone.tasks_in_queue =
+            u32::try_from(self_clone.task_receiver.len()).unwrap_or_default();
+        self_clone
     }
 }
 
@@ -111,40 +116,48 @@ impl std::fmt::Debug for Listener {
 pub struct TaskManager {
     task_sender: Sender<Task>,
     task_receiver: Receiver<Task>,
-
+    elevated_sender: Sender<ElevatedActionRunnerCommand>,
     event_sender: Sender<TaskEvent>,
     event_receiver: Receiver<TaskEvent>,
-
     active_tasks: Rc<RefCell<HashSet<u64>>>,
     listeners: Rc<RefCell<Vec<Listener>>>,
-
-    worker_started: OnceCell<bool>,
 }
-
 impl TaskManager {
     pub fn new(user_context: &UserExecutionContext) -> Rc<Self> {
         let (task_sender, task_receiver) = async_channel::unbounded();
-
+        let (elevated_sender, elevated_receiver) = async_channel::unbounded();
+        let (elevated_result_sender, elevated_result_receiver) = async_channel::unbounded();
         let (event_sender, event_receiver) = async_channel::unbounded();
 
-        Self::run_actions_thread(task_receiver.clone(), event_sender.clone(), user_context);
+        Self::run_actions_thread(
+            task_receiver.clone(),
+            elevated_sender.clone(),
+            elevated_result_receiver.clone(),
+            event_sender.clone(),
+        );
+
+        Self::run_elevated_thread(
+            elevated_receiver,
+            elevated_result_sender,
+            event_sender.clone(),
+            user_context,
+            &task_receiver,
+        );
 
         Rc::new(Self {
             task_sender,
             task_receiver,
+            elevated_sender,
             event_sender,
             event_receiver,
             active_tasks: Rc::new(RefCell::new(HashSet::new())),
             listeners: Rc::new(RefCell::new(Vec::new())),
-            worker_started: OnceCell::new(),
         })
     }
 
     pub fn init(self: &Rc<Self>) {
         self.connect_listeners();
         self.connect_active_tasks();
-
-        let _ = self.worker_started.set(true);
     }
 
     pub fn add<F>(self: &Rc<Self>, runner: &Arc<ActionRunner>, on_event: F) -> Result<String>
@@ -177,10 +190,20 @@ impl TaskManager {
             callback: Rc::new(on_event),
         });
 
+        if runner.needs_elevation() {
+            self.elevated_sender
+                .send_blocking(ElevatedActionRunnerCommand::EnsureStarted)
+                .map_err(|error| {
+                    let _ = self.active_tasks.borrow_mut().remove(&id);
+                    error!(?error, "Failed to request elevated runner startup");
+                    anyhow!("Failed to request elevated runner startup: {error}")
+                })?;
+        }
+
         self.task_sender.send_blocking(task).map_err(|error| {
             let _ = self.active_tasks.borrow_mut().remove(&id);
             error!(?error, "Failed to add task");
-            anyhow::anyhow!("Failed to add task: {error}")
+            anyhow!("Failed to add task: {error}")
         })?;
 
         self.event_sender
@@ -193,7 +216,7 @@ impl TaskManager {
             ))
             .map_err(|error| {
                 error!(?error, "Failed to send add task event");
-                anyhow::anyhow!("Failed to send add task event: {error}")
+                anyhow!("Failed to send add task event: {error}")
             })?;
 
         Ok(run_id)
@@ -215,22 +238,19 @@ impl TaskManager {
 
     fn run_actions_thread(
         task_receiver: Receiver<Task>,
+        elevated_sender: Sender<ElevatedActionRunnerCommand>,
+        elevated_result_receiver: Receiver<(String, Result<Vec<ActionResult>>)>,
         event_sender: Sender<TaskEvent>,
-        user_context: &UserExecutionContext,
     ) {
-        let user_context = user_context.clone();
-
         thread::spawn(move || {
-            let mut elevated_runner: Option<ElevatedActionRunner> = None;
-
             while let Ok(task) = task_receiver.recv_blocking() {
-                let task_event = TaskEvent {
-                    id: task.id,
-                    run_id: task.run_id.clone(),
-                    name: task.runner.name.clone(),
-                    status: TaskStatus::Started,
-                    tasks_in_queue: u32::try_from(task_receiver.len()).unwrap_or_default(),
-                };
+                let task_event = TaskEvent::new(
+                    task.id,
+                    task.run_id.clone(),
+                    task.runner.name.clone(),
+                    TaskStatus::Started,
+                    &task_receiver,
+                );
 
                 debug!(
                     task = %task,
@@ -239,54 +259,45 @@ impl TaskManager {
                 );
 
                 let result = if task.runner.needs_elevation() {
-                    if elevated_runner.is_none() {
-                        match ElevatedActionRunner::start(&user_context) {
-                            Ok(runner) => {
-                                elevated_runner = Some(runner);
-                            }
+                    let run_id = task.run_id.clone();
 
-                            Err(error) => {
-                                error!(?error, "Failed to start elevated runner");
+                    let _ = event_sender.send_blocking(task_event.with_status(TaskStatus::Started));
 
-                                let _ = event_sender.send_blocking(task_event.with_status(
-                                    TaskStatus::Failed {
-                                        error: Arc::new(error),
-                                    },
-                                ));
+                    if let Err(error) =
+                        elevated_sender.send_blocking(ElevatedActionRunnerCommand::Run(task))
+                    {
+                        error!(
+                            ?error,
+                            run_id = %run_id,
+                            "Failed to send task to elevated ActionRunner"
+                        );
 
-                                continue;
+                        Err(anyhow!(
+                            "Failed to send task to elevated ActionRunner: {error}"
+                        ))
+                    } else {
+                        loop {
+                            let Ok((result_run_id, result)) =
+                                elevated_result_receiver.recv_blocking()
+                            else {
+                                error!(
+                                    run_id = %run_id,
+                                    "Elevated runner stopped before returning a result"
+                                );
+
+                                break Err(anyhow!("Elevated runner stopped unexpectedly"));
+                            };
+
+                            if result_run_id == run_id {
+                                break result;
                             }
                         }
                     }
-                    let Some(elevated_runner) = elevated_runner.as_mut() else {
-                        continue;
-                    };
-
-                    let event_sender_clone = event_sender.clone();
-                    let task_event_clone = task_event.clone();
-
-                    elevated_runner.run_action_runner(
-                        &task.runner,
-                        &user_context,
-                        |action, action_nr, total_actions, progress, status| {
-                            let event =
-                                task_event_clone.clone().with_status(TaskStatus::Progress {
-                                    action,
-                                    action_nr,
-                                    total_actions,
-                                    progress,
-                                    _status: status,
-                                });
-
-                            let _ = event_sender_clone.send_blocking(event);
-                        },
-                    )
                 } else {
-                    let _ = event_sender
-                        .send_blocking(task_event.clone().with_status(TaskStatus::Started));
+                    let _ = event_sender.send_blocking(task_event.with_status(TaskStatus::Started));
 
                     task.runner.run_actions(Some(&|progress| {
-                        let event = task_event.clone().with_status(TaskStatus::Progress {
+                        let event = task_event.with_status(TaskStatus::Progress {
                             action: progress.action.clone(),
                             action_nr: progress.action_nr,
                             total_actions: progress.total_actions,
@@ -298,7 +309,11 @@ impl TaskManager {
                     }))
                 };
 
-                let message = match result {
+                if cfg!(debug_assertions) && utils::env::is_devcontainer() {
+                    std::thread::sleep(Duration::from_secs(10));
+                }
+
+                let event = match result {
                     Ok(results) => task_event.with_status(TaskStatus::Finished { results }),
 
                     Err(error) => task_event.with_status(TaskStatus::Failed {
@@ -306,12 +321,122 @@ impl TaskManager {
                     }),
                 };
 
-                let _ = event_sender.send_blocking(message);
+                let _ = event_sender.send_blocking(event);
+            }
+
+            debug!("Task worker stopped");
+        });
+    }
+
+    fn run_elevated_thread(
+        elevated_receiver: Receiver<ElevatedActionRunnerCommand>,
+        elevated_result_sender: Sender<(String, Result<Vec<ActionResult>>)>,
+        event_sender: Sender<TaskEvent>,
+        user_context: &UserExecutionContext,
+        task_receiver: &Receiver<Task>,
+    ) {
+        let user_context = user_context.clone();
+        let task_receiver = task_receiver.clone();
+
+        thread::spawn(move || {
+            let mut elevated_runner: Option<ElevatedActionRunner> = None;
+
+            while let Ok(command) = elevated_receiver.recv_blocking() {
+                match command {
+                    ElevatedActionRunnerCommand::EnsureStarted => {
+                        if elevated_runner.is_some() {
+                            continue;
+                        }
+
+                        debug!("Starting elevated action runner");
+
+                        match ElevatedActionRunner::start(&user_context) {
+                            Ok(runner) => {
+                                debug!("Elevated action runner started");
+
+                                elevated_runner = Some(runner);
+                            }
+
+                            Err(error) => {
+                                error!(?error, "Failed to start elevated runner");
+                            }
+                        }
+                    }
+
+                    ElevatedActionRunnerCommand::Run(task) => {
+                        let run_id = task.run_id.clone();
+
+                        if elevated_runner.is_none() {
+                            debug!(
+                                run_id = %run_id,
+                                "Elevated runner was not started; starting now"
+                            );
+
+                            match ElevatedActionRunner::start(&user_context) {
+                                Ok(runner) => {
+                                    elevated_runner = Some(runner);
+                                }
+
+                                Err(error) => {
+                                    error!(
+                                        ?error,
+                                        run_id = %run_id,
+                                        "Failed to start elevated runner"
+                                    );
+
+                                    let _ =
+                                        elevated_result_sender.send_blocking((run_id, Err(error)));
+
+                                    continue;
+                                }
+                            }
+                        }
+
+                        let Some(elevated_runner) = elevated_runner.as_mut() else {
+                            let _ = elevated_result_sender.send_blocking((
+                                run_id,
+                                Err(anyhow!("Elevated runner is unavailable")),
+                            ));
+
+                            continue;
+                        };
+
+                        let task_event = TaskEvent::new(
+                            task.id,
+                            task.run_id.clone(),
+                            task.runner.name.clone(),
+                            TaskStatus::Started,
+                            &task_receiver,
+                        );
+
+                        let event_sender_clone = event_sender.clone();
+                        let task_event_clone = task_event.clone();
+
+                        let result = elevated_runner.run_action_runner(
+                            &task.runner,
+                            &user_context,
+                            |action, action_nr, total_actions, progress, status| {
+                                let event =
+                                    task_event_clone.clone().with_status(TaskStatus::Progress {
+                                        action,
+                                        action_nr,
+                                        total_actions,
+                                        progress,
+                                        _status: status,
+                                    });
+
+                                let _ = event_sender_clone.send_blocking(event);
+                            },
+                        );
+
+                        let _ = elevated_result_sender.send_blocking((run_id, result));
+                    }
+                }
             }
 
             drop(elevated_runner);
 
-            debug!("Task worker stopped");
+            debug!("Elevated runner stopped");
         });
     }
 
