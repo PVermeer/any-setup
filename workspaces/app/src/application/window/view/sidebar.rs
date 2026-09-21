@@ -84,7 +84,7 @@ impl SidebarPage {
         self.connect_sidebar(app);
         self.task_progress.init(app);
         self.task_page.init(app);
-        self.connect_progress_row();
+        self.connect_progress_row(app);
     }
 
     fn build_side_bar() -> (Sidebar, SidebarSection) {
@@ -130,13 +130,14 @@ impl SidebarPage {
         self.sidebar.connect_selected_item_notify(load_page);
     }
 
-    fn connect_progress_row(self: &Rc<Self>) {
+    fn connect_progress_row(self: &Rc<Self>, app: &Rc<App>) {
         let self_clone = self.clone();
+        let app_clone = app.clone();
 
         self.task_progress
             .get_progress_row()
             .connect_activated(move |_progress_row| {
-                self_clone.select_progress_row();
+                self_clone.load_task_page(&app_clone);
             });
     }
 
