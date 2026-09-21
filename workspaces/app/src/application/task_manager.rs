@@ -16,9 +16,8 @@ use rand::{
 use std::{
     cell::RefCell, collections::HashSet, fmt::Display, rc::Rc, sync::Arc, thread, time::Duration,
 };
-use user_execution_context::UserExecutionContext;
-
 use tracing::{debug, error, warn};
+use user_execution_context::UserExecutionContext;
 
 #[derive(Debug)]
 struct Task {
@@ -234,6 +233,10 @@ impl TaskManager {
         debug!(?listener, "Adding task listener");
 
         self.listeners.borrow_mut().push(listener);
+    }
+
+    pub fn is_running(&self) -> bool {
+        !self.active_tasks.borrow().is_empty()
     }
 
     fn run_actions_thread(

@@ -1,6 +1,6 @@
 mod task_page;
 
-use super::{NavPage, Page};
+use super::NavPage;
 use crate::application::App;
 use common::{
     config::{self},
@@ -44,7 +44,7 @@ impl NavPage for SidebarPage {
     }
 }
 impl SidebarPage {
-    pub fn new() -> Self {
+    pub fn new() -> Rc<Self> {
         let (sidebar, base_section) = Self::build_side_bar();
         let (bottom_box, task_progress) = Self::build_bottom_box();
         let task_page = TaskPage::new();
@@ -67,7 +67,7 @@ impl SidebarPage {
             .child(&toolbar)
             .build();
 
-        Self {
+        Rc::new(Self {
             nav_page,
             header,
             pages: Rc::new(RefCell::new(HashMap::new())),
@@ -77,14 +77,14 @@ impl SidebarPage {
             bottom_box,
             task_progress,
             task_page,
-        }
+        })
     }
 
-    pub fn init(&self, app: &Rc<App>) {
+    pub fn init(self: &Rc<Self>, app: &Rc<App>) {
         self.connect_sidebar(app);
         self.task_progress.init(app);
         self.task_page.init(app);
-        self.connect_progress_row(app);
+        self.connect_progress_row();
     }
 
     fn build_side_bar() -> (Sidebar, SidebarSection) {
@@ -130,16 +130,13 @@ impl SidebarPage {
         self.sidebar.connect_selected_item_notify(load_page);
     }
 
-    fn connect_progress_row(&self, app: &Rc<App>) {
-        let app_clone = app.clone();
-        let sidebar_clone = self.sidebar.clone();
-        let task_page_clone = self.task_page.clone();
+    fn connect_progress_row(self: &Rc<Self>) {
+        let self_clone = self.clone();
 
         self.task_progress
             .get_progress_row()
             .connect_activated(move |_progress_row| {
-                sidebar_clone.set_selected(u32::MAX); // Unselect
-                task_page_clone.load_page(&app_clone.window.view.nav_split);
+                self_clone.select_progress_row();
             });
     }
 
@@ -167,6 +164,11 @@ impl SidebarPage {
     pub fn select_page(&self, page: &Rc<dyn NavPage>) {
         let pages_borrow = self.pages.borrow();
 
+        if std::ptr::addr_eq(Rc::as_ptr(page), Rc::as_ptr(&self.task_page)) {
+            self.select_progress_row();
+            return;
+        }
+
         let item_index = self
             .sidebar
             .items()
@@ -192,5 +194,16 @@ impl SidebarPage {
                 );
             }
         }
+    }
+
+    pub fn load_task_page(&self, app: &Rc<App>) {
+        self.select_progress_row();
+        self.task_page.load_page(&app.window.view.nav_split);
+    }
+
+    fn select_progress_row(&self) {
+        self.sidebar.set_selected(u32::MAX); // Unselect
+        self.bottom_box
+            .select_row(Some(self.task_progress.get_progress_row()));
     }
 }

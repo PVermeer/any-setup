@@ -17,3 +17,12 @@ pages:
 app_menu:
   about:
     title: About %{app_name}
+
+window:
+  close:
+    dialog:
+      title: Close app?
+      running_tasks: There are still running tasks. Do you want to wait for them to finish?
+      cancel: Cancel
+      exit: Quit application
+      tasks: Go to tasks

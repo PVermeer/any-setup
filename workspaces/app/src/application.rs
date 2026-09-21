@@ -26,7 +26,7 @@ pub struct App {
     pub error_dialog: ErrorDialog,
     pub task_manager: Rc<TaskManager>,
     icon_theme: Rc<IconTheme>,
-    window: AppWindow,
+    window: Rc<AppWindow>,
     pages: Pages,
 }
 impl App {

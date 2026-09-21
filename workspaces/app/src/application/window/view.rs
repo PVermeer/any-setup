@@ -16,7 +16,7 @@ use std::rc::Rc;
 
 pub struct View {
     pub app_menu: AppMenu,
-    pub sidebar: SidebarPage,
+    pub sidebar: Rc<SidebarPage>,
     pub nav_split: NavigationSplitView,
     pub breakpoint: Breakpoint,
     pub updated_button: Button,
