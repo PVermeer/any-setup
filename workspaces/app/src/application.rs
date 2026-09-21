@@ -14,7 +14,7 @@ use common::{
 };
 use error_dialog::ErrorDialog;
 use gtk::{IconTheme, Image, Settings, gdk};
-use pages::{Page, Pages};
+use pages::{NavPage, Pages};
 use std::{cell::RefCell, rc::Rc};
 use task_manager::{TaskManager, user_execution_context::UserExecutionContext};
 use tracing::{debug, error};
@@ -75,7 +75,8 @@ impl App {
             // Last
             self.pages.init(self);
             if let Some(page) = self.pages.get_first() {
-                self.navigate(page);
+                let nav_page: Rc<dyn NavPage> = page.clone();
+                self.navigate(&nav_page);
             }
 
             Ok(())
@@ -88,7 +89,7 @@ impl App {
         Image::from_icon_name(config::APP_ID.get_value())
     }
 
-    pub fn navigate(self: &Rc<Self>, page: &Page) {
+    pub fn navigate(self: &Rc<Self>, page: &Rc<dyn NavPage>) {
         self.window.view.navigate(page);
     }
 

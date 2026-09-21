@@ -1,6 +1,6 @@
 use super::settings_yaml::{Setting, SettingsPageYaml};
 use crate::application::{
-    pages::{DynPage, NavPage, Page, PrefNavPageBuild},
+    pages::{DynPage, NavPage, PrefNavPageBuild},
     task_manager::{
         TaskEvent, TaskManager, TaskStatus, action_runner::ActionRunner, actions::ActionState,
         user_execution_context::UserExecutionContext,
@@ -24,7 +24,7 @@ impl DynPage for SettingsPage {
         self,
         task_manager: &Rc<TaskManager>,
         user_context: &UserExecutionContext,
-    ) -> Result<Page> {
+    ) -> Result<Rc<dyn DynPage>> {
         self.build(task_manager, user_context);
 
         Ok(Rc::new(self))

@@ -22,7 +22,7 @@ use tracing::error;
 pub struct SidebarPage {
     pub nav_page: NavigationPage,
     pub header: HeaderBar,
-    pages: Rc<RefCell<HashMap<SidebarItem, Page>>>,
+    pages: Rc<RefCell<HashMap<SidebarItem, Rc<dyn NavPage>>>>,
     sections: RefCell<HashSet<SidebarSection>>,
     base_section: SidebarSection,
     sidebar: Sidebar,
@@ -143,7 +143,7 @@ impl SidebarPage {
             });
     }
 
-    pub fn add_page(&self, page: &Page) {
+    pub fn add_page(&self, page: &Rc<dyn NavPage>) {
         let item = SidebarItem::builder()
             .title(page.get_navpage().title())
             .build();
@@ -164,7 +164,7 @@ impl SidebarPage {
         }
     }
 
-    pub fn select_page(&self, page: &Page) {
+    pub fn select_page(&self, page: &Rc<dyn NavPage>) {
         let pages_borrow = self.pages.borrow();
 
         let item_index = self

@@ -22,10 +22,8 @@ use libadwaita::{
 use std::{collections::HashMap, rc::Rc, sync::Arc};
 use tracing::{debug, error};
 
-pub type Page = Rc<dyn DynPage>;
-
 pub struct Pages {
-    pub pages: Vec<Page>,
+    pub pages: Vec<Rc<dyn DynPage>>,
 }
 impl Pages {
     pub fn new(
@@ -42,11 +40,12 @@ impl Pages {
         let sidebar = &app.window.view.sidebar;
 
         for page in &self.pages {
-            sidebar.add_page(page);
+            let nav_page: Rc<dyn NavPage> = page.clone();
+            sidebar.add_page(&nav_page.clone());
         }
     }
 
-    pub fn get_first(&self) -> Option<&Page> {
+    pub fn get_first(&self) -> Option<&Rc<dyn DynPage>> {
         self.pages.first()
     }
 
@@ -54,8 +53,8 @@ impl Pages {
         app_dirs: &Rc<AppDirs>,
         task_manager: &Rc<TaskManager>,
         user_context: &UserExecutionContext,
-    ) -> Result<Vec<Page>> {
-        let mut pages: Vec<Page> = Vec::new();
+    ) -> Result<Vec<Rc<dyn DynPage>>> {
+        let mut pages: Vec<Rc<dyn DynPage>> = Vec::new();
 
         if let Some(pages_dir) = &app_dirs.system_data_pages_dir
             && let Ok(mut pages_dir_entries) = utils::files::get_entries_in_dir(pages_dir)
@@ -210,7 +209,7 @@ pub trait DynPage: NavPage {
         self,
         task_manager: &Rc<TaskManager>,
         user_context: &UserExecutionContext,
-    ) -> Result<Page>;
+    ) -> Result<Rc<dyn DynPage>>;
 }
 
 pub trait YamlPage {

@@ -2,10 +2,7 @@ mod about;
 mod app_menu;
 mod sidebar;
 
-use crate::application::{
-    App,
-    pages::{NavPage, Page},
-};
+use crate::application::{App, pages::NavPage};
 use app_menu::AppMenu;
 use gtk::{
     Button,
@@ -55,7 +52,7 @@ impl View {
         self.connect_updated_button(app);
     }
 
-    pub fn navigate(self: &Rc<Self>, page: &Page) {
+    pub fn navigate(self: &Rc<Self>, page: &Rc<dyn NavPage>) {
         self.sidebar.select_page(page);
     }
 

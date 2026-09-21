@@ -1,5 +1,5 @@
 use super::{
-    ContentNavPageBuild, DynPage, NavPage, Page,
+    ContentNavPageBuild, DynPage, NavPage,
     content_yaml::{Content, ContentPageYaml, Header, TextAlign},
 };
 use crate::application::task_manager::{TaskManager, user_execution_context::UserExecutionContext};
@@ -21,7 +21,7 @@ impl DynPage for ContentPage {
         mut self,
         _task_manager: &Rc<TaskManager>,
         _user_context: &UserExecutionContext,
-    ) -> Result<Page> {
+    ) -> Result<Rc<dyn DynPage>> {
         self.build();
 
         Ok(Rc::new(self))

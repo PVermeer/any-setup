@@ -1,6 +1,6 @@
 use super::{
-    DynPage, Page, YamlPage, content::ContentPage, content_yaml::ContentPageYaml,
-    settings::SettingsPage, settings_yaml::SettingsPageYaml,
+    DynPage, YamlPage, content::ContentPage, content_yaml::ContentPageYaml, settings::SettingsPage,
+    settings_yaml::SettingsPageYaml,
 };
 use crate::application::task_manager::{
     TaskManager, action_runner::ActionRunner, user_execution_context::UserExecutionContext,
@@ -35,7 +35,7 @@ impl PageYaml {
         self,
         task_manager: &Rc<TaskManager>,
         user_context: &UserExecutionContext,
-    ) -> Result<Page> {
+    ) -> Result<Rc<dyn DynPage>> {
         match self {
             Self::Content(yaml) => ContentPage::new(yaml).build_page(task_manager, user_context),
             Self::Settings(yaml) => SettingsPage::new(yaml).build_page(task_manager, user_context),

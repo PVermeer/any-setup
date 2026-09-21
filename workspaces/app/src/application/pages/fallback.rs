@@ -1,5 +1,5 @@
 use crate::application::{
-    pages::{DynPage, NavPage, NavPageBuild, Page},
+    pages::{DynPage, NavPage, NavPageBuild},
     task_manager::{TaskManager, user_execution_context::UserExecutionContext},
 };
 use anyhow::Result;
@@ -16,7 +16,7 @@ impl DynPage for FallbackPage {
         self,
         _task_manager: &Rc<TaskManager>,
         _user_context: &UserExecutionContext,
-    ) -> Result<Page> {
+    ) -> Result<Rc<dyn DynPage>> {
         Ok(Rc::new(self))
     }
 }
