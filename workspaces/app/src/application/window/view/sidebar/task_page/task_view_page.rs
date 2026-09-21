@@ -216,11 +216,15 @@ impl TaskViewPage {
         let mut failed = false;
 
         for result in results {
+            if !result.success {
+                failed = true;
+            }
+
             if !result.stdout.is_empty() {
                 self.output_append_line(&result.stdout);
             }
             if !result.stderr.is_empty() {
-                if result.action.fail_allowed() {
+                if result.action.fail_allowed() || result.success {
                     self.output_append_success(&format!(
                         "{} ({})",
                         result.stderr,
@@ -228,7 +232,6 @@ impl TaskViewPage {
                     ));
                 } else {
                     self.output_append_error(&result.stderr);
-                    failed = true;
                 }
             }
         }
