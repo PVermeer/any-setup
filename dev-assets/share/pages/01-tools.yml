@@ -69,3 +69,19 @@ groups:
             type: kargs
             remove:
               - some=karg
+
+      - type: switch
+        title: Add me to docker group
+        subtitle: Add a user to the docker group
+        actions:
+          - action: usergroup
+            type: add
+            group: docker
+
+      - type: switch
+        title: Remove me from docker group
+        subtitle: Add a user to the docker group
+        actions:
+          - action: usergroup
+            type: remove
+            group: docker

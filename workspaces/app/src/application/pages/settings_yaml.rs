@@ -51,11 +51,11 @@ pub struct Switch {
     pub actions: Vec<Action>,
 }
 impl Switch {
-    pub fn get_status(&self) -> ActionState {
+    pub fn get_status(&self, user_context: &UserExecutionContext) -> ActionState {
         let status: Vec<ActionState> = self
             .actions
             .iter()
-            .map(|action| action.get_status().unwrap_or_default())
+            .map(|action| action.get_status(user_context).unwrap_or_default())
             .collect();
 
         let done = status

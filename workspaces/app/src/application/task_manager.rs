@@ -313,7 +313,7 @@ impl TaskManager {
                 };
 
                 if cfg!(debug_assertions) && utils::env::is_devcontainer() {
-                    std::thread::sleep(Duration::from_secs(10));
+                    std::thread::sleep(Duration::from_secs(5));
                 }
 
                 let event = match result {

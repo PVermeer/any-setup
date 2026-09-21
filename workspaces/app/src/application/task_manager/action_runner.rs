@@ -169,7 +169,7 @@ impl ActionRunner {
                 .stdout
                 .extend_from_slice(format!("==== Running action {} ====\n", i + 1).as_bytes());
 
-            let mut command = action.get_command();
+            let mut command = action.get_command(&self.user_context);
 
             if self.needs_elevation() && !action.needs_elevation() {
                 self.user_context.apply_to(&mut command);
@@ -200,7 +200,7 @@ impl ActionRunner {
                     .extend_from_slice("\n== Retrying action command\n".as_bytes());
 
                 let retry_output = action
-                    .get_command()
+                    .get_command(&self.user_context)
                     .output()
                     .context("Failed to re-run action command")?;
 

@@ -80,7 +80,7 @@ impl SettingsPage {
                     }
 
                     Setting::Switch(switch) => {
-                        let action_state = switch.get_status();
+                        let action_state = switch.get_status(user_context);
 
                         let switch_row = SwitchRow::builder()
                             .title(&switch.title)

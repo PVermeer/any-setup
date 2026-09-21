@@ -17,10 +17,10 @@ macro_rules! impl_action {
         }
 
         impl IsAction for $enum {
-            fn get_command(&self) -> Command {
+            fn get_command(&self, user_context: &UserExecutionContext) -> Command {
                 match self {
                     $(
-                        Self::$variant(action) => action.get_command(),
+                        Self::$variant(action) => action.get_command(user_context),
                     )+
                 }
             }
@@ -33,10 +33,10 @@ macro_rules! impl_action {
                 }
             }
 
-            fn get_status(&self) -> Result<ActionState> {
+            fn get_status(&self, user_context: &UserExecutionContext) -> Result<ActionState> {
                 match self {
                     $(
-                        Self::$variant(action) => action.get_status(),
+                        Self::$variant(action) => action.get_status(user_context),
                     )+
                 }
             }

@@ -1,5 +1,7 @@
 use super::ActionState;
-use crate::application::task_manager::actions::IsAction;
+use crate::application::task_manager::{
+    actions::IsAction, user_execution_context::UserExecutionContext,
+};
 use anyhow::{Context, Result};
 use common::{
     dbus_query::{self, DbusConnectionType, DbusPropertyQuery},
@@ -140,7 +142,7 @@ impl Display for RpmOstreeAction {
     }
 }
 impl IsAction for RpmOstreeAction {
-    fn get_command(&self) -> Command {
+    fn get_command(&self, _user_context: &UserExecutionContext) -> Command {
         match self {
             Self::Install { packages, .. } => {
                 let mut command = Command::new("rpm-ostree");
@@ -183,7 +185,7 @@ impl IsAction for RpmOstreeAction {
         }
     }
 
-    fn get_status(&self) -> Result<ActionState> {
+    fn get_status(&self, _user_context: &UserExecutionContext) -> Result<ActionState> {
         debug!(action = %self, "Running check command");
 
         let status = self.get_check_commands().get_status()?;
@@ -426,12 +428,14 @@ mod tests {
 
     #[test]
     fn kargs_action_creates_correct_command() {
+        let user_context = UserExecutionContext::new().unwrap();
+
         let action = RpmOstreeAction::Kargs {
             add: Some(Vec::from(["foo=bar".to_string(), "baz".to_string()])),
             remove: Some(Vec::from(["quiet".to_string()])),
         };
 
-        let command = action.get_command();
+        let command = action.get_command(&user_context);
 
         assert_eq!(
             command.get_args().collect::<Vec<_>>(),

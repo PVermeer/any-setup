@@ -1,5 +1,7 @@
 use super::ActionState;
-use crate::application::task_manager::actions::IsAction;
+use crate::application::task_manager::{
+    actions::IsAction, user_execution_context::UserExecutionContext,
+};
 use anyhow::{Context, Result, anyhow, bail};
 use common::utils;
 use serde::{Deserialize, Serialize};
@@ -196,7 +198,7 @@ impl Display for SystemdAction {
     }
 }
 impl IsAction for SystemdAction {
-    fn get_command(&self) -> Command {
+    fn get_command(&self, _user_context: &UserExecutionContext) -> Command {
         match self {
             Self::Enable {
                 unit, scope, now, ..
@@ -236,7 +238,7 @@ impl IsAction for SystemdAction {
         }
     }
 
-    fn get_status(&self) -> Result<ActionState> {
+    fn get_status(&self, _user_context: &UserExecutionContext) -> Result<ActionState> {
         debug!(action = %self, "Running status command");
 
         let is_enabled_output = IsEnabledOutput::from_action(self)?;
@@ -352,8 +354,10 @@ mod tests {
     }
 
     fn command_args(action: &SystemdAction) -> Vec<String> {
+        let user_context = UserExecutionContext::new().unwrap();
+
         action
-            .get_command()
+            .get_command(&user_context)
             .get_args()
             .map(|arg| arg.to_string_lossy().into_owned())
             .collect()
