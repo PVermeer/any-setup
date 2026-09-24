@@ -1,7 +1,7 @@
 FROM fedora:latest
 
 RUN dnf update -y
-RUN dnf install -y git dnf-plugins-core
+RUN dnf install -y git dnf-plugins-core tree
 RUN dnf install -y https://mirrors.rpmfusion.org/free/fedora/rpmfusion-free-release-$(rpm -E %fedora).noarch.rpm https://mirrors.rpmfusion.org/nonfree/fedora/rpmfusion-nonfree-release-$(rpm -E %fedora).noarch.rpm
 RUN dnf config-manager setopt fedora-cisco-openh264.enabled=1
 RUN dnf swap -y ffmpeg-free ffmpeg --allowerasing
