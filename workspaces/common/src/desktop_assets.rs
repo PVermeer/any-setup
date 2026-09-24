@@ -69,6 +69,34 @@ pub fn create_app_icon() -> Result<PathBuf> {
     Ok(save_path)
 }
 
+pub fn create_app_polkit_policy_file() -> Result<PathBuf> {
+    info!("==== Creating polkit policy file");
+
+    let app_id = config::APP_ID.get_value();
+    let app_bin = config::BIN_NAME.get_value();
+    let file_name = polkit_policy_file_name();
+    let save_path = assets_desktop_path().join(file_name);
+
+    let mut policy = assets::get_polkit_policy_file_in().to_string();
+    policy = policy.replace("%{app_id}", app_id);
+    policy = policy.replace("%{app_bin}", app_bin);
+
+    fs::write(&save_path, policy).inspect_err(|err| {
+        error!(
+            error = err.to_string(),
+            path = &save_path.to_string_lossy().to_string(),
+            "Failed to save polkit policy"
+        );
+    })?;
+
+    info!(
+        polkit_policy_file = &save_path.to_string_lossy().to_string(),
+        "Created new polkit policy file:"
+    );
+
+    Ok(save_path)
+}
+
 fn desktop_file_name() -> String {
     let app_id = config::APP_ID.get_value();
     let extension = "desktop";
@@ -80,6 +108,14 @@ fn desktop_file_name() -> String {
 fn icon_file_name() -> String {
     let app_id = config::APP_ID.get_value();
     let extension = "png";
+    let file_name = format!("{app_id}.{extension}");
+
+    file_name
+}
+
+fn polkit_policy_file_name() -> String {
+    let app_id = config::APP_ID.get_value();
+    let extension = "policy";
     let file_name = format!("{app_id}.{extension}");
 
     file_name

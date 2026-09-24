@@ -17,6 +17,7 @@ static DESKTOP: Dir = include_dir!("$CARGO_MANIFEST_DIR/../../assets/desktop");
 static ICON_IN: &[u8] = include_bytes!("../../../assets/app-icon.png");
 static DESKTOP_FILE_IN: &str = include_str!("../../../assets/app.desktop");
 static META_INFO_IN: &str = include_str!("../../../assets/app.metainfo.xml");
+static POLKIT_POLICY_IN: &str = include_str!("../../../assets/app.polkit.policy");
 static APP_DESCRIPTION: &str = include_str!("../../../assets/app-description.markup");
 
 pub fn init(app_dirs: &AppDirs) -> Result<()> {
@@ -81,6 +82,10 @@ pub fn get_app_description() -> &'static str {
 
 pub fn get_desktop_file_in() -> &'static str {
     DESKTOP_FILE_IN
+}
+
+pub fn get_polkit_policy_file_in() -> &'static str {
+    POLKIT_POLICY_IN
 }
 
 fn extract_config_dir(app_dirs: &AppDirs) -> Result<()> {
