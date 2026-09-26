@@ -43,7 +43,7 @@ pub struct ContentPageYaml {
 impl YamlPage for ContentPageYaml {
     fn get_action_runners(
         &self,
-        _user_context: &UserExecutionContext,
+        _user_context: &Arc<UserExecutionContext>,
     ) -> Result<HashMap<u64, Arc<ActionRunner>>> {
         Ok(HashMap::default())
     }

@@ -8,8 +8,8 @@ use common::{
     utils,
 };
 use serde::{Deserialize, Serialize};
-use std::fmt::Write;
 use std::{fmt::Display, process::Command};
+use std::{fmt::Write, sync::Arc};
 use tracing::debug;
 
 #[derive(Debug)]
@@ -142,7 +142,7 @@ impl Display for RpmOstreeAction {
     }
 }
 impl IsAction for RpmOstreeAction {
-    fn get_command(&self, _user_context: &UserExecutionContext) -> Command {
+    fn get_command(&self, _user_context: &Arc<UserExecutionContext>) -> Command {
         match self {
             Self::Install { packages, .. } => {
                 let mut command = Command::new("rpm-ostree");
@@ -185,7 +185,7 @@ impl IsAction for RpmOstreeAction {
         }
     }
 
-    fn get_status(&self, _user_context: &UserExecutionContext) -> Result<ActionState> {
+    fn get_status(&self, _user_context: &Arc<UserExecutionContext>) -> Result<ActionState> {
         debug!(action = %self, "Running check command");
 
         let status = self.get_check_commands().get_status()?;

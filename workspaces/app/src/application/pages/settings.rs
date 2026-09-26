@@ -12,7 +12,7 @@ use libadwaita::{
     EntryRow, NavigationPage, PreferencesGroup, PreferencesPage, Spinner, SwitchRow,
     prelude::{ActionRowExt, PreferencesGroupExt, PreferencesPageExt},
 };
-use std::rc::Rc;
+use std::{rc::Rc, sync::Arc};
 
 pub struct SettingsPage {
     yaml: SettingsPageYaml,
@@ -23,7 +23,7 @@ impl DynPage for SettingsPage {
     fn build_page(
         self,
         task_manager: &Rc<TaskManager>,
-        user_context: &UserExecutionContext,
+        user_context: &Arc<UserExecutionContext>,
     ) -> Result<Rc<dyn DynPage>> {
         self.build(task_manager, user_context);
 
@@ -58,7 +58,7 @@ impl SettingsPage {
         }
     }
 
-    fn build(&self, task_manager: &Rc<TaskManager>, user_context: &UserExecutionContext) {
+    fn build(&self, task_manager: &Rc<TaskManager>, user_context: &Arc<UserExecutionContext>) {
         for group in &self.yaml.groups {
             let pref_group = PreferencesGroup::builder().build();
 

@@ -119,7 +119,7 @@ pub struct TaskManager {
     listeners: Rc<RefCell<Vec<Listener>>>,
 }
 impl TaskManager {
-    pub fn new(user_context: &UserExecutionContext) -> Rc<Self> {
+    pub fn new(user_context: &Arc<UserExecutionContext>) -> Rc<Self> {
         let (task_sender, task_receiver) = async_channel::unbounded();
         let (elevated_sender, elevated_receiver) = async_channel::unbounded();
         let (elevated_result_sender, elevated_result_receiver) = async_channel::unbounded();
@@ -328,7 +328,7 @@ impl TaskManager {
         elevated_receiver: Receiver<ElevatedActionRunnerCommand>,
         elevated_result_sender: Sender<(String, Result<ActionRunnerResult>)>,
         event_sender: Sender<TaskEvent>,
-        user_context: &UserExecutionContext,
+        user_context: &Arc<UserExecutionContext>,
         task_receiver: &Receiver<Task>,
     ) {
         let user_context = user_context.clone();

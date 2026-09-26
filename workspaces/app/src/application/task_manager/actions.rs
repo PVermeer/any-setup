@@ -11,6 +11,7 @@ use serde::{Deserialize, Serialize};
 use std::{
     fmt::Display,
     process::{Command, Output},
+    sync::Arc,
 };
 use systemd::SystemdAction;
 use user_group::UserGroupAction;
@@ -39,9 +40,9 @@ impl ActionState {
 }
 
 pub trait IsAction: Display {
-    fn get_command(&self, user_context: &UserExecutionContext) -> Command;
+    fn get_command(&self, user_context: &Arc<UserExecutionContext>) -> Command;
     fn needs_elevation(&self) -> bool;
-    fn get_status(&self, user_context: &UserExecutionContext) -> Result<ActionState>;
+    fn get_status(&self, user_context: &Arc<UserExecutionContext>) -> Result<ActionState>;
     fn fail_allowed(&self) -> bool;
     fn to_undo(&self) -> Self;
     /// This function runs before a retry is attempted

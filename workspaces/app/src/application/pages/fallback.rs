@@ -5,7 +5,7 @@ use crate::application::{
 use anyhow::Result;
 use gtk::{Align, Justification, Label, Orientation, ScrolledWindow, prelude::BoxExt};
 use libadwaita::{Clamp, NavigationPage};
-use std::rc::Rc;
+use std::{rc::Rc, sync::Arc};
 
 pub struct FallbackPage {
     nav_page: NavigationPage,
@@ -15,7 +15,7 @@ impl DynPage for FallbackPage {
     fn build_page(
         self,
         _task_manager: &Rc<TaskManager>,
-        _user_context: &UserExecutionContext,
+        _user_context: &Arc<UserExecutionContext>,
     ) -> Result<Rc<dyn DynPage>> {
         Ok(Rc::new(self))
     }

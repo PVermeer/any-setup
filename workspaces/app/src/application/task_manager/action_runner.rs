@@ -72,7 +72,7 @@ pub struct ActionRunner {
     actions: Vec<Action>,
     elevate: bool,
     is_undo: bool,
-    user_context: UserExecutionContext,
+    user_context: Arc<UserExecutionContext>,
 }
 impl Hash for ActionRunner {
     fn hash<H: Hasher>(&self, state: &mut H) {
@@ -83,7 +83,11 @@ impl Hash for ActionRunner {
     }
 }
 impl ActionRunner {
-    pub fn new(name: &str, actions: &[Action], user_context: &UserExecutionContext) -> Arc<Self> {
+    pub fn new(
+        name: &str,
+        actions: &[Action],
+        user_context: &Arc<UserExecutionContext>,
+    ) -> Arc<Self> {
         Arc::new(Self {
             name: name.to_string(),
             actions: actions.to_vec(),
@@ -95,7 +99,7 @@ impl ActionRunner {
 
     pub fn from_id(
         action_runner_id: u64,
-        user_context: &UserExecutionContext,
+        user_context: &Arc<UserExecutionContext>,
     ) -> Result<Arc<Self>> {
         let app_dirs = AppDirs::new()?;
 

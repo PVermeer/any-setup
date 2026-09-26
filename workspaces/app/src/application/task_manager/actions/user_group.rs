@@ -5,7 +5,7 @@ use crate::application::task_manager::{
 use anyhow::{Context, Result, anyhow, bail};
 use common::utils;
 use serde::{Deserialize, Serialize};
-use std::{fmt::Display, process::Command};
+use std::{fmt::Display, process::Command, sync::Arc};
 use tracing::{debug, error};
 
 #[derive(Serialize, Deserialize, Hash, Clone, Debug)]
@@ -35,7 +35,7 @@ impl Display for UserGroupAction {
     }
 }
 impl IsAction for UserGroupAction {
-    fn get_command(&self, user_context: &UserExecutionContext) -> Command {
+    fn get_command(&self, user_context: &Arc<UserExecutionContext>) -> Command {
         let user = &user_context.user_name;
 
         match self {
@@ -59,7 +59,7 @@ impl IsAction for UserGroupAction {
         true
     }
 
-    fn get_status(&self, user_context: &UserExecutionContext) -> Result<ActionState> {
+    fn get_status(&self, user_context: &Arc<UserExecutionContext>) -> Result<ActionState> {
         let group = match self {
             Self::Add { group, .. } | Self::Remove { group, .. } => group,
         };

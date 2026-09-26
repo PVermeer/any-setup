@@ -5,7 +5,7 @@ use crate::application::task_manager::{
 use anyhow::{Context, Result, anyhow, bail};
 use common::utils;
 use serde::{Deserialize, Serialize};
-use std::{fmt::Display, process::Command, str::FromStr};
+use std::{fmt::Display, process::Command, str::FromStr, sync::Arc};
 use tracing::{debug, error};
 
 #[derive(Serialize, Deserialize, Hash, Clone, Debug)]
@@ -198,7 +198,7 @@ impl Display for SystemdAction {
     }
 }
 impl IsAction for SystemdAction {
-    fn get_command(&self, _user_context: &UserExecutionContext) -> Command {
+    fn get_command(&self, _user_context: &Arc<UserExecutionContext>) -> Command {
         match self {
             Self::Enable {
                 unit, scope, now, ..
@@ -239,7 +239,7 @@ impl IsAction for SystemdAction {
         }
     }
 
-    fn get_status(&self, _user_context: &UserExecutionContext) -> Result<ActionState> {
+    fn get_status(&self, _user_context: &Arc<UserExecutionContext>) -> Result<ActionState> {
         debug!(action = %self, "Running status command");
 
         let is_enabled_output = IsEnabledOutput::from_action(self)?;

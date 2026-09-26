@@ -54,7 +54,7 @@ pub struct ElevatedActionRunner {
     stdout: BufReader<ChildStdout>,
 }
 impl ElevatedActionRunner {
-    pub fn start(user_context: &UserExecutionContext) -> Result<Self> {
+    pub fn start(user_context: &Arc<UserExecutionContext>) -> Result<Self> {
         let current_exe = std::env::current_exe()
             .context("Failed to determine current executable for elevated ActionRunner")?;
         let subcommand = crate::cli::AppCommand::ActionRunner.to_string();
@@ -139,7 +139,7 @@ impl ElevatedActionRunner {
     pub fn run_action_runner<F>(
         &mut self,
         action_runner: &Arc<ActionRunner>,
-        user_context: &UserExecutionContext,
+        user_context: &Arc<UserExecutionContext>,
         mut on_progress: F,
     ) -> Result<ActionRunnerResult>
     where
@@ -147,7 +147,7 @@ impl ElevatedActionRunner {
     {
         self.send_request(&ProcessRequest::Run {
             action_runner_id: action_runner.get_id(),
-            user_context: user_context.clone(),
+            user_context: (**user_context).clone(),
         })?;
 
         loop {
@@ -262,7 +262,10 @@ fn send_response(response: &ProcessResponse) -> Result<()> {
     Ok(())
 }
 
-fn run_action_runner(action_runner_id: u64, user_context: &UserExecutionContext) -> Result<()> {
+fn run_action_runner(
+    action_runner_id: u64,
+    user_context: &Arc<UserExecutionContext>,
+) -> Result<()> {
     debug!("Finding ActionRunner from id");
 
     let action_runner = ActionRunner::from_id(action_runner_id, user_context)?;
@@ -342,6 +345,8 @@ pub fn run_elevated_action_runner() -> Result<()> {
                 user_context,
             } => {
                 debug!("Received elevated ActionRunner run request");
+
+                let user_context = Arc::new(user_context);
 
                 if let Err(error) = run_action_runner(action_runner_id, &user_context) {
                     error!(?error, "Elevated ActionRunner failed");

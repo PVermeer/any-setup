@@ -98,7 +98,7 @@ pub struct SettingsPageYaml {
 impl YamlPage for SettingsPageYaml {
     fn get_action_runners(
         &self,
-        user_context: &UserExecutionContext,
+        user_context: &Arc<UserExecutionContext>,
     ) -> Result<HashMap<u64, Arc<ActionRunner>>> {
         let mut map = HashMap::new();
         for group in &self.groups {

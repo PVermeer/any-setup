@@ -34,7 +34,7 @@ impl PageYaml {
     pub fn into_page(
         self,
         task_manager: &Rc<TaskManager>,
-        user_context: &UserExecutionContext,
+        user_context: &Arc<UserExecutionContext>,
     ) -> Result<Rc<dyn DynPage>> {
         match self {
             Self::Content(yaml) => ContentPage::new(yaml).build_page(task_manager, user_context),
@@ -44,7 +44,7 @@ impl PageYaml {
 
     pub fn into_action_runners(
         self,
-        user_context: &UserExecutionContext,
+        user_context: &Arc<UserExecutionContext>,
     ) -> Result<HashMap<u64, Arc<ActionRunner>>> {
         match self {
             Self::Content(yaml) => yaml.get_action_runners(user_context),

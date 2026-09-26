@@ -29,7 +29,7 @@ impl Pages {
     pub fn new(
         app_dirs: &Rc<AppDirs>,
         task_manager: &Rc<TaskManager>,
-        user_context: &UserExecutionContext,
+        user_context: &Arc<UserExecutionContext>,
     ) -> Result<Self> {
         let pages = Self::load_page_configs(app_dirs, task_manager, user_context)?;
 
@@ -52,7 +52,7 @@ impl Pages {
     fn load_page_configs(
         app_dirs: &Rc<AppDirs>,
         task_manager: &Rc<TaskManager>,
-        user_context: &UserExecutionContext,
+        user_context: &Arc<UserExecutionContext>,
     ) -> Result<Vec<Rc<dyn DynPage>>> {
         let mut pages: Vec<Rc<dyn DynPage>> = Vec::new();
 
@@ -208,13 +208,13 @@ pub trait DynPage: NavPage {
     fn build_page(
         self,
         task_manager: &Rc<TaskManager>,
-        user_context: &UserExecutionContext,
+        user_context: &Arc<UserExecutionContext>,
     ) -> Result<Rc<dyn DynPage>>;
 }
 
 pub trait YamlPage {
     fn get_action_runners(
         &self,
-        user_context: &UserExecutionContext,
+        user_context: &Arc<UserExecutionContext>,
     ) -> Result<HashMap<u64, Arc<ActionRunner>>>;
 }

@@ -9,7 +9,7 @@ use gtk::{
     prelude::{BoxExt, WidgetExt},
 };
 use libadwaita::NavigationPage;
-use std::rc::Rc;
+use std::{rc::Rc, sync::Arc};
 
 pub struct ContentPage {
     yaml: ContentPageYaml,
@@ -20,7 +20,7 @@ impl DynPage for ContentPage {
     fn build_page(
         mut self,
         _task_manager: &Rc<TaskManager>,
-        _user_context: &UserExecutionContext,
+        _user_context: &Arc<UserExecutionContext>,
     ) -> Result<Rc<dyn DynPage>> {
         self.build();
 
