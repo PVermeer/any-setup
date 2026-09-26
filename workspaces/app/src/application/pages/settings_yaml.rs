@@ -5,11 +5,12 @@ use crate::application::task_manager::{
     user_execution_context::UserExecutionContext,
 };
 use anyhow::Result;
-use gtk::InputPurpose;
+use gtk::{InputPurpose, prelude::WidgetExt};
+use libadwaita::SwitchRow;
 use serde::Deserialize;
 use std::{collections::HashMap, sync::Arc};
 
-#[derive(Deserialize, Debug)]
+#[derive(Deserialize, Clone, Debug)]
 #[serde(rename_all = "lowercase")]
 pub enum InputType {
     FreeForm,
@@ -38,20 +39,20 @@ impl InputType {
     }
 }
 
-#[derive(Deserialize, Debug)]
+#[derive(Deserialize, Clone, Debug)]
 pub struct Input {
     pub title: String,
     pub input_type: InputType,
 }
 
-#[derive(Deserialize, Debug)]
+#[derive(Deserialize, Clone, Debug)]
 pub struct Switch {
     pub title: String,
     pub subtitle: Option<String>,
     pub actions: Vec<Action>,
 }
 impl Switch {
-    pub fn get_status(&self, user_context: &UserExecutionContext) -> ActionState {
+    pub fn get_status(&self, user_context: &Arc<UserExecutionContext>) -> ActionState {
         let status: Vec<ActionState> = self
             .actions
             .iter()
@@ -71,7 +72,18 @@ impl Switch {
         if available {
             return ActionState::Available;
         }
+
         ActionState::UnAvailable
+    }
+
+    pub fn set_switch_row_from_status(
+        &self,
+        switch_row: &SwitchRow,
+        user_context: &Arc<UserExecutionContext>,
+    ) {
+        let action_state = self.get_status(user_context);
+        switch_row.set_active(matches!(action_state, ActionState::Done));
+        switch_row.set_sensitive(matches!(action_state, ActionState::Available));
     }
 }
 
