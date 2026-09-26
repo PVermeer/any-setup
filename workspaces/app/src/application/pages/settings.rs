@@ -9,7 +9,7 @@ use crate::application::{
 use anyhow::Result;
 use gtk::prelude::WidgetExt;
 use libadwaita::{
-    EntryRow, NavigationPage, PreferencesGroup, PreferencesPage, SwitchRow,
+    EntryRow, NavigationPage, PreferencesGroup, PreferencesPage, Spinner, SwitchRow,
     prelude::{ActionRowExt, PreferencesGroupExt, PreferencesPageExt},
 };
 use std::rc::Rc;
@@ -93,31 +93,41 @@ impl SettingsPage {
                         if let Some(subtitle) = &switch.subtitle {
                             switch_row.set_subtitle(subtitle);
                         }
+                        let spinner = Spinner::new();
+                        spinner.set_visible(false);
+                        switch_row.add_suffix(&spinner);
 
                         let action_runner =
                             ActionRunner::new(&switch.title, &switch.actions, user_context);
                         let action_runner_undo = action_runner.to_undo();
 
-                        let task_manager_clone = task_manager.clone();
                         let handle_task_event =
-                            |event: &TaskEvent, switch_row: &SwitchRow| match event.status {
-                                TaskStatus::Finished { .. } | TaskStatus::Failed { .. } => {
-                                    switch_row.set_sensitive(true);
+                            |event: &TaskEvent, switch_row: &SwitchRow, spinner: &Spinner| {
+                                match event.status {
+                                    TaskStatus::Finished { .. } | TaskStatus::Failed { .. } => {
+                                        switch_row.set_sensitive(true);
+                                        spinner.set_visible(false);
+                                    }
+                                    _ => {}
                                 }
-                                _ => {}
                             };
+
+                        let task_manager_clone = task_manager.clone();
+                        let spinner_clone = spinner.clone();
 
                         switch_row.connect_active_notify(move |switch_row| {
                             switch_row.set_sensitive(false);
+                            spinner_clone.set_visible(true);
                             let switch_row_clone = switch_row.clone();
+                            let spinner_clone = spinner_clone.clone();
 
                             if switch_row.is_active() {
                                 let _ = task_manager_clone.add(&action_runner, move |event| {
-                                    handle_task_event(event, &switch_row_clone);
+                                    handle_task_event(event, &switch_row_clone, &spinner_clone);
                                 });
                             } else {
                                 let _ = task_manager_clone.add(&action_runner_undo, move |event| {
-                                    handle_task_event(event, &switch_row_clone);
+                                    handle_task_event(event, &switch_row_clone, &spinner_clone);
                                 });
                             }
                         });
