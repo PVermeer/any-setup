@@ -20,11 +20,13 @@ trait OutputExt {
 }
 impl OutputExt for Output {
     fn append_stdout(&mut self, message: &str) {
-        self.stdout.extend_from_slice(message.as_bytes());
+        self.stdout
+            .extend_from_slice(format!("{message}\n").as_bytes());
     }
 
     fn append_stderr(&mut self, message: &str) {
-        self.stderr.extend_from_slice(message.as_bytes());
+        self.stderr
+            .extend_from_slice(format!("{message}\n").as_bytes());
     }
 }
 
@@ -191,8 +193,8 @@ impl ActionRunner {
                 stderr: Vec::new(),
                 stdout: Vec::new(),
             };
-            output.append_stdout(&format!("\n==== Running action {} ====\n", i + 1));
-            output.append_stdout(&format!("== {action}\n"));
+            output.append_stdout(&format!("\n==== Running action {} ====", i + 1));
+            output.append_stdout(&format!("== {action}"));
 
             let status = action
                 .get_status(&self.user_context)
@@ -222,7 +224,7 @@ impl ActionRunner {
                     if !output.status.success()
                         && let Some(mut on_error_command) = action.before_retry(&output)
                     {
-                        output.append_stdout("\n== Running on_error command\n");
+                        output.append_stdout("\n== Running on_error command");
 
                         let on_error_output = on_error_command
                             .output()
@@ -231,7 +233,7 @@ impl ActionRunner {
                         output.stdout.extend(on_error_output.stdout);
                         output.stderr.extend(on_error_output.stderr);
 
-                        output.append_stdout("\n== Retrying action command\n");
+                        output.append_stdout("\n== Retrying action command");
 
                         let retry_output = action
                             .get_command(&self.user_context)
