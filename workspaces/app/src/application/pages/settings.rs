@@ -85,8 +85,11 @@ impl SettingsPage {
                         let switch_row = SwitchRow::builder()
                             .title(&switch.title)
                             .active(matches!(action_state, ActionState::Done))
-                            // .sensitive(matches!(action_state, ActionState::Available))
+                            .sensitive(matches!(action_state, ActionState::Available))
                             .build();
+                        if cfg!(debug_assertions) {
+                            switch_row.set_sensitive(true);
+                        }
                         if let Some(subtitle) = &switch.subtitle {
                             switch_row.set_subtitle(subtitle);
                         }

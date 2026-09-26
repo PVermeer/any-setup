@@ -32,6 +32,11 @@ impl Display for ActionState {
         }
     }
 }
+impl ActionState {
+    pub fn to_log_message(&self) -> String {
+        format!("Action is {self}.")
+    }
+}
 
 pub trait IsAction: Display {
     fn get_command(&self, user_context: &UserExecutionContext) -> Command;

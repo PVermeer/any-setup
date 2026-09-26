@@ -1,7 +1,7 @@
 use super::user_execution_context::UserExecutionContext;
 use crate::application::{
     pages::page_config::PageYaml,
-    task_manager::actions::{Action, IsAction},
+    task_manager::actions::{Action, ActionState, IsAction},
 };
 use anyhow::{Context, Result, bail};
 use common::{app_dirs::AppDirs, utils};
@@ -12,6 +12,15 @@ use std::{
     sync::Arc,
 };
 use tracing::{debug, error};
+
+trait OutputExt {
+    fn append_stdout(&mut self, messsage: &str);
+}
+impl OutputExt for Output {
+    fn append_stdout(&mut self, message: &str) {
+        self.stdout.extend_from_slice(message.as_bytes());
+    }
+}
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct ActionResult {
@@ -44,10 +53,17 @@ pub struct ActionProgress {
     pub status: ActionStatus,
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ActionRunnerResult {
+    pub action_results: Vec<ActionResult>,
+    pub stderr: Option<String>,
+    pub success: bool,
+}
+
 #[derive(Clone, Debug)]
 pub struct ActionRunner {
     pub name: String,
-    queue: Vec<Action>,
+    actions: Vec<Action>,
     elevate: bool,
     is_undo: bool,
     user_context: UserExecutionContext,
@@ -55,7 +71,7 @@ pub struct ActionRunner {
 impl Hash for ActionRunner {
     fn hash<H: Hasher>(&self, state: &mut H) {
         self.name.hash(state);
-        self.queue.hash(state);
+        self.actions.hash(state);
         self.elevate.hash(state);
         self.is_undo.hash(state);
     }
@@ -64,7 +80,7 @@ impl ActionRunner {
     pub fn new(name: &str, actions: &[Action], user_context: &UserExecutionContext) -> Arc<Self> {
         Arc::new(Self {
             name: name.to_string(),
-            queue: actions.to_vec(),
+            actions: actions.to_vec(),
             elevate: actions.iter().any(IsAction::needs_elevation),
             is_undo: false,
             user_context: user_context.clone(),
@@ -126,7 +142,7 @@ impl ActionRunner {
 
     pub fn to_undo(&self) -> Arc<Self> {
         let mut self_clone = self.clone();
-        self_clone.queue = self_clone.queue.iter().map(IsAction::to_undo).collect();
+        self_clone.actions = self_clone.actions.iter().map(IsAction::to_undo).collect();
 
         self_clone.is_undo = true;
 
@@ -140,13 +156,13 @@ impl ActionRunner {
     pub fn run_actions(
         &self,
         on_progress: Option<&dyn Fn(&ActionProgress)>,
-    ) -> Result<Vec<ActionResult>> {
+    ) -> Result<ActionRunnerResult> {
         let mut results = Vec::new();
-        let queue_length = self.queue.len();
+        let queue_length = self.actions.len();
         let queue_factor = 1.0 / queue_length as f64;
         let mut progress = 0.0;
 
-        for (i, action) in self.queue.iter().enumerate() {
+        for (i, action) in self.actions.iter().enumerate() {
             debug!(action = action.to_string(), "Running action");
 
             let action_progress = ActionProgress {
@@ -165,9 +181,25 @@ impl ActionRunner {
                 stderr: Vec::new(),
                 stdout: Vec::new(),
             };
-            output
-                .stdout
-                .extend_from_slice(format!("==== Running action {} ====\n", i + 1).as_bytes());
+            output.append_stdout(&format!("\n==== Running action {} ====\n", i + 1));
+            output.append_stdout(&format!("== {action}\n"));
+
+            let status = action
+                .get_status(&self.user_context)
+                .context("Failed to get status before running the action")?;
+            output.append_stdout(&status.to_log_message());
+
+            match status {
+                ActionState::Available => {}
+                ActionState::UnAvailable => {
+                    if !action.fail_allowed() {
+                        break;
+                    }
+                }
+                ActionState::Done => {
+                    continue;
+                }
+            }
 
             let mut command = action.get_command(&self.user_context);
 
@@ -184,9 +216,7 @@ impl ActionRunner {
             if !output.status.success()
                 && let Some(mut on_error_command) = action.before_retry(&output)
             {
-                output
-                    .stdout
-                    .extend_from_slice("\n== Running on_error command\n".as_bytes());
+                output.append_stdout("\n== Running on_error command\n");
 
                 let on_error_output = on_error_command
                     .output()
@@ -195,9 +225,7 @@ impl ActionRunner {
                 output.stdout.extend(on_error_output.stdout);
                 output.stderr.extend(on_error_output.stderr);
 
-                output
-                    .stdout
-                    .extend_from_slice("\n== Retrying action command\n".as_bytes());
+                output.append_stdout("\n== Retrying action command\n");
 
                 let retry_output = action
                     .get_command(&self.user_context)
@@ -230,6 +258,18 @@ impl ActionRunner {
             on_progress(&progress_finished);
         }
 
-        Ok(results)
+        let failures: Vec<&ActionResult> = results
+            .iter()
+            .filter(|result| !result.action.fail_allowed() && !result.success)
+            .collect();
+
+        let success = failures.is_empty();
+        let stderr = failures.last().map(|result| result.stderr.clone());
+
+        Ok(ActionRunnerResult {
+            action_results: results,
+            stderr,
+            success,
+        })
     }
 }

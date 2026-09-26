@@ -6,7 +6,7 @@ use super::NavPage;
 use crate::application::{
     App,
     pages::PrefNavPageBuild,
-    task_manager::{TaskEvent, TaskStatus, action_runner::ActionResult, actions::IsAction},
+    task_manager::{TaskEvent, TaskStatus, action_runner::ActionRunnerResult},
 };
 use gtk::{Image, prelude::WidgetExt};
 use libadwaita::{
@@ -26,7 +26,7 @@ pub struct TaskUi {
     success_icon: Image,
     fail_icon: Image,
     running_icon: Spinner,
-    results: Option<Vec<ActionResult>>,
+    results: Option<ActionRunnerResult>,
 }
 impl TaskUi {
     fn from_event(task_event: &TaskEvent, nav_view: &NavigationView, app: &Rc<App>) -> Self {
@@ -65,8 +65,8 @@ impl TaskUi {
         self.task_row.set_subtitle(&progress);
     }
 
-    fn set_success(&mut self, results: &[ActionResult]) {
-        self.results = Some(results.to_owned());
+    fn set_success(&mut self, results: ActionRunnerResult) {
+        self.results = Some(results);
 
         self.task_row.set_subtitle("");
         self.success_icon.set_visible(true);
@@ -188,7 +188,7 @@ impl TaskPage {
                 TaskStatus::Started => self_clone.set_task_started(&task_event.run_id),
 
                 TaskStatus::Finished { results } => {
-                    self_clone.set_task_results(&task_event.run_id, results);
+                    self_clone.set_task_results(&task_event.run_id, results.clone());
                 }
 
                 TaskStatus::Failed { error } => {
@@ -250,22 +250,17 @@ impl TaskPage {
         task.set_progress(action, action_nr, total_actions);
     }
 
-    fn set_task_results(self: &Rc<Self>, id: &str, results: &[ActionResult]) {
-        let failures: Vec<&ActionResult> = results
-            .iter()
-            .filter(|result| !result.action.fail_allowed() && !result.success)
-            .collect();
-
+    fn set_task_results(self: &Rc<Self>, id: &str, result: ActionRunnerResult) {
         let mut tasks_borrow_mut = self.tasks.borrow_mut();
         let Some(task) = tasks_borrow_mut.find_task_mut(id) else {
             error!("Failed to get ui task by id for result");
             return;
         };
 
-        if let Some(last_failure) = failures.last() {
-            task.set_error(&last_failure.stderr);
-        } else {
-            task.set_success(results);
+        if result.success {
+            task.set_success(result);
+        } else if let Some(stderr) = &result.stderr {
+            task.set_error(stderr);
         }
     }
 

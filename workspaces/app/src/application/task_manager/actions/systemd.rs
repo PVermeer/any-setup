@@ -214,6 +214,7 @@ impl IsAction for SystemdAction {
                 command
             }
 
+            // In dev container it will output failures twice. This is not our bug.
             Self::Disable {
                 unit, scope, now, ..
             } => {

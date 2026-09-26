@@ -2,7 +2,7 @@ use super::task_progress::TaskProgress;
 use crate::application::{
     App,
     pages::{NavPage, PrefNavPageBuild},
-    task_manager::{TaskEvent, TaskStatus, action_runner::ActionResult, actions::IsAction},
+    task_manager::{TaskEvent, TaskStatus, action_runner::ActionRunnerResult, actions::IsAction},
 };
 use gtk::{
     Image, TextBuffer, TextView, WrapMode,
@@ -169,7 +169,7 @@ impl TaskViewPage {
                 TaskStatus::Added | TaskStatus::Started => {} // Self is created from start event
 
                 TaskStatus::Finished { results } => {
-                    self_clone.set_results(results);
+                    self_clone.set_results(results.clone());
                 }
 
                 TaskStatus::Failed { error } => {
@@ -212,14 +212,8 @@ impl TaskViewPage {
         self.output_append_line(action);
     }
 
-    fn set_results(self: &Rc<Self>, results: &[ActionResult]) {
-        let mut failed = false;
-
-        for result in results {
-            if !result.success {
-                failed = true;
-            }
-
+    fn set_results(self: &Rc<Self>, result: ActionRunnerResult) {
+        for result in result.action_results {
             if !result.stdout.is_empty() {
                 self.output_append_line(&result.stdout);
             }
@@ -235,10 +229,11 @@ impl TaskViewPage {
                 }
             }
         }
-        if failed {
-            self.set_error();
-        } else {
+
+        if result.success {
             self.set_success();
+        } else {
+            self.set_error();
         }
     }
 
@@ -250,6 +245,7 @@ impl TaskViewPage {
         self.status_fail_icon.set_visible(false);
         self.status_running_icon.set_visible(false);
 
+        self.output_append("", None);
         self.output_append_success(&t!("pages.tasks.details.status.success"));
     }
 
@@ -262,6 +258,7 @@ impl TaskViewPage {
         self.status_fail_icon.set_visible(true);
         self.status_running_icon.set_visible(false);
 
+        self.output_append("", None);
         self.output_append_error(&t!("pages.tasks.details.status.error"));
     }
 

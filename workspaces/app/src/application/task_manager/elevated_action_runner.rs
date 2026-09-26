@@ -1,5 +1,6 @@
+use super::action_runner::ActionRunnerResult;
 use crate::application::task_manager::{
-    action_runner::{ActionResult, ActionRunner, ActionStatus},
+    action_runner::{ActionRunner, ActionStatus},
     user_execution_context::UserExecutionContext,
 };
 use anyhow::{Context, Result, bail};
@@ -37,7 +38,7 @@ pub enum ProcessResponse {
     },
 
     Finished {
-        results: Vec<ActionResult>,
+        results: ActionRunnerResult,
     },
 
     Failed {
@@ -140,7 +141,7 @@ impl ElevatedActionRunner {
         action_runner: &Arc<ActionRunner>,
         user_context: &UserExecutionContext,
         mut on_progress: F,
-    ) -> Result<Vec<ActionResult>>
+    ) -> Result<ActionRunnerResult>
     where
         F: FnMut(Option<String>, Option<i32>, i32, f64, ActionStatus),
     {

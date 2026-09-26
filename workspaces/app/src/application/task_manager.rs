@@ -3,7 +3,7 @@ pub mod actions;
 pub mod elevated_action_runner;
 pub mod user_execution_context;
 
-use action_runner::{ActionResult, ActionRunner, ActionStatus};
+use action_runner::{ActionRunner, ActionRunnerResult, ActionStatus};
 use anyhow::{Error, Result, anyhow, bail};
 use async_channel::{Receiver, Sender};
 use common::utils;
@@ -49,7 +49,7 @@ pub enum TaskStatus {
         _status: ActionStatus,
     },
     Finished {
-        results: Vec<ActionResult>,
+        results: ActionRunnerResult,
     },
     Failed {
         error: Arc<Error>,
@@ -242,7 +242,7 @@ impl TaskManager {
     fn run_actions_thread(
         task_receiver: Receiver<Task>,
         elevated_sender: Sender<ElevatedActionRunnerCommand>,
-        elevated_result_receiver: Receiver<(String, Result<Vec<ActionResult>>)>,
+        elevated_result_receiver: Receiver<(String, Result<ActionRunnerResult>)>,
         event_sender: Sender<TaskEvent>,
     ) {
         thread::spawn(move || {
@@ -333,7 +333,7 @@ impl TaskManager {
 
     fn run_elevated_thread(
         elevated_receiver: Receiver<ElevatedActionRunnerCommand>,
-        elevated_result_sender: Sender<(String, Result<Vec<ActionResult>>)>,
+        elevated_result_sender: Sender<(String, Result<ActionRunnerResult>)>,
         event_sender: Sender<TaskEvent>,
         user_context: &UserExecutionContext,
         task_receiver: &Receiver<Task>,
