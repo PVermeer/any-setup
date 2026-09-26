@@ -7,6 +7,7 @@ pages:
   tasks:
     title: Tasks
     progress_bar: Running tasks
+    in_queue: in queue
     details:
       status:
         title: Status

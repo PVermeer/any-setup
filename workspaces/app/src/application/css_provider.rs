@@ -6,7 +6,17 @@ pub fn init(display: &impl IsA<Display>) {
     css_provider.load_from_data(
         ".label-spaced {
             line-height: 2;
-        }",
+        }
+        
+        .accent-bg {
+            background-color: var(--accent-bg-color);
+            color: var(--accent-fg-color);
+        }
+
+        .accent-outline {
+            box-shadow: inset 0 0 0 2px var(--accent-color);
+        }
+        ",
     );
 
     style_context_add_provider_for_display(

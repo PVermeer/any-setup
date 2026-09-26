@@ -17,6 +17,8 @@ impl TaskProgress {
             .text(t!("pages.tasks.progress_bar"))
             .show_text(true)
             .fraction(0.0)
+            .margin_top(20)
+            .margin_bottom(20)
             .build();
 
         let progress_row = ActionRow::builder().activatable(true).build();
@@ -50,8 +52,9 @@ impl TaskProgress {
         app.task_manager
             .listen(task_run_id, move |event: &TaskEvent| {
                 progress_bar_clone.set_text(Some(&format!(
-                    "{progress_bar_text} ({})",
-                    event.tasks_in_queue + 1
+                    "{progress_bar_text} · {} {}",
+                    event.tasks_in_queue + 1,
+                    t!("pages.tasks.in_queue")
                 )));
 
                 match &event.status {
@@ -62,7 +65,8 @@ impl TaskProgress {
                     }
 
                     TaskStatus::Failed { error: _ } | TaskStatus::Finished { results: _ } => {
-                        progress_bar_clone.set_text(Some(&format!("{progress_bar_text} ({})", 0)));
+                        progress_bar_clone.set_text(Some(&t!("pages.tasks.progress_bar")));
+                        progress_bar_clone.set_fraction(1.0);
                     }
                 }
             });

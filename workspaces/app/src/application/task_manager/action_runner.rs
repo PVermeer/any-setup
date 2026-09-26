@@ -10,15 +10,21 @@ use std::{
     hash::{DefaultHasher, Hash, Hasher},
     process::{ExitStatus, Output},
     sync::Arc,
+    time::Duration,
 };
 use tracing::{debug, error};
 
 trait OutputExt {
     fn append_stdout(&mut self, messsage: &str);
+    fn append_stderr(&mut self, messsage: &str);
 }
 impl OutputExt for Output {
     fn append_stdout(&mut self, message: &str) {
         self.stdout.extend_from_slice(message.as_bytes());
+    }
+
+    fn append_stderr(&mut self, message: &str) {
+        self.stderr.extend_from_slice(message.as_bytes());
     }
 }
 
@@ -160,7 +166,7 @@ impl ActionRunner {
         let mut results = Vec::new();
         let queue_length = self.actions.len();
         let queue_factor = 1.0 / queue_length as f64;
-        let mut progress = 0.0;
+        let mut progress = 0.05; // Task has started indicator
 
         for (i, action) in self.actions.iter().enumerate() {
             debug!(action = action.to_string(), "Running action");
@@ -187,54 +193,60 @@ impl ActionRunner {
             let status = action
                 .get_status(&self.user_context)
                 .context("Failed to get status before running the action")?;
-            output.append_stdout(&status.to_log_message());
+
+            if cfg!(debug_assertions) && utils::env::is_devcontainer() {
+                std::thread::sleep(Duration::from_secs(2));
+            }
 
             match status {
-                ActionState::Available => {}
-                ActionState::UnAvailable => {
-                    if !action.fail_allowed() {
-                        break;
+                ActionState::Available => {
+                    output.append_stdout(&status.to_log_message());
+
+                    let mut command = action.get_command(&self.user_context);
+
+                    if self.needs_elevation() && !action.needs_elevation() {
+                        self.user_context.apply_to(&mut command);
+                    }
+
+                    let command_output =
+                        command.output().context("Failed to run action command")?;
+
+                    output.stdout.extend(command_output.stdout);
+                    output.stderr.extend(command_output.stderr);
+                    output.status = command_output.status;
+
+                    if !output.status.success()
+                        && let Some(mut on_error_command) = action.before_retry(&output)
+                    {
+                        output.append_stdout("\n== Running on_error command\n");
+
+                        let on_error_output = on_error_command
+                            .output()
+                            .context("Failed to run on_error command")?;
+
+                        output.stdout.extend(on_error_output.stdout);
+                        output.stderr.extend(on_error_output.stderr);
+
+                        output.append_stdout("\n== Retrying action command\n");
+
+                        let retry_output = action
+                            .get_command(&self.user_context)
+                            .output()
+                            .context("Failed to re-run action command")?;
+
+                        output.stdout.extend(retry_output.stdout);
+                        output.stderr.extend(retry_output.stderr);
+                        output.status = retry_output.status;
                     }
                 }
-                ActionState::Done => {
-                    continue;
+
+                ActionState::UnAvailable => {
+                    output.append_stderr(&status.to_log_message());
                 }
-            }
 
-            let mut command = action.get_command(&self.user_context);
-
-            if self.needs_elevation() && !action.needs_elevation() {
-                self.user_context.apply_to(&mut command);
-            }
-
-            let command_output = command.output().context("Failed to run action command")?;
-
-            output.stdout.extend(command_output.stdout);
-            output.stderr.extend(command_output.stderr);
-            output.status = command_output.status;
-
-            if !output.status.success()
-                && let Some(mut on_error_command) = action.before_retry(&output)
-            {
-                output.append_stdout("\n== Running on_error command\n");
-
-                let on_error_output = on_error_command
-                    .output()
-                    .context("Failed to run on_error command")?;
-
-                output.stdout.extend(on_error_output.stdout);
-                output.stderr.extend(on_error_output.stderr);
-
-                output.append_stdout("\n== Retrying action command\n");
-
-                let retry_output = action
-                    .get_command(&self.user_context)
-                    .output()
-                    .context("Failed to re-run action command")?;
-
-                output.stdout.extend(retry_output.stdout);
-                output.stderr.extend(retry_output.stderr);
-                output.status = retry_output.status;
+                ActionState::Done => {
+                    output.append_stdout(&status.to_log_message());
+                }
             }
 
             let action_result = ActionResult::from_output(action, &output);

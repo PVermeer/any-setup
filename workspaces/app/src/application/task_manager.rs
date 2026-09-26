@@ -6,16 +6,13 @@ pub mod user_execution_context;
 use action_runner::{ActionRunner, ActionRunnerResult, ActionStatus};
 use anyhow::{Error, Result, anyhow, bail};
 use async_channel::{Receiver, Sender};
-use common::utils;
 use elevated_action_runner::ElevatedActionRunner;
 use gtk::glib;
 use rand::{
     distr::{Alphanumeric, SampleString},
     rng,
 };
-use std::{
-    cell::RefCell, collections::HashSet, fmt::Display, rc::Rc, sync::Arc, thread, time::Duration,
-};
+use std::{cell::RefCell, collections::HashSet, fmt::Display, rc::Rc, sync::Arc, thread};
 use tracing::{debug, error, warn};
 use user_execution_context::UserExecutionContext;
 
@@ -311,10 +308,6 @@ impl TaskManager {
                         let _ = event_sender.send_blocking(event);
                     }))
                 };
-
-                if cfg!(debug_assertions) && utils::env::is_devcontainer() {
-                    std::thread::sleep(Duration::from_secs(5));
-                }
 
                 let event = match result {
                     Ok(results) => task_event.with_status(TaskStatus::Finished { results }),
