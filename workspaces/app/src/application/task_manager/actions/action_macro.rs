@@ -59,10 +59,10 @@ macro_rules! impl_action {
                 }
             }
 
-            fn on_error(&self, output: &Output) -> Option<Command> {
+            fn before_retry(&self, output: &Output) -> Option<Command> {
                 match self {
                     $(
-                        Self::$variant(action) => action.on_error(output),
+                        Self::$variant(action) => action.before_retry(output),
                     )+
                 }
             }

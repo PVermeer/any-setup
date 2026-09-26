@@ -182,7 +182,7 @@ impl ActionRunner {
             output.status = command_output.status;
 
             if !output.status.success()
-                && let Some(mut on_error_command) = action.on_error(&output)
+                && let Some(mut on_error_command) = action.before_retry(&output)
             {
                 output
                     .stdout

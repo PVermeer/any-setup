@@ -39,7 +39,8 @@ pub trait IsAction: Display {
     fn get_status(&self, user_context: &UserExecutionContext) -> Result<ActionState>;
     fn fail_allowed(&self) -> bool;
     fn to_undo(&self) -> Self;
-    fn on_error(&self, output: &Output) -> Option<Command>;
+    /// This function runs before a retry is attempted
+    fn before_retry(&self, output: &Output) -> Option<Command>;
 }
 
 #[derive(Serialize, Deserialize, Hash, Clone, Debug)]

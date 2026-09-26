@@ -237,7 +237,7 @@ impl IsAction for RpmOstreeAction {
         }
     }
 
-    fn on_error(&self, _output: &std::process::Output) -> Option<Command> {
+    fn before_retry(&self, _output: &std::process::Output) -> Option<Command> {
         let rpm_ostree_is_idle = dbus_query::get_property::<String>(DbusPropertyQuery {
             connection_type: DbusConnectionType::System,
             destination: "org.projectatomic.rpmostree1",

@@ -285,7 +285,7 @@ impl IsAction for SystemdAction {
         }
     }
 
-    fn on_error(&self, _output: &std::process::Output) -> Option<Command> {
+    fn before_retry(&self, _output: &std::process::Output) -> Option<Command> {
         None
     }
 }

@@ -168,7 +168,7 @@ impl IsAction for UserGroupAction {
         }
     }
 
-    fn on_error(&self, _output: &std::process::Output) -> Option<Command> {
+    fn before_retry(&self, _output: &std::process::Output) -> Option<Command> {
         let Self::Add {
             group,
             create_if_missing,
