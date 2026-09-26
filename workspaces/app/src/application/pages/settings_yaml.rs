@@ -64,7 +64,7 @@ impl Switch {
             .all(|status| matches!(status, ActionState::Done));
         let available = status
             .iter()
-            .all(|status| matches!(status, ActionState::UnAvailable));
+            .all(|status| matches!(status, ActionState::Available));
 
         if done {
             return ActionState::Done;
@@ -83,7 +83,10 @@ impl Switch {
     ) {
         let action_state = self.get_status(user_context);
         switch_row.set_active(matches!(action_state, ActionState::Done));
-        switch_row.set_sensitive(matches!(action_state, ActionState::Available));
+        switch_row.set_sensitive(matches!(
+            action_state,
+            ActionState::Available | ActionState::Done
+        ));
     }
 }
 
