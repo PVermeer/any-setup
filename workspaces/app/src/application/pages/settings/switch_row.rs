@@ -24,11 +24,13 @@ fn set_switch_row_from_status(
     switch_row.set_active(matches!(action_state, ActionState::Done));
     switch_row.set_sensitive(is_actionable);
 
-    warn!(
-        switch_action = switch_row.title().to_string(),
-        %action_state,
-        "Not actionable"
-    );
+    if !is_actionable {
+        warn!(
+            switch_action = switch_row.title().to_string(),
+            %action_state,
+            "Not actionable"
+        );
+    }
 
     if cfg!(debug_assertions) && !is_actionable {
         switch_row.set_sensitive(true);
