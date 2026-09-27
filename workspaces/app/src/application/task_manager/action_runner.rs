@@ -8,6 +8,7 @@ use common::{app_dirs::AppDirs, utils};
 use serde::{Deserialize, Serialize};
 use std::{
     hash::{DefaultHasher, Hash, Hasher},
+    os::unix::process::ExitStatusExt,
     process::{ExitStatus, Output},
     sync::Arc,
     time::Duration,
@@ -248,6 +249,7 @@ impl ActionRunner {
 
                 ActionState::UnAvailable => {
                     output.append_stderr(&status.to_log_message());
+                    output.status = ExitStatus::from_raw(1);
                 }
 
                 ActionState::Done => {

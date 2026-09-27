@@ -213,20 +213,21 @@ impl TaskViewPage {
     }
 
     fn set_results(self: &Rc<Self>, result: ActionRunnerResult) {
-        for result in result.action_results {
-            if !result.stdout.is_empty() {
-                self.output_append_line(&result.stdout);
+        for action_result in result.action_results {
+            // Cannot rely on stderr being only errors
+            if !action_result.stdout.is_empty() {
+                self.output_append_line(&action_result.stdout);
             }
-            if !result.stderr.is_empty() {
-                if result.action.fail_allowed() || result.success {
-                    self.output_append_success(&format!(
-                        "{} ({})",
-                        result.stderr,
-                        t!("pages.tasks.details.status.fail_allowed")
-                    ));
-                } else {
-                    self.output_append_error(&result.stderr);
-                }
+            if !action_result.stderr.is_empty() {
+                self.output_append_line(&action_result.stderr);
+            }
+
+            if action_result.success {
+                self.output_append_success(&t!("pages.tasks.details.status.success"));
+            } else if action_result.action.fail_allowed() {
+                self.output_append_success(&t!("pages.tasks.details.status.fail_allowed"));
+            } else {
+                self.output_append_error(&t!("pages.tasks.details.status.error"));
             }
         }
 
@@ -246,7 +247,10 @@ impl TaskViewPage {
         self.status_running_icon.set_visible(false);
 
         self.output_append("", None);
-        self.output_append_success(&t!("pages.tasks.details.status.success"));
+        self.output_append_success(&format!(
+            "==== {} ====",
+            t!("pages.tasks.details.status.success")
+        ));
     }
 
     fn set_error(self: &Rc<Self>) {
@@ -259,7 +263,10 @@ impl TaskViewPage {
         self.status_running_icon.set_visible(false);
 
         self.output_append("", None);
-        self.output_append_error(&t!("pages.tasks.details.status.error"));
+        self.output_append_error(&format!(
+            "==== {} ====",
+            t!("pages.tasks.details.status.error")
+        ));
     }
 
     fn output_append(self: &Rc<Self>, line: &str, tag: Option<TextBufferTag>) {

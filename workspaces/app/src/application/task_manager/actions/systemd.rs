@@ -257,6 +257,10 @@ impl IsAction for SystemdAction {
     fn fail_allowed(&self) -> bool {
         match self {
             Self::Enable { fail_allowed, .. } | Self::Disable { fail_allowed, .. } => {
+                let allowed_to_fail = fail_allowed.is_some_and(|fail_allowed| fail_allowed);
+
+                debug!(allowed_to_fail, fail_allowed, "Fail allowed check");
+
                 fail_allowed.is_some_and(|fail_allowed| fail_allowed)
             }
         }
