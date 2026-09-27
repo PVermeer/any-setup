@@ -6,7 +6,7 @@ use anyhow::{Context, Result, anyhow, bail};
 use common::utils;
 use serde::{Deserialize, Serialize};
 use std::{fmt::Display, process::Command, str::FromStr, sync::Arc};
-use tracing::{debug, error};
+use tracing::{debug, error, info, warn};
 
 #[derive(Serialize, Deserialize, Hash, Clone, Debug)]
 #[cfg_attr(test, derive(PartialEq))]
@@ -123,6 +123,8 @@ impl IsEnabledOutput {
 
     fn to_action_state(&self, action: &SystemdAction, recursive_depth: Option<u32>) -> ActionState {
         fn handle_alias(action: &SystemdAction, recursive_depth: Option<u32>) -> ActionState {
+            debug!("Found alias");
+
             let depth = recursive_depth.unwrap_or(0);
             if depth > 10 {
                 error!(%action, depth, "Reached max recursive depth trying to resolve an alias");
@@ -140,9 +142,11 @@ impl IsEnabledOutput {
                 }
             }
             let Ok(new_is_enabled_output) = IsEnabledOutput::from_action(&action_clone) else {
+                warn!("Unable to resolve unit alias");
                 return ActionState::UnAvailable;
             };
 
+            debug!(%new_is_enabled_output, "Re-running alias from depth: {depth}");
             new_is_enabled_output.to_action_state(&action_clone, Some(depth + 1))
         }
 
@@ -303,6 +307,8 @@ impl SystemdAction {
     }
 
     fn resolve_alias(&self) -> Result<String> {
+        debug!("Resolving alias");
+
         match self {
             SystemdAction::Enable { unit, scope, .. }
             | SystemdAction::Disable { unit, scope, .. } => {
@@ -323,8 +329,12 @@ impl SystemdAction {
                     error!(message);
                     bail!(message);
                 }
+                let mut output = utils::command::parse_output(&output.stdout);
+                output = output.trim().to_string();
 
-                Ok(utils::command::parse_output(&output.stdout))
+                info!(output, "Resolved alias");
+
+                Ok(output)
             }
         }
     }
