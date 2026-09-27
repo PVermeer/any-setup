@@ -1,13 +1,60 @@
 use crate::application::{
     pages::settings_yaml::Switch,
     task_manager::{
-        TaskEvent, TaskManager, TaskStatus, action_runner::ActionRunner,
+        TaskEvent, TaskManager, TaskStatus, action_runner::ActionRunner, actions::ActionState,
         user_execution_context::UserExecutionContext,
     },
 };
 use gtk::prelude::WidgetExt;
-use libadwaita::{Spinner, SwitchRow, prelude::ActionRowExt};
+use libadwaita::{
+    Spinner, SwitchRow,
+    prelude::{ActionRowExt, PreferencesRowExt},
+};
 use std::{cell::RefCell, rc::Rc, sync::Arc};
+use tracing::warn;
+
+fn set_switch_row_from_status(
+    switch: &Switch,
+    switch_row: &SwitchRow,
+    user_context: &Arc<UserExecutionContext>,
+) {
+    let action_state = switch.get_status(user_context);
+    let is_actionable = matches!(action_state, ActionState::Available | ActionState::Done);
+
+    switch_row.set_active(matches!(action_state, ActionState::Done));
+    switch_row.set_sensitive(is_actionable);
+
+    warn!(
+        switch_action = switch_row.title().to_string(),
+        %action_state,
+        "Not actionable"
+    );
+
+    if cfg!(debug_assertions) && !is_actionable {
+        switch_row.set_sensitive(true);
+    }
+}
+
+fn handle_task_event(
+    event: &TaskEvent,
+    switch: &Rc<Switch>,
+    switch_row: &SwitchRow,
+    spinner: &Spinner,
+    user_context: &Arc<UserExecutionContext>,
+    disable_active_notify: &RefCell<bool>,
+) {
+    match event.status {
+        TaskStatus::Finished { .. } | TaskStatus::Failed { .. } => {
+            switch_row.set_sensitive(true);
+            spinner.set_visible(false);
+
+            *disable_active_notify.borrow_mut() = true;
+            set_switch_row_from_status(switch, switch_row, user_context);
+            *disable_active_notify.borrow_mut() = false;
+        }
+        _ => {}
+    }
+}
 
 pub fn build_switch_row(
     switch: &Switch,
@@ -20,11 +67,8 @@ pub fn build_switch_row(
     if let Some(subtitle) = &switch.subtitle {
         switch_row.set_subtitle(subtitle);
     }
-    switch.set_switch_row_from_status(&switch_row, user_context);
 
-    if cfg!(debug_assertions) {
-        switch_row.set_sensitive(true);
-    }
+    set_switch_row_from_status(&switch, &switch_row, user_context);
 
     let spinner = Spinner::new();
     spinner.set_visible(false);
@@ -32,26 +76,6 @@ pub fn build_switch_row(
 
     let action_runner = ActionRunner::new(&switch.title, &switch.actions, user_context);
     let action_runner_undo = action_runner.to_undo();
-
-    let handle_task_event =
-        move |event: &TaskEvent,
-              switch: &Rc<Switch>,
-              switch_row: &SwitchRow,
-              spinner: &Spinner,
-              user_context: &Arc<UserExecutionContext>,
-              disable_active_notify: &RefCell<bool>| {
-            match event.status {
-                TaskStatus::Finished { .. } | TaskStatus::Failed { .. } => {
-                    switch_row.set_sensitive(true);
-                    spinner.set_visible(false);
-
-                    *disable_active_notify.borrow_mut() = true;
-                    switch.set_switch_row_from_status(switch_row, user_context);
-                    *disable_active_notify.borrow_mut() = false;
-                }
-                _ => {}
-            }
-        };
 
     let switch_clone = switch.clone();
     let task_manager_clone = task_manager.clone();

@@ -5,8 +5,7 @@ use crate::application::task_manager::{
     user_execution_context::UserExecutionContext,
 };
 use anyhow::Result;
-use gtk::{InputPurpose, prelude::WidgetExt};
-use libadwaita::SwitchRow;
+use gtk::InputPurpose;
 use serde::Deserialize;
 use std::{collections::HashMap, sync::Arc};
 
@@ -74,19 +73,6 @@ impl Switch {
         }
 
         ActionState::UnAvailable
-    }
-
-    pub fn set_switch_row_from_status(
-        &self,
-        switch_row: &SwitchRow,
-        user_context: &Arc<UserExecutionContext>,
-    ) {
-        let action_state = self.get_status(user_context);
-        switch_row.set_active(matches!(action_state, ActionState::Done));
-        switch_row.set_sensitive(matches!(
-            action_state,
-            ActionState::Available | ActionState::Done
-        ));
     }
 }
 
