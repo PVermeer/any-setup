@@ -25,7 +25,7 @@ use common::{
 use libadwaita::gio::prelude::{ApplicationExt, ApplicationExtManual};
 use rust_i18n::locale;
 use tracing::{Level, debug, info};
-use tracing_subscriber::{FmtSubscriber, util::SubscriberInitExt};
+use tracing_subscriber::{FmtSubscriber, field::MakeExt, util::SubscriberInitExt};
 
 #[macro_use]
 extern crate rust_i18n;
@@ -47,6 +47,7 @@ fn init_logging() {
     let logger = FmtSubscriber::builder()
         .with_max_level(Level::INFO)
         .with_env_filter(filter)
+        .map_fmt_fields(MakeExt::debug_alt)
         .finish();
     logger.init();
 }
