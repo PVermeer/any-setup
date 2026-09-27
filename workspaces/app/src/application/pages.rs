@@ -20,7 +20,7 @@ use libadwaita::{
     ToolbarView, gtk::prelude::WidgetExt,
 };
 use std::{collections::HashMap, rc::Rc, sync::Arc};
-use tracing::{debug, error};
+use tracing::{error, info};
 
 pub struct Pages {
     pub pages: Vec<Rc<dyn DynPage>>,
@@ -55,12 +55,13 @@ impl Pages {
         user_context: &Arc<UserExecutionContext>,
     ) -> Result<Vec<Rc<dyn DynPage>>> {
         let mut pages: Vec<Rc<dyn DynPage>> = Vec::new();
+        let pages_dir = &app_dirs.system_data_pages_dir;
 
-        if let Some(pages_dir) = &app_dirs.system_data_pages_dir
+        info!(?pages_dir, "Loading page files");
+
+        if let Some(pages_dir) = pages_dir
             && let Ok(mut pages_dir_entries) = utils::files::get_entries_in_dir(pages_dir)
         {
-            debug!(?pages_dir, "Loading page files");
-
             pages_dir_entries.sort_by_key(std::fs::DirEntry::file_name);
 
             for dir_entry in pages_dir_entries {
@@ -98,6 +99,8 @@ impl Pages {
 
         if pages.is_empty() {
             pages.push(FallbackPage::new().build_page(task_manager, user_context)?);
+
+            error!(?pages_dir, "No page files found");
         }
 
         Ok(pages)

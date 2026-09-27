@@ -5,8 +5,9 @@ use crate::{
 use anyhow::{Context, Result};
 use gtk::glib;
 use std::{fs, path::PathBuf, rc::Rc};
+use tracing::debug;
 
-#[derive(Default)]
+#[derive(Default, Debug)]
 pub struct AppDirs {
     pub user_home: PathBuf,
     pub user_data: PathBuf,
@@ -18,15 +19,16 @@ pub struct AppDirs {
 }
 impl AppDirs {
     pub fn new() -> Result<Rc<Self>> {
-        Rc::new(Self::default());
-
         let user_home = glib::home_dir();
         let user_data = glib::user_data_dir();
         let user_config = glib::user_config_dir();
         let user_cache = glib::user_cache_dir();
         let user_runtime = glib::user_runtime_dir();
 
-        let mut system_data_dir = glib::system_data_dirs()
+        let system_data_dirs = glib::system_data_dirs();
+        debug!(?system_data_dirs, "System data dirs");
+
+        let mut system_data_dir = system_data_dirs
             .into_iter()
             .find(|dir| dir.join(config::APP_NAME_HYPHEN.get_value()).is_dir());
 
@@ -36,7 +38,7 @@ impl AppDirs {
 
         let system_data_pages_dir = system_data_dir.clone().map(|dir| dir.join("pages"));
 
-        Ok(Rc::new(Self {
+        let me = Self {
             user_home,
             user_data,
             user_config,
@@ -44,7 +46,11 @@ impl AppDirs {
             user_runtime,
             system_data_dir,
             system_data_pages_dir,
-        }))
+        };
+
+        debug!(?me, "Application dirs");
+
+        Ok(Rc::new(me))
     }
 
     pub fn app_data(&self) -> Result<PathBuf> {
