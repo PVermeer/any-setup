@@ -39,7 +39,7 @@ impl NavPage for SettingsPage {
     }
 
     fn get_icon(&self) -> Option<&str> {
-        Some(&self.yaml.icon)
+        self.yaml.icon.as_deref()
     }
 }
 impl SettingsPage {

@@ -93,7 +93,7 @@ pub struct Group {
 pub struct SettingsPageYaml {
     pub title: String,
     pub section: Option<String>,
-    pub icon: String,
+    pub icon: Option<String>,
     pub groups: Vec<Group>,
 }
 impl YamlPage for SettingsPageYaml {

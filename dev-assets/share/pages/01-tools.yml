@@ -1,9 +1,9 @@
 page_type: settings
 title: Tools
-section: Tools
-icon: applications-utilities-symbolic
+section: Tools # Optional
+icon: applications-utilities-symbolic # Optional
 groups:
-  - title: Some settings
+  - title: Some settings # Optional
     settings:
       - type: input
         title: Input something
@@ -12,14 +12,14 @@ groups:
 
       - type: switch
         title: SystemD
-        subtitle: Enable some services
+        subtitle: Enable some services # Optional
         actions:
           - action: systemd
             type: enable
             scope: user
-            now: true
             unit: some-user.service
-            fail_allowed: true
+            now: true # Optional
+            fail_allowed: true # Optional
 
           - action: systemd
             type: enable
