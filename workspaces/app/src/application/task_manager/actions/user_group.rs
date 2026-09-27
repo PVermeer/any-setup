@@ -220,6 +220,12 @@ impl IsAction for UserGroupAction {
 #[allow(clippy::unwrap_used)]
 mod tests {
     use super::*;
+    use crate::cli::Cli;
+    use clap::Parser;
+
+    fn get_user_context() -> Arc<UserExecutionContext> {
+        UserExecutionContext::new(Cli::parse_from::<[_; 0], &str>([])).unwrap()
+    }
 
     fn add_action() -> UserGroupAction {
         UserGroupAction::Add {
@@ -237,7 +243,7 @@ mod tests {
     }
 
     fn command_args(action: &UserGroupAction) -> Vec<String> {
-        let user_context = UserExecutionContext::new().unwrap();
+        let user_context = get_user_context();
 
         action
             .get_command(&user_context)
@@ -312,7 +318,7 @@ mod tests {
 
     #[test]
     fn add_undo_command_is_remove() {
-        let user_context = UserExecutionContext::new().unwrap();
+        let user_context = get_user_context();
 
         let command = add_action().to_undo().get_command(&user_context);
 
@@ -327,7 +333,7 @@ mod tests {
 
     #[test]
     fn remove_undo_command_is_add() {
-        let user_context = UserExecutionContext::new().unwrap();
+        let user_context = get_user_context();
 
         let command = remove_action().to_undo().get_command(&user_context);
 

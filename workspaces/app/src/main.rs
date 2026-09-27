@@ -111,11 +111,11 @@ fn main() -> Result<()> {
         .application_id(config::APP_ID.get_value())
         .build();
 
-    adw_application.connect_activate(|adw_application| {
-        App::new(adw_application).init();
+    adw_application.connect_activate(move |adw_application| {
+        App::new(adw_application, &arguments).init();
     });
 
-    adw_application.run();
+    adw_application.run_with_args::<&str>(&[]);
 
     Ok(())
 }

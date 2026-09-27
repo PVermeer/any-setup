@@ -15,7 +15,7 @@ use std::{
 fn main() -> Result<()> {
     println!("cargo:warning=Debug: App build script is running!");
     config::init();
-    let app_dirs = AppDirs::new()?;
+    let app_dirs = AppDirs::new(&None)?;
     let is_in_dev_container =
         option_env!("RUN_IN_VSCODE_DEVCONTAINER").is_some_and(|value| value == "true");
 

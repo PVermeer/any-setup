@@ -1,3 +1,4 @@
+use crate::cli::Cli;
 use anyhow::Result;
 use common::{
     dbus_query::{self, DbusConnectionType},
@@ -14,9 +15,10 @@ pub struct UserExecutionContext {
     pub user_name: String,
     pub current_dir: PathBuf,
     pub environment: HashMap<String, String>,
+    pub arguments: Cli,
 }
 impl UserExecutionContext {
-    pub fn new() -> Result<Arc<Self>> {
+    pub fn new(arguments: Cli) -> Result<Arc<Self>> {
         let environment = HashMap::from([
             (
                 "XDG_RUNTIME_DIR".to_string(),
@@ -33,6 +35,7 @@ impl UserExecutionContext {
             user_name: utils::env::get_user_name(),
             current_dir: utils::env::get_current_dir(),
             environment,
+            arguments,
         }))
     }
 

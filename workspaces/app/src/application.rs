@@ -4,6 +4,7 @@ pub mod pages;
 pub mod task_manager;
 mod window;
 
+use crate::cli::Cli;
 use anyhow::{Error, Result};
 use common::{
     app_dirs::AppDirs,
@@ -30,17 +31,19 @@ pub struct App {
     pages: Pages,
 }
 impl App {
-    pub fn new(adw_application: &libadwaita::Application) -> Rc<Self> {
+    pub fn new(adw_application: &libadwaita::Application, arguments: &Cli) -> Rc<Self> {
         Rc::new({
             let display = gdk::Display::default().expect("Failed to connect to display");
             let icon_theme = Rc::new(IconTheme::for_display(&display));
-            let app_dirs = AppDirs::new().expect("Failed to get all needed directories");
+            let app_dirs =
+                AppDirs::new(&arguments.pages_dir).expect("Failed to get all needed directories");
             let settings = Settings::default().expect("Failed to load gtk settings");
             let cache_settings = RefCell::new(
                 CacheSettings::new(&app_dirs).expect("Failed to load cached settings"),
             );
             let window = AppWindow::new(adw_application);
-            let user_context = UserExecutionContext::new().expect("Failed to load UserContext");
+            let user_context =
+                UserExecutionContext::new(arguments.clone()).expect("Failed to load UserContext");
             let task_manager = TaskManager::new(&user_context);
             let pages = Pages::new(&app_dirs, &task_manager, &user_context)
                 .expect("Failed to create config pages");

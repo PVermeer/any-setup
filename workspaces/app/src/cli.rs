@@ -1,14 +1,18 @@
-use std::fmt::Display;
-
 use clap::{Parser, Subcommand};
+use serde::{Deserialize, Serialize};
+use std::{fmt::Display, path::PathBuf};
 
-#[derive(Parser)]
+#[derive(Parser, Debug, Clone, Serialize, Deserialize)]
 #[command(version, about, long_about = None)]
 pub struct Cli {
     #[command(subcommand)]
     pub command: Option<AppCommand>,
+
+    /// Set custom config pages directory
+    #[arg(short, long)]
+    pub pages_dir: Option<PathBuf>,
 }
-#[derive(Subcommand)]
+#[derive(Subcommand, Debug, Clone, Serialize, Deserialize)]
 pub enum AppCommand {
     /// Run batched commands
     ActionRunner,

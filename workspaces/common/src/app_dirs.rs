@@ -5,7 +5,7 @@ use crate::{
 use anyhow::{Context, Result};
 use gtk::glib;
 use std::{fs, path::PathBuf, rc::Rc};
-use tracing::debug;
+use tracing::{debug, error, info};
 
 #[derive(Default, Debug)]
 pub struct AppDirs {
@@ -18,7 +18,7 @@ pub struct AppDirs {
     pub system_data_pages_dir: Option<PathBuf>,
 }
 impl AppDirs {
-    pub fn new() -> Result<Rc<Self>> {
+    pub fn new(pages_dir: &Option<PathBuf>) -> Result<Rc<Self>> {
         let user_home = glib::home_dir();
         let user_data = glib::user_data_dir();
         let user_config = glib::user_config_dir();
@@ -35,8 +35,18 @@ impl AppDirs {
         if cfg!(debug_assertions) {
             system_data_dir = Some(glib::current_dir().join("dev-assets").join("share"));
         }
+        let mut system_data_pages_dir = system_data_dir.clone().map(|dir| dir.join("pages"));
 
-        let system_data_pages_dir = system_data_dir.clone().map(|dir| dir.join("pages"));
+        if let Some(pages_dir) = pages_dir {
+            info!(?pages_dir, "Found user set pages dir argument");
+
+            let pages_dir_abs = pages_dir.canonicalize().unwrap_or_default();
+
+            if !pages_dir_abs.is_dir() {
+                error!(?pages_dir_abs, "User set pages dir is not a directory");
+            }
+            system_data_pages_dir = Some(pages_dir_abs);
+        }
 
         let me = Self {
             user_home,

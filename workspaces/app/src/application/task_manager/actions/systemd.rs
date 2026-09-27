@@ -334,7 +334,13 @@ impl SystemdAction {
 #[allow(clippy::unwrap_used)]
 mod tests {
     use super::*;
+    use crate::cli::Cli;
+    use clap::Parser;
     use tracing_test::traced_test;
+
+    fn get_user_context() -> Arc<UserExecutionContext> {
+        UserExecutionContext::new(Cli::parse_from::<[_; 0], &str>([])).unwrap()
+    }
 
     fn enable_action() -> SystemdAction {
         SystemdAction::Enable {
@@ -355,7 +361,7 @@ mod tests {
     }
 
     fn command_args(action: &SystemdAction) -> Vec<String> {
-        let user_context = UserExecutionContext::new().unwrap();
+        let user_context = get_user_context();
 
         action
             .get_command(&user_context)

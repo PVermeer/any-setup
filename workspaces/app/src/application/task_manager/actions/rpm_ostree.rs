@@ -309,6 +309,12 @@ impl RpmOstreeAction {
 #[allow(clippy::unwrap_used)]
 mod tests {
     use super::*;
+    use crate::cli::Cli;
+    use clap::Parser;
+
+    fn get_user_context() -> Arc<UserExecutionContext> {
+        UserExecutionContext::new(Cli::parse_from::<[_; 0], &str>([])).unwrap()
+    }
 
     #[test]
     fn rpm_status_maps_to_action_state_correctly() {
@@ -428,7 +434,7 @@ mod tests {
 
     #[test]
     fn kargs_action_creates_correct_command() {
-        let user_context = UserExecutionContext::new().unwrap();
+        let user_context = get_user_context();
 
         let action = RpmOstreeAction::Kargs {
             add: Some(Vec::from(["foo=bar".to_string(), "baz".to_string()])),
