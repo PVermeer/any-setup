@@ -34,7 +34,7 @@ fn main() -> Result<()> {
 
 fn create_config_symlinks(app_dirs: &AppDirs) {
     let config_path = dev_config_path();
-    let Ok(app_config_path) = app_dirs.app_config() else {
+    let Ok(app_config_path) = app_dirs.app_user_config() else {
         return;
     };
 
@@ -43,7 +43,7 @@ fn create_config_symlinks(app_dirs: &AppDirs) {
 
 fn create_data_symlinks(app_dirs: &AppDirs) {
     let data_path = dev_data_path();
-    let Ok(app_data_path) = app_dirs.app_data() else {
+    let Ok(app_data_path) = app_dirs.app_user_data() else {
         return;
     };
 

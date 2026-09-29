@@ -105,8 +105,9 @@ impl ActionRunner {
         user_context: &Arc<UserExecutionContext>,
     ) -> Result<Arc<Self>> {
         let app_dirs = AppDirs::new(&user_context.arguments.pages_dir)?;
+        let pages_dir = app_dirs.app_system_data_pages();
 
-        if let Some(pages_dir) = &app_dirs.system_data_pages_dir
+        if let Some(pages_dir) = &pages_dir
             && let Ok(pages_dir_entries) = utils::files::get_entries_in_dir(pages_dir)
         {
             for dir_entry in pages_dir_entries {

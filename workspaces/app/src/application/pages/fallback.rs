@@ -3,6 +3,7 @@ use crate::application::{
     task_manager::{TaskManager, user_execution_context::UserExecutionContext},
 };
 use anyhow::Result;
+use common::app_dirs::AppDirs;
 use gtk::{Align, Justification, Label, Orientation, ScrolledWindow, prelude::BoxExt};
 use libadwaita::{Clamp, NavigationPage};
 use std::{rc::Rc, sync::Arc};
@@ -34,7 +35,7 @@ impl NavPage for FallbackPage {
     }
 }
 impl FallbackPage {
-    pub fn new() -> Self {
+    pub fn new(app_dirs: &Rc<AppDirs>) -> Self {
         let icon = "go-home-symbolic".to_string();
         let title = &t!("pages.fallback.title");
 
@@ -59,7 +60,9 @@ impl FallbackPage {
         let scrolled_window = ScrolledWindow::builder().child(&clamp).build();
         toolbar.set_content(Some(&scrolled_window));
 
-        let header_text = Self::build_header_text(&t!("pages.fallback.get_started"));
+        let pages_dir = app_dirs.app_system_data_pages().unwrap_or_default();
+        let header_text =
+            Self::build_header_text(&t!("pages.fallback.get_started", dir = pages_dir.display()));
         content_box.append(&header_text);
 
         Self { nav_page, icon }

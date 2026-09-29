@@ -27,7 +27,7 @@ pub fn init(app_dirs: &AppDirs) -> Result<()> {
 }
 
 pub fn reset_config_files(app_dirs: &AppDirs) -> Result<()> {
-    let config_dir = &app_dirs.app_config()?;
+    let config_dir = &app_dirs.app_user_config()?;
 
     if config_dir.is_dir() {
         info!("Deleting config files");
@@ -90,7 +90,7 @@ pub fn get_polkit_policy_file_in() -> &'static str {
 
 fn extract_config_dir(app_dirs: &AppDirs) -> Result<()> {
     debug!("Extracting config dir");
-    let config_dir = &app_dirs.app_config()?;
+    let config_dir = &app_dirs.app_user_config()?;
 
     CONFIG.extract(config_dir).context(format!(
         "Failed to extract config dir from ASSETS in: {}",

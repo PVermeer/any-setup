@@ -55,11 +55,11 @@ impl Pages {
         user_context: &Arc<UserExecutionContext>,
     ) -> Result<Vec<Rc<dyn DynPage>>> {
         let mut pages: Vec<Rc<dyn DynPage>> = Vec::new();
-        let pages_dir = &app_dirs.system_data_pages_dir;
+        let pages_dir = app_dirs.app_system_data_pages();
 
         info!(?pages_dir, "Loading page files");
 
-        if let Some(pages_dir) = pages_dir
+        if let Some(pages_dir) = &pages_dir
             && let Ok(mut pages_dir_entries) = utils::files::get_entries_in_dir(pages_dir)
         {
             pages_dir_entries.sort_by_key(std::fs::DirEntry::file_name);
@@ -98,7 +98,7 @@ impl Pages {
         }
 
         if pages.is_empty() {
-            pages.push(FallbackPage::new().build_page(task_manager, user_context)?);
+            pages.push(FallbackPage::new(app_dirs).build_page(task_manager, user_context)?);
 
             error!(?pages_dir, "No page files found");
         }

@@ -8,7 +8,7 @@ use crate::application::task_manager::{
 use anyhow::{Context, Result};
 use serde::Deserialize;
 use std::{collections::HashMap, fs, path::PathBuf, rc::Rc, sync::Arc};
-use tracing::debug;
+use tracing::{debug, info};
 
 #[derive(Deserialize, Debug)]
 #[serde(tag = "page_type", rename_all = "lowercase")]
@@ -18,7 +18,7 @@ pub enum PageYaml {
 }
 impl PageYaml {
     pub fn from_file(file_path: &PathBuf) -> Result<Self> {
-        debug!(?file_path, "Reading yaml file");
+        info!(?file_path, "Reading yaml file");
 
         let file_string = fs::read_to_string(file_path).context(format!(
             "Failed to read file to string: {}",
