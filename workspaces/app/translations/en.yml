@@ -27,3 +27,6 @@ window:
       cancel: Cancel
       exit: Quit application
       tasks: Go to tasks
+
+task_runner:
+  undo: Running undo actions

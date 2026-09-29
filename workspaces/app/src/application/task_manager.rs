@@ -296,17 +296,20 @@ impl TaskManager {
                 } else {
                     let _ = event_sender.send_blocking(task_event.with_status(TaskStatus::Started));
 
-                    task.runner.run_actions(Some(&|progress| {
-                        let event = task_event.with_status(TaskStatus::Progress {
-                            action: progress.action.clone(),
-                            action_nr: progress.action_nr,
-                            total_actions: progress.total_actions,
-                            progress: progress.progress,
-                            _status: progress.status.clone(),
-                        });
+                    task.runner.run_actions(
+                        false,
+                        Some(&|progress| {
+                            let event = task_event.with_status(TaskStatus::Progress {
+                                action: progress.action.clone(),
+                                action_nr: progress.action_nr,
+                                total_actions: progress.total_actions,
+                                progress: progress.progress,
+                                _status: progress.status.clone(),
+                            });
 
-                        let _ = event_sender.send_blocking(event);
-                    }))
+                            let _ = event_sender.send_blocking(event);
+                        }),
+                    )
                 };
 
                 let event = match result {

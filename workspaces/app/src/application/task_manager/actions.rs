@@ -16,7 +16,7 @@ use std::{
 use systemd::SystemdAction;
 use user_group::UserGroupAction;
 
-#[derive(Default, Debug)]
+#[derive(Default, Serialize, Deserialize, Clone, Debug)]
 #[cfg_attr(test, derive(PartialEq))]
 pub enum ActionState {
     Done,

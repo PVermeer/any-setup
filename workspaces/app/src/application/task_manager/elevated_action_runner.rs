@@ -272,19 +272,22 @@ fn run_action_runner(
 
     send_response(&ProcessResponse::Started)?;
 
-    let result = action_runner.run_actions(Some(&|progress| {
-        let response = ProcessResponse::Progress {
-            action: progress.action.clone(),
-            action_nr: progress.action_nr,
-            total_actions: progress.total_actions,
-            progress: progress.progress,
-            status: progress.status.clone(),
-        };
+    let result = action_runner.run_actions(
+        false,
+        Some(&|progress| {
+            let response = ProcessResponse::Progress {
+                action: progress.action.clone(),
+                action_nr: progress.action_nr,
+                total_actions: progress.total_actions,
+                progress: progress.progress,
+                status: progress.status.clone(),
+            };
 
-        if let Err(error) = send_response(&response) {
-            error!(?error, "Failed to send progress of elevated ActionRunner");
-        }
-    }));
+            if let Err(error) = send_response(&response) {
+                error!(?error, "Failed to send progress of elevated ActionRunner");
+            }
+        }),
+    );
 
     match result {
         Ok(results) => {

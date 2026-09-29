@@ -35,14 +35,17 @@ impl OutputExt for Output {
 pub struct ActionResult {
     pub action: Action,
     pub success: bool,
+    pub status: ActionState,
     pub stdout: String,
     pub stderr: String,
 }
 impl ActionResult {
-    pub fn from_output(action: &Action, output: &Output) -> Self {
+    pub fn from_output(action: &Action, status: &ActionState, output: &Output) -> Self {
         Self {
             action: action.clone(),
             success: output.status.success(),
+            // Status before the action was run
+            status: status.clone(),
             stdout: utils::command::parse_output(&output.stdout),
             stderr: utils::command::parse_output(&output.stderr),
         }
@@ -148,6 +151,31 @@ impl ActionRunner {
         bail!("Failed to find the ActionRunner")
     }
 
+    pub fn to_undo_from_results(&self, results: &Vec<ActionResult>) -> Option<Arc<Self>> {
+        let mut undo_actions = Vec::new();
+
+        for result in results {
+            match result.status {
+                ActionState::Available => {
+                    let undo_action = result.action.to_undo();
+                    undo_actions.push(undo_action);
+                }
+
+                ActionState::Done | ActionState::UnAvailable => {}
+            }
+        }
+
+        if undo_actions.is_empty() {
+            return None;
+        }
+
+        Some(Self::new(
+            &format!("{} (undo)", self.name),
+            &undo_actions,
+            &self.user_context,
+        ))
+    }
+
     pub fn get_id(&self) -> u64 {
         let mut hasher = DefaultHasher::new();
         self.hash(&mut hasher);
@@ -167,8 +195,10 @@ impl ActionRunner {
         self.elevate
     }
 
+    #[allow(clippy::too_many_lines)] // Lot of output lines
     pub fn run_actions(
         &self,
+        is_a_undo_after_failure_run: bool,
         on_progress: Option<&dyn Fn(&ActionProgress)>,
     ) -> Result<ActionRunnerResult> {
         let mut results = Vec::new();
@@ -195,6 +225,13 @@ impl ActionRunner {
                 stderr: Vec::new(),
                 stdout: Vec::new(),
             };
+
+            if is_a_undo_after_failure_run {
+                let message = t!("task_runner.undo");
+                debug!("{message}");
+                output.append_stdout(&format!("\n== {message} =="));
+            }
+
             output.append_stdout(&format!("\n==== Running action {} ====", i + 1));
             output.append_stdout(&format!("== {action}"));
 
@@ -258,12 +295,12 @@ impl ActionRunner {
                 }
             }
 
-            let action_result = ActionResult::from_output(action, &output);
+            let action_result = ActionResult::from_output(action, &status, &output);
 
             progress = (i + 1) as f64 * queue_factor;
             results.push(action_result);
 
-            if !action.fail_allowed() && !output.status.success() {
+            if !output.status.success() && !action.fail_allowed() && !is_a_undo_after_failure_run {
                 break;
             }
         }
@@ -286,6 +323,24 @@ impl ActionRunner {
 
         let success = failures.is_empty();
         let stderr = failures.last().map(|result| result.stderr.clone());
+
+        if !success && !is_a_undo_after_failure_run {
+            // Try to undo the actions
+            if let Some(undo_action_runner) = self.to_undo_from_results(&results) {
+                let undo_results =
+                    undo_action_runner.run_actions(is_a_undo_after_failure_run, on_progress);
+
+                match undo_results {
+                    Err(error) => {
+                        error!(%error, "Error when trying to run undo after a failed run");
+                    }
+
+                    Ok(mut undo_results) => {
+                        results.append(&mut undo_results.action_results);
+                    }
+                }
+            }
+        }
 
         Ok(ActionRunnerResult {
             action_results: results,
