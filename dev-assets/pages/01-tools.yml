@@ -74,15 +74,24 @@ groups:
         title: Add me to docker group
         subtitle: Add a user to the docker group
         actions:
-          - action: usergroup 
+          - action: usergroup
             type: add
             group: docker
             create_if_missing: true # Optional
 
       - type: switch
-        title: Remove me from docker group
-        subtitle: Add a user to the docker group
+        title: Install flatpak system
+        subtitle: Install some flatpak
         actions:
-          - action: usergroup
-            type: remove
-            group: docker
+          - action: flatpak
+            type: install
+            app: org.pvermeer.WebAppHub
+
+      - type: switch
+        title: Install flatpak user
+        subtitle: Install some flatpak
+        actions:
+          - action: flatpak
+            type: install
+            scope: user
+            app: org.pvermeer.WebAppHub
