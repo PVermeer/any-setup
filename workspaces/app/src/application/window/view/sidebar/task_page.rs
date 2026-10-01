@@ -75,7 +75,8 @@ impl TaskUi {
     }
 
     fn set_error(&mut self, error: &str) {
-        self.task_row.set_subtitle(error);
+        self.task_row
+            .set_subtitle(error.lines().last().unwrap_or(error));
         self.task_row.add_css_class("error");
 
         self.success_icon.set_visible(false);
@@ -89,7 +90,11 @@ impl TaskUi {
         nav_view: &NavigationView,
     ) -> (ActionRow, Image, Image, Image, Spinner) {
         let title = &task_event.name;
-        let task_row = ActionRow::builder().title(title).activatable(true).build();
+        let task_row = ActionRow::builder()
+            .title(title)
+            .activatable(true)
+            .subtitle_lines(1)
+            .build();
 
         let pending_icon = Image::builder()
             .icon_name("content-loading-symbolic")
