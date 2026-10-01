@@ -99,12 +99,12 @@ impl SidebarPage {
     }
 
     fn build_bottom_box() -> (ListBox, TaskProgress) {
-        let task_progress = TaskProgress::new(None);
+        let task_progress = TaskProgress::new_as_row(None);
 
         let bottom_box = ListBox::builder()
             .css_classes(["navigation-sidebar"])
             .build();
-        bottom_box.append(task_progress.get_progress_row());
+        bottom_box.append(&task_progress.get_progress_row());
 
         (bottom_box, task_progress)
     }
@@ -205,6 +205,6 @@ impl SidebarPage {
     fn select_progress_row(&self) {
         self.sidebar.set_selected(u32::MAX); // Unselect
         self.bottom_box
-            .select_row(Some(self.task_progress.get_progress_row()));
+            .select_row(Some(&self.task_progress.get_progress_row()));
     }
 }

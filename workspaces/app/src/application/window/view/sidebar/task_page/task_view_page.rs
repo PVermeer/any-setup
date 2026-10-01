@@ -77,8 +77,8 @@ impl TaskViewPage {
         let progress_prefs_group = PreferencesGroup::new();
         prefs_page.add(&progress_prefs_group);
 
-        let task_progress = TaskProgress::new(Some(&id));
-        progress_prefs_group.add(task_progress.get_progress_bar());
+        let task_progress = TaskProgress::new_as_progress_bar(Some(&id));
+        progress_prefs_group.add(&task_progress.get_progress_bar());
 
         let status_prefs_group = PreferencesGroup::builder()
             .title(t!("pages.tasks.details.status.title"))
