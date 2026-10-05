@@ -121,7 +121,7 @@ impl AppDirs {
                 })
         };
 
-        if cfg!(debug_assertions) && self.pages_dir_run_argument.is_none() {
+        if cfg!(debug_assertions) && path.is_none() {
             path = Some(
                 glib::current_dir()
                     .join("dev-assets")

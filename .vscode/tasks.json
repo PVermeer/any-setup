@@ -43,5 +43,33 @@
 				"isDefault": false
 			},
 		},
+		{
+			"label": "Build rpm",
+			"type": "shell",
+			"command": "./rpm-tools/rpm-tool",
+			"args": [
+				"build",
+			],
+			"problemMatcher": [],
+			"group": {
+				"kind": "build",
+				"isDefault": true
+			}
+		},
+		{
+			"label": "Release",
+			"type": "shell",
+			"command": "./rpm-tools/rpm-tool",
+			"args": [
+				"release",
+				"copr-build",
+				"--copr-watch"
+			],
+			"problemMatcher": [],
+			"group": {
+				"kind": "none",
+				"isDefault": false
+			}
+		},
 	]
 }

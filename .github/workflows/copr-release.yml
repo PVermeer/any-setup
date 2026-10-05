@@ -1,0 +1,17 @@
+name: COPR release
+
+on:
+  workflow_dispatch:
+
+jobs:
+  COPR_build:
+    uses: pvermeer/rpm-tools/.github/workflows/copr-release.yml@main
+    with:
+      spec_file: ./any-setup.spec
+      copr_owner: pvermeer
+      copr_project: any-setup
+      copr_package: any-setup
+    permissions:
+      contents: write
+    secrets:
+      COPR_WEBHOOK: ${{ secrets.COPR_WEBHOOK }}

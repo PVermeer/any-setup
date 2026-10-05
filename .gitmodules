@@ -1,0 +1,3 @@
+[submodule "rpm-tools"]
+	path = rpm-tools
+	url = https://github.com/PVermeer/rpm-tools.git

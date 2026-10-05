@@ -39,7 +39,8 @@
 				"redhat.vscode-xml",
 				"lumirelle.shell-format-rev",
 				"esbenp.prettier-vscode",
-				"ms-azuretools.vscode-containers"
+				"ms-azuretools.vscode-containers",
+				"RVSmartPorting.rpm-spec-ext"
 			]
 		}
 	}

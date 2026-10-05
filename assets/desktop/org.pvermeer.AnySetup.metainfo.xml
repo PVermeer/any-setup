@@ -8,7 +8,7 @@
   <launchable type="desktop-id">org.pvermeer.AnySetup.desktop</launchable>
   <summary>Setup anything with declarative config files</summary>
   <description>
-        <p>
+    <p>
       A modern setup and settings tool that creates settings pages via config files.
     </p>
     <ul>
