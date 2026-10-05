@@ -1,0 +1,42 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<component type="desktop-application">
+  <id>org.pvermeer.AnySetup</id>
+  <name>Any Setup</name>
+  <developer id="org.pvermeer">
+    <name>PVermeer</name>
+  </developer>
+  <launchable type="desktop-id">org.pvermeer.AnySetup.desktop</launchable>
+  <summary>Setup anything with declarative config files</summary>
+  <description>
+        <p>
+      A modern setup and settings tool that creates settings pages via config files.
+    </p>
+    <ul>
+      <li>Easy setup of settings</li>
+    </ul>
+  
+  </description>
+  <content_rating type="oars-1.1" />
+
+  <metadata_license>CC-BY-SA-4.0</metadata_license>
+  <project_license>GPL-3.0-only</project_license>
+
+  <url type="homepage">https://github.com/pvermeer/any-setup</url>
+  <url type="bugtracker">https://github.com/pvermeer/any-setup/issues</url>
+  <url type="contact">https://github.com/pvermeer/any-setup/issues</url>
+  <!-- <url type="donation"></url> -->
+  <url type="vcs-browser">https://github.com/pvermeer/any-setup</url>
+  <url type="help">https://github.com/pvermeer/any-setup</url>
+  <url type="contribute">https://github.com/pvermeer/any-setup</url>
+
+  <recommends>
+    <display_length compare="ge">360</display_length>
+  </recommends>
+  <supports>
+    <control>pointing</control>
+    <control>keyboard</control>
+    <control>touch</control>
+    <control>tablet</control>
+  </supports>
+
+</component>

@@ -97,6 +97,47 @@ pub fn create_app_polkit_policy_file() -> Result<PathBuf> {
     Ok(save_path)
 }
 
+pub fn create_app_metainfo_file() -> Result<PathBuf> {
+    info!("==== Creating metainfo.xml");
+
+    let file_name = metainfo_file_name();
+    let save_path = assets_desktop_path().join(file_name);
+
+    let app_id = config::APP_ID.get_value();
+    let app_name = config::APP_NAME.get_value();
+    let developer = config::DEVELOPER.get_value();
+    let developer_id = &developer.to_lowercase();
+    let app_summary = config::APP_SUMMARY.get_value();
+    let app_description = config::APP_DESCRIPTION.get_value();
+    let license = config::LICENSE.get_value();
+    let repository = config::REPOSITORY.get_value();
+
+    let mut meta_data = assets::get_meta_info_in().to_string();
+    meta_data = meta_data.replace("%{app_id}", app_id);
+    meta_data = meta_data.replace("%{app_name}", app_name);
+    meta_data = meta_data.replace("%{developer}", developer);
+    meta_data = meta_data.replace("%{developer_id}", developer_id);
+    meta_data = meta_data.replace("%{app_summary}", app_summary);
+    meta_data = meta_data.replace("%{app_description}", app_description);
+    meta_data = meta_data.replace("%{license}", license);
+    meta_data = meta_data.replace("%{repository}", repository);
+
+    fs::write(&save_path, meta_data).inspect_err(|err| {
+        error!(
+            error = err.to_string(),
+            path = &save_path.to_string_lossy().to_string(),
+            "Failed to save metainfo"
+        );
+    })?;
+
+    info!(
+        metainfo_file = &save_path.to_string_lossy().to_string(),
+        "Created new metainfo file:"
+    );
+
+    Ok(save_path)
+}
+
 fn desktop_file_name() -> String {
     let app_id = config::APP_ID.get_value();
     let extension = "desktop";
@@ -117,6 +158,14 @@ fn polkit_policy_file_name() -> String {
     let app_id = config::APP_ID.get_value();
     let extension = "policy";
     let file_name = format!("{app_id}.{extension}");
+
+    file_name
+}
+
+fn metainfo_file_name() -> String {
+    let app_id = config::APP_ID.get_value();
+    let extension = "xml";
+    let file_name = format!("{app_id}.metainfo.{extension}");
 
     file_name
 }

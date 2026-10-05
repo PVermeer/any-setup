@@ -1,6 +1,6 @@
 #![allow(dead_code)]
 
-use anyhow::{Context, Result};
+use anyhow::{Context, Result, bail};
 use common::{
     app_dirs::AppDirs,
     config::{self},
@@ -10,6 +10,7 @@ use common::{
 use std::{
     fs::{self},
     path::{Path, PathBuf},
+    process::Command,
 };
 
 fn main() -> Result<()> {
@@ -28,6 +29,7 @@ fn main() -> Result<()> {
     install_app_desktop_file(&app_dirs)?;
     install_app_icon(&app_dirs)?;
     create_app_polkit_policy_file(&app_dirs)?;
+    create_app_metadata_file(&app_dirs)?;
 
     Ok(())
 }
@@ -99,6 +101,28 @@ fn install_app_icon(app_dirs: &AppDirs) -> Result<()> {
 fn create_app_polkit_policy_file(_app_dirs: &AppDirs) -> Result<()> {
     // Cannot install this on build since this is system only (no user install)
     desktop_assets::create_app_polkit_policy_file()?;
+
+    Ok(())
+}
+
+fn create_app_metadata_file(_app_dirs: &AppDirs) -> Result<()> {
+    let file_path = desktop_assets::create_app_metainfo_file()?;
+    validate_metainfo(&file_path)?;
+
+    Ok(())
+}
+
+fn validate_metainfo(path: &PathBuf) -> Result<()> {
+    let mut command = Command::new("appstreamcli");
+    command.arg("validate");
+    command.arg("--no-net");
+    command.arg(path);
+
+    let status = command.status()?;
+
+    if !status.success() {
+        bail!("Metainfo file does not validate!")
+    }
 
     Ok(())
 }
