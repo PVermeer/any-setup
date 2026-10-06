@@ -44,7 +44,7 @@ impl App {
             let window = AppWindow::new(adw_application);
             let user_context =
                 UserExecutionContext::new(arguments.clone()).expect("Failed to load UserContext");
-            let task_manager = TaskManager::new(&user_context);
+            let task_manager = TaskManager::new(&user_context, &window.view);
             let pages = Pages::new(&app_dirs, &task_manager, &user_context)
                 .expect("Failed to create config pages");
             let error_dialog = ErrorDialog::new();

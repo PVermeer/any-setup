@@ -8,13 +8,23 @@ use anyhow::{Error, Result, anyhow, bail};
 use async_channel::{Receiver, Sender};
 use elevated_action_runner::ElevatedActionRunner;
 use gtk::glib;
+use libadwaita::{Toast, ToastPriority};
 use rand::{
     distr::{Alphanumeric, SampleString},
     rng,
 };
-use std::{cell::RefCell, collections::HashSet, fmt::Display, rc::Rc, sync::Arc, thread};
+use std::{
+    cell::{Cell, RefCell},
+    collections::HashSet,
+    fmt::Display,
+    rc::Rc,
+    sync::Arc,
+    thread,
+};
 use tracing::{debug, error, warn};
 use user_execution_context::UserExecutionContext;
+
+use super::window::view::View;
 
 #[derive(Debug)]
 struct Task {
@@ -110,6 +120,7 @@ impl std::fmt::Debug for Listener {
 }
 
 pub struct TaskManager {
+    view: Rc<View>,
     task_sender: Sender<Task>,
     task_receiver: Receiver<Task>,
     elevated_sender: Sender<ElevatedActionRunnerCommand>,
@@ -119,7 +130,7 @@ pub struct TaskManager {
     listeners: Rc<RefCell<Vec<Listener>>>,
 }
 impl TaskManager {
-    pub fn new(user_context: &Arc<UserExecutionContext>) -> Rc<Self> {
+    pub fn new(user_context: &Arc<UserExecutionContext>, view: &Rc<View>) -> Rc<Self> {
         let (task_sender, task_receiver) = async_channel::unbounded();
         let (elevated_sender, elevated_receiver) = async_channel::unbounded();
         let (elevated_result_sender, elevated_result_receiver) = async_channel::unbounded();
@@ -141,6 +152,7 @@ impl TaskManager {
         );
 
         Rc::new(Self {
+            view: view.clone(),
             task_sender,
             task_receiver,
             elevated_sender,
@@ -487,6 +499,7 @@ impl TaskManager {
 
     fn connect_active_tasks(self: &Rc<Self>) {
         let self_clone = self.clone();
+        let needs_reboot = Cell::new(false);
 
         self.listen(None, move |event| {
             if matches!(
@@ -494,6 +507,59 @@ impl TaskManager {
                 TaskStatus::Failed { .. } | TaskStatus::Finished { .. }
             ) {
                 let _ = self_clone.active_tasks.borrow_mut().remove(&event.id);
+            }
+
+            match &event.status {
+                TaskStatus::Added => {
+                    self_clone
+                        .view
+                        .add_toast(Toast::new(&t!("pages.tasks.status.added")));
+                }
+
+                TaskStatus::Started | TaskStatus::Progress { .. } => {}
+
+                TaskStatus::Failed { error: _ } => {
+                    let label = gtk::Label::builder()
+                        .label(t!("pages.tasks.status.failed"))
+                        .css_classes(["error"])
+                        .build();
+
+                    self_clone.view.toast_overlay.dismiss_all();
+                    self_clone.view.add_toast(
+                        Toast::builder()
+                            .custom_title(&label)
+                            .priority(ToastPriority::High)
+                            .build(),
+                    );
+                }
+
+                TaskStatus::Finished { results } => {
+                    if results.needs_reboot {
+                        needs_reboot.set(true);
+                    }
+
+                    if self_clone.active_tasks.borrow().is_empty() {
+                        self_clone.view.toast_overlay.dismiss_all();
+
+                        if needs_reboot.get() {
+                            self_clone.view.add_toast(
+                                Toast::builder()
+                                    .title(t!("pages.tasks.status.finished_reboot"))
+                                    .priority(ToastPriority::High)
+                                    .build(),
+                            );
+                        } else {
+                            self_clone.view.add_toast(
+                                Toast::builder()
+                                    .title(t!("pages.tasks.status.finished"))
+                                    .priority(ToastPriority::High)
+                                    .build(),
+                            );
+                        }
+
+                        needs_reboot.set(false);
+                    }
+                }
             }
         });
     }

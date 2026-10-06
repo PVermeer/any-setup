@@ -1,4 +1,4 @@
-mod view;
+pub mod view;
 
 use crate::application::App;
 use common::{
@@ -35,7 +35,7 @@ impl AppWindow {
             .application(adw_application)
             .title(config::APP_NAME.get_value())
             .icon_name(config::APP_ID.get_value())
-            .content(&view.nav_split)
+            .content(&view.toast_overlay)
             .build();
 
         Rc::new(Self {

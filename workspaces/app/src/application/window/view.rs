@@ -9,7 +9,8 @@ use gtk::{
     prelude::{ButtonExt, WidgetExt},
 };
 use libadwaita::{
-    Breakpoint, BreakpointCondition, NavigationSplitView, glib::Value, prelude::AdwDialogExt,
+    Breakpoint, BreakpointCondition, NavigationSplitView, Toast, ToastOverlay, glib::Value,
+    prelude::AdwDialogExt,
 };
 use sidebar::SidebarPage;
 use std::rc::Rc;
@@ -17,6 +18,7 @@ use std::rc::Rc;
 pub struct View {
     pub app_menu: AppMenu,
     pub sidebar: Rc<SidebarPage>,
+    pub toast_overlay: ToastOverlay,
     pub nav_split: NavigationSplitView,
     pub breakpoint: Breakpoint,
     pub updated_button: Button,
@@ -25,17 +27,20 @@ impl View {
     pub fn new() -> Rc<Self> {
         let sidebar = SidebarPage::new();
         let app_menu = AppMenu::new();
+        let toast_overlay = ToastOverlay::new();
         let nav_split = NavigationSplitView::builder()
             .sidebar(&sidebar.nav_page)
             .show_content(true)
             .min_sidebar_width(250.0)
             .build();
+        toast_overlay.set_child(Some(&nav_split));
         let breakpoint = Self::build_breakpoint();
         let updated_button = Self::build_updated_button();
 
         Rc::new(Self {
             app_menu,
             sidebar,
+            toast_overlay,
             nav_split,
             breakpoint,
             updated_button,
@@ -59,6 +64,10 @@ impl View {
     pub fn show_about(app: &Rc<App>) {
         let about = about::get_dialog();
         about.present(Some(&app.window.adw_window));
+    }
+
+    pub fn add_toast(&self, toast: Toast) {
+        self.toast_overlay.add_toast(toast);
     }
 
     fn build_breakpoint() -> Breakpoint {

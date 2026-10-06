@@ -14,6 +14,11 @@ pages:
         success: Done
         error: Failed
         fail_allowed: Failed (Allowed to fail)
+    status:
+      added: Task added
+      failed: A task failed
+      finished: Tasks completed
+      finished_reboot: Tasks completed. System restart required.
 
 app_menu:
   about:

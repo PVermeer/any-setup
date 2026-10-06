@@ -214,6 +214,10 @@ impl IsAction for UserGroupAction {
 
         Some(command)
     }
+
+    fn needs_reboot(&self) -> bool {
+        true
+    }
 }
 
 #[cfg(test)]

@@ -261,6 +261,10 @@ impl IsAction for RpmOstreeAction {
             }
         }
     }
+
+    fn needs_reboot(&self) -> bool {
+        true
+    }
 }
 impl RpmOstreeAction {
     fn get_check_commands(&self) -> RpmCommands {

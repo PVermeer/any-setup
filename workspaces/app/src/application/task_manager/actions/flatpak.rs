@@ -183,6 +183,10 @@ impl IsAction for FlatpakAction {
     fn before_retry(&self, _output: &std::process::Output) -> Option<Command> {
         None
     }
+
+    fn needs_reboot(&self) -> bool {
+        false
+    }
 }
 impl FlatpakAction {
     fn get_check_command(&self) -> Command {

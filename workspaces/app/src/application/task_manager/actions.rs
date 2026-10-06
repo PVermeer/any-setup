@@ -49,6 +49,7 @@ pub trait IsAction: Display {
     fn to_undo(&self) -> Self;
     /// This function runs before a retry is attempted
     fn before_retry(&self, output: &Output) -> Option<Command>;
+    fn needs_reboot(&self) -> bool;
 }
 
 #[derive(Serialize, Deserialize, Hash, Clone, Debug)]

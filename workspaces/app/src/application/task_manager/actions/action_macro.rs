@@ -66,6 +66,14 @@ macro_rules! impl_action {
                     )+
                 }
             }
+
+            fn needs_reboot(&self) -> bool {
+                match self {
+                    $(
+                        Self::$variant(action) => action.needs_reboot(),
+                    )+
+                }
+            }
         }
     };
 }

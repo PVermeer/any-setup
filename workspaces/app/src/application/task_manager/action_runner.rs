@@ -70,6 +70,7 @@ pub struct ActionRunnerResult {
     pub action_results: Vec<ActionResult>,
     pub stderr: Option<String>,
     pub success: bool,
+    pub needs_reboot: bool,
 }
 
 #[derive(Clone, Debug)]
@@ -205,6 +206,7 @@ impl ActionRunner {
         let queue_length = self.actions.len();
         let queue_factor = 1.0 / queue_length as f64;
         let mut progress = 0.05; // Task has started indicator
+        let mut needs_reboot = false;
 
         for (i, action) in self.actions.iter().enumerate() {
             debug!(action = action.to_string(), "Running action");
@@ -303,6 +305,10 @@ impl ActionRunner {
             if !output.status.success() && !action.fail_allowed() && !is_a_undo_after_failure_run {
                 break;
             }
+
+            if output.status.success() && !needs_reboot {
+                needs_reboot = action.needs_reboot();
+            }
         }
 
         let progress_finished = ActionProgress {
@@ -346,6 +352,7 @@ impl ActionRunner {
             action_results: results,
             stderr,
             success,
+            needs_reboot,
         })
     }
 }
