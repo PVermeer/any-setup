@@ -1,3 +1,4 @@
+mod app_config;
 mod css_provider;
 mod error_dialog;
 pub mod pages;
@@ -10,11 +11,9 @@ use common::{
     app_dirs::AppDirs,
     assets::{self},
     cache_settings::CacheSettings,
-    config::{self},
-    utils::OnceLockExt,
 };
 use error_dialog::ErrorDialog;
-use gtk::{IconTheme, Image, Settings, gdk};
+use gtk::{IconTheme, Settings, gdk};
 use pages::{NavPage, Pages};
 use std::{cell::RefCell, rc::Rc};
 use task_manager::{TaskManager, user_execution_context::UserExecutionContext};
@@ -37,6 +36,7 @@ impl App {
             let icon_theme = Rc::new(IconTheme::for_display(&display));
             let app_dirs =
                 AppDirs::new(&arguments.pages_dir).expect("Failed to get all needed directories");
+            app_config::init(&app_dirs);
             let settings = Settings::default().expect("Failed to load gtk settings");
             let cache_settings = RefCell::new(
                 CacheSettings::new(&app_dirs).expect("Failed to load cached settings"),
@@ -86,10 +86,6 @@ impl App {
         })() {
             self.show_error(&error);
         }
-    }
-
-    pub fn _get_icon(self: &Rc<Self>) -> Image {
-        Image::from_icon_name(config::APP_ID.get_value())
     }
 
     pub fn navigate(self: &Rc<Self>, page: &Rc<dyn NavPage>) {

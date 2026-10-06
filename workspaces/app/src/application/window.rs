@@ -1,5 +1,6 @@
 pub mod view;
 
+use super::app_config;
 use crate::application::App;
 use common::{
     config::{self},
@@ -34,7 +35,7 @@ impl AppWindow {
         let window = ApplicationWindow::builder()
             .application(adw_application)
             .title(config::APP_NAME.get_value())
-            .icon_name(config::APP_ID.get_value())
+            .icon_name(app_config::APP_ICON.get_value())
             .content(&view.toast_overlay)
             .build();
 

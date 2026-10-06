@@ -1,9 +1,7 @@
+use super::app_config;
 use crate::application::App;
 use anyhow::Error;
-use common::{
-    config::{self},
-    utils::OnceLockExt,
-};
+use common::utils::OnceLockExt;
 use gtk::Orientation;
 use libadwaita::{
     AlertDialog, ResponseAppearance,
@@ -35,7 +33,7 @@ impl ErrorDialog {
     fn build_dialog() -> AlertDialog {
         let content_box = gtk::Box::new(Orientation::Horizontal, 0);
         let dialog = AlertDialog::builder()
-            .heading(format!("{} Error:", config::APP_NAME.get_value()))
+            .heading(format!("{} Error:", app_config::APP_NAME.get_value()))
             .extra_child(&content_box)
             .build();
         dialog.add_response(Self::DIALOG_EXIT, "Close");

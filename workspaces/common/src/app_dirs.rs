@@ -84,10 +84,14 @@ impl AppDirs {
     }
 
     pub fn app_system_data(&self) -> Option<PathBuf> {
-        let path = self
+        let mut path = self
             .system_data
             .clone()
             .join(config::APP_NAME_HYPHEN.get_value());
+
+        if cfg!(debug_assertions) && !path.is_dir() {
+            path = glib::current_dir().join("dev-assets");
+        }
 
         if !path.is_dir() {
             warn!(path = %path.display(), "App system data path does not exists");

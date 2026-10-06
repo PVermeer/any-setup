@@ -1,11 +1,8 @@
 mod task_page;
 
 use super::NavPage;
-use crate::application::App;
-use common::{
-    config::{self},
-    utils::{self, OnceLockExt},
-};
+use crate::application::{App, app_config};
+use common::utils::{self, OnceLockExt};
 use gtk::{ListBox, ListBoxRow, Orientation, gio::prelude::ListModelExtManual, prelude::BoxExt};
 use libadwaita::{
     HeaderBar, NavigationPage, Sidebar, SidebarItem, SidebarMode, SidebarSection, ToolbarView,
@@ -62,7 +59,7 @@ impl SidebarPage {
         toolbar.set_content(Some(&layout_box));
 
         let nav_page = NavigationPage::builder()
-            .title(utils::strings::capitalize(config::APP_NAME.get_value()))
+            .title(utils::strings::capitalize(app_config::APP_NAME.get_value()))
             .tag("sidebar")
             .child(&toolbar)
             .build();
