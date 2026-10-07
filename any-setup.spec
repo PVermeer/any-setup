@@ -6,10 +6,10 @@
 %global author pvermeer
 %global source any-setup
 %global sourcerepo https://github.com/PVermeer/any-setup
-%global tag v0.0.0
+%global tag v0.0.1
 
 Name: any-setup
-Version: 0.0.0
+Version: 0.0.1
 Release: 0%{?dist}
 License: GPL-3.0 license
 Summary: Setup anything with actions
