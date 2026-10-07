@@ -57,20 +57,17 @@ cargo build --release
 
 %install
 mkdir -p %{buildroot}%{_bindir}
-mkdir -p %{buildroot}%{_datadir}/applications
 mkdir -p %{buildroot}%{_datadir}/icons/hicolor/512x512/apps
 mkdir -p %{buildroot}%{_datadir}/metainfo
 mkdir -p %{buildroot}%{_datadir}/polkit-1/actions
 
 install -Dm755 %{sourcedir}/target/release/any-setup %{buildroot}%{_bindir}
-install -Dm644 %{sourcedir}/assets/desktop/%{fqdn}.desktop %{buildroot}%{_datadir}/applications/
 install -Dm644 %{sourcedir}/assets/desktop/%{fqdn}.png %{buildroot}%{_datadir}/icons/hicolor/512x512/apps/
 install -Dm644 %{sourcedir}/assets/desktop/%{fqdn}.metainfo.xml %{buildroot}%{_datadir}/metainfo/
-install -Dm644 %{sourcedir}/assets/desktop/%{fqdn}.policy %{buildroot}%{_datadir}/polkit-1/actions
+install -Dm644 %{sourcedir}/assets/desktop/%{fqdn}.policy %{buildroot}%{_datadir}/polkit-1/actions/
 
 %files
 %{_bindir}/any-setup
-%{_datadir}/applications/%{fqdn}.desktop
 %{_datadir}/icons/hicolor/512x512/apps/%{fqdn}.png
 %{_datadir}/metainfo/%{fqdn}.metainfo.xml
 %{_datadir}/polkit-1/actions/%{fqdn}.policy
