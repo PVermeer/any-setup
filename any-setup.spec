@@ -18,6 +18,11 @@ Url: %{sourcerepo}
 BuildRequires: systemd-rpm-macros
 BuildRequires: git
 BuildRequires: rustup
+BuildRequires: gcc
+BuildRequires: pkgconf-pkg-config
+BuildRequires: gtk4-devel
+BuildRequires: libadwaita-devel
+BuildRequires: dbus-devel
 
 %description
 A setup application that can be configured with yaml files (pages) to setup anything for the current user.
