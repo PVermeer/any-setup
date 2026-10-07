@@ -22,7 +22,7 @@ RUN rm libadwaita-*.rpm
 RUN dnf install -y git flatpak-builder rpmdevtools rpmlint jq curl gh rustup gcc gcc-c++ make cmake clang python3 python3-pip pipx shfmt shellcheck doxygen
 
 # Libs
-RUN dnf install -y gtk4-devel libdrm-devel vulkan-tools OpenCL-ICD-Loader-devel boost-devel intel-mediasdk-devel libappindicator-gtk3-devel libcap-devel libcurl-devel libdrm-devel libevdev-devel libnotify-devel libva-devel libvdpau-devel libX11-devel libxcb-devel libXcursor-devel libXfixes-devel libXi-devel libXinerama-devel libXrandr-devel libXtst-devel mesa-libGL-devel miniupnpc-devel npm numactl-devel openssl-devel opus-devel pulseaudio-libs-devel rpm-build pipewire-devel pipewire-utils libadwaita-devel python3-devel
+RUN dnf install -y gtk4-devel libdrm-devel vulkan-tools OpenCL-ICD-Loader-devel boost-devel intel-mediasdk-devel libappindicator-gtk3-devel libcap-devel libcurl-devel libdrm-devel libevdev-devel libnotify-devel libva-devel libvdpau-devel libX11-devel libxcb-devel libXcursor-devel libXfixes-devel libXi-devel libXinerama-devel libXrandr-devel libXtst-devel mesa-libGL-devel miniupnpc-devel npm numactl-devel openssl-devel opus-devel pulseaudio-libs-devel rpm-build pipewire-devel pipewire-utils libadwaita-devel python3-devel appstream desktop-file-utils
 
 # Don't use this, only --user, but for GTK4 and loading images in memory (PixBuf with glycin)
 # it needs a valid repo setup for it to work with flatpaks.

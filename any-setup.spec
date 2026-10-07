@@ -23,6 +23,8 @@ BuildRequires: pkgconf-pkg-config
 BuildRequires: gtk4-devel
 BuildRequires: libadwaita-devel
 BuildRequires: dbus-devel
+BuildRequires: appstream
+BuildRequires: desktop-file-utils
 
 %description
 A setup application that can be configured with yaml files (pages) to setup anything for the current user.

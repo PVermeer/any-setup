@@ -62,7 +62,11 @@ fn create_cache_symlinks(app_dirs: &AppDirs) {
 }
 
 fn install_app_desktop_file(app_dirs: &AppDirs) -> Result<()> {
-    let desktop_file = desktop_assets::create_app_desktop_file()?;
+    let desktop_file =
+        desktop_assets::create_app_desktop_file().context("Failed to create desktop file")?;
+
+    validate_desktop_file(&desktop_file).context("Failed to validate desktop file")?;
+
     let file_name = desktop_file
         .file_name()
         .context("No file name on app-desktop-file")?;
@@ -77,7 +81,7 @@ fn install_app_desktop_file(app_dirs: &AppDirs) -> Result<()> {
 }
 
 fn install_app_icon(app_dirs: &AppDirs) -> Result<()> {
-    let icon_file = desktop_assets::create_app_icon()?;
+    let icon_file = desktop_assets::create_app_icon().context("Failed to create app icon")?;
     let file_name = icon_file
         .file_name()
         .context("No file name on app-icon-file")?;
@@ -100,14 +104,16 @@ fn install_app_icon(app_dirs: &AppDirs) -> Result<()> {
 
 fn create_app_polkit_policy_file(_app_dirs: &AppDirs) -> Result<()> {
     // Cannot install this on build since this is system only (no user install)
-    desktop_assets::create_app_polkit_policy_file()?;
+    desktop_assets::create_app_polkit_policy_file()
+        .context("Failed to create polkit policy file")?;
 
     Ok(())
 }
 
 fn create_app_metadata_file(_app_dirs: &AppDirs) -> Result<()> {
-    let file_path = desktop_assets::create_app_metainfo_file()?;
-    validate_metainfo(&file_path)?;
+    let file_path =
+        desktop_assets::create_app_metainfo_file().context("Failed to create metainfo file")?;
+    validate_metainfo(&file_path).context("Failed to validate metainfo file")?;
 
     Ok(())
 }
@@ -118,10 +124,27 @@ fn validate_metainfo(path: &PathBuf) -> Result<()> {
     command.arg("--no-net");
     command.arg(path);
 
-    let status = command.status()?;
+    let status = command
+        .status()
+        .context("Failed to run appstreamcli validate")?;
 
     if !status.success() {
         bail!("Metainfo file does not validate!")
+    }
+
+    Ok(())
+}
+
+fn validate_desktop_file(path: &PathBuf) -> Result<()> {
+    let mut command = Command::new("desktop-file-validate");
+    command.arg(path);
+
+    let status = command
+        .status()
+        .context("Failed to run desktop-file-validate")?;
+
+    if !status.success() {
+        bail!("Desktop file file does not validate!")
     }
 
     Ok(())
