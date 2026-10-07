@@ -6,13 +6,10 @@ use crate::{
 use anyhow::{Context, Result};
 use freedesktop_desktop_entry::DesktopEntry;
 use include_dir::{Dir, include_dir};
-use std::fs::{self};
-use tracing::{debug, info};
 
 // Calling extract on a subdir does not work and seems bugged.
 // Using indivudal imports.
 // Also need to fully recompile when the dir changes
-static CONFIG: Dir = include_dir!("$CARGO_MANIFEST_DIR/../../assets/config");
 static DESKTOP: Dir = include_dir!("$CARGO_MANIFEST_DIR/../../assets/desktop");
 static ICON_IN: &[u8] = include_bytes!("../../../assets/app-icon.png");
 static DESKTOP_FILE_IN: &str = include_str!("../../../assets/app.desktop");
@@ -20,22 +17,8 @@ static META_INFO_IN: &str = include_str!("../../../assets/app.metainfo.xml");
 static POLKIT_POLICY_IN: &str = include_str!("../../../assets/app.polkit.policy");
 static APP_DESCRIPTION: &str = include_str!("../../../assets/app-description.markup");
 
-pub fn init(app_dirs: &AppDirs) -> Result<()> {
-    info!("Creating / overwriting assets");
-    extract_config_dir(app_dirs)?;
-    Ok(())
-}
-
-pub fn reset_config_files(app_dirs: &AppDirs) -> Result<()> {
-    let config_dir = &app_dirs.app_user_config()?;
-
-    if config_dir.is_dir() {
-        info!("Deleting config files");
-        fs::remove_dir_all(config_dir)?;
-    }
-
-    extract_config_dir(app_dirs)?;
-
+pub fn init(_app_dirs: &AppDirs) -> Result<()> {
+    // info!("Creating / overwriting assets");
     Ok(())
 }
 
@@ -86,16 +69,4 @@ pub fn get_desktop_file_in() -> &'static str {
 
 pub fn get_polkit_policy_file_in() -> &'static str {
     POLKIT_POLICY_IN
-}
-
-fn extract_config_dir(app_dirs: &AppDirs) -> Result<()> {
-    debug!("Extracting config dir");
-    let config_dir = &app_dirs.app_user_config()?;
-
-    CONFIG.extract(config_dir).context(format!(
-        "Failed to extract config dir from ASSETS in: {}",
-        config_dir.display()
-    ))?;
-
-    Ok(())
 }
