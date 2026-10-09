@@ -29,6 +29,28 @@ impl Scope {
     }
 }
 
+#[derive(Serialize, Deserialize, Hash, Clone, Debug, Default)]
+#[cfg_attr(test, derive(PartialEq))]
+#[serde(rename_all = "lowercase")]
+pub enum Repo {
+    #[default]
+    Flathub,
+    Fedora,
+}
+impl Display for Repo {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::Flathub => write!(f, "flathub"),
+            Self::Fedora => write!(f, "fedora"),
+        }
+    }
+}
+impl Repo {
+    fn to_arg(&self) -> String {
+        self.to_string()
+    }
+}
+
 enum InfoOutput {
     Found,
     NotFound,
@@ -78,6 +100,8 @@ pub enum FlatpakAction {
         #[serde(default)]
         scope: Scope,
         #[serde(default)]
+        repo: Option<Repo>,
+        #[serde(default)]
         fail_allowed: Option<bool>,
     },
     Remove {
@@ -108,11 +132,17 @@ impl IsAction for FlatpakAction {
     fn get_command(&self, _user_context: &Arc<UserExecutionContext>) -> Command {
         match self {
             Self::Install {
-                app: app_id, scope, ..
+                app: app_id,
+                repo,
+                scope,
+                fail_allowed: _,
             } => {
                 let mut command = Command::new("flatpak");
                 command.arg(scope.to_arg());
                 command.arg("install");
+                if let Some(repo) = repo {
+                    command.arg(repo.to_arg());
+                }
                 command.arg("--noninteractive");
                 command.arg(app_id);
 
@@ -161,6 +191,7 @@ impl IsAction for FlatpakAction {
             Self::Install {
                 app: app_id,
                 scope,
+                repo: _,
                 fail_allowed,
             } => Self::Remove {
                 app: app_id,
@@ -175,6 +206,7 @@ impl IsAction for FlatpakAction {
             } => Self::Install {
                 app: app_id,
                 scope,
+                repo: None,
                 fail_allowed,
             },
         }
@@ -221,6 +253,7 @@ mod tests {
         FlatpakAction::Install {
             app: "org.gimp.GIMP".to_string(),
             scope: Scope::User,
+            repo: Some(Repo::default()),
             fail_allowed: Some(false),
         }
     }
@@ -249,6 +282,7 @@ mod tests {
             type: install
             app: org.gimp.GIMP
             scope: user
+            repo: fedora
             fail_allowed: false
             ";
 
@@ -259,12 +293,19 @@ mod tests {
             FlatpakAction::Install {
                 app: "org.gimp.GIMP".to_string(),
                 scope: Scope::User,
+                repo: Some(Repo::Fedora),
                 fail_allowed: Some(false),
             }
         );
         assert_eq!(
             command_args(&action),
-            vec!["--user", "install", "--noninteractive", "org.gimp.GIMP"]
+            vec![
+                "--user",
+                "install",
+                "fedora",
+                "--noninteractive",
+                "org.gimp.GIMP"
+            ]
         );
         assert!(!action.fail_allowed());
         assert!(!action.needs_elevation());
@@ -311,6 +352,7 @@ mod tests {
             FlatpakAction::Install {
                 app: "org.gimp.GIMP".to_string(),
                 scope: Scope::default(),
+                repo: None,
                 fail_allowed: None,
             }
         );
@@ -323,8 +365,54 @@ mod tests {
     }
 
     #[test]
+    fn serde_yaml_parses_explicit_flathub_repo() {
+        let yaml = r"
+            type: install
+            app: org.gimp.GIMP
+            repo: flathub
+            ";
+
+        let action: FlatpakAction = serde_yaml::from_str(yaml).unwrap();
+
+        assert_eq!(
+            action,
+            FlatpakAction::Install {
+                app: "org.gimp.GIMP".to_string(),
+                scope: Scope::System,
+                repo: Some(Repo::Flathub),
+                fail_allowed: None,
+            }
+        );
+        assert_eq!(
+            command_args(&action),
+            vec![
+                "--system",
+                "install",
+                "flathub",
+                "--noninteractive",
+                "org.gimp.GIMP"
+            ]
+        );
+    }
+
+    #[test]
     fn serde_yaml_round_trips_install_action() {
         let action = install_action();
+
+        let yaml = serde_yaml::to_string(&action).unwrap();
+        let parsed: FlatpakAction = serde_yaml::from_str(&yaml).unwrap();
+
+        assert_eq!(parsed, action);
+    }
+
+    #[test]
+    fn serde_yaml_round_trips_install_action_without_repo() {
+        let action = FlatpakAction::Install {
+            app: "org.gimp.GIMP".to_string(),
+            scope: Scope::User,
+            repo: None,
+            fail_allowed: Some(false),
+        };
 
         let yaml = serde_yaml::to_string(&action).unwrap();
         let parsed: FlatpakAction = serde_yaml::from_str(&yaml).unwrap();
@@ -387,7 +475,7 @@ mod tests {
     }
 
     #[test]
-    fn undo_flips_remove_to_install() {
+    fn undo_flips_remove_to_install_without_repo() {
         let action = remove_action();
 
         assert_eq!(
@@ -395,6 +483,7 @@ mod tests {
             FlatpakAction::Install {
                 app: "org.gimp.GIMP".to_string(),
                 scope: Scope::System,
+                repo: None,
                 fail_allowed: Some(false),
             }
         );
@@ -426,6 +515,7 @@ mod tests {
             FlatpakAction::Install {
                 app: "org.gimp.GIMP".to_string(),
                 scope: Scope::System,
+                repo: None,
                 fail_allowed: None,
             }
         );
