@@ -294,7 +294,11 @@ impl IsAction for SystemdAction {
         }
     }
 
-    fn before_retry(&self, _output: &std::process::Output) -> Option<Command> {
+    fn before_retry(
+        &self,
+        _output: &std::process::Output,
+        _user_context: &Arc<UserExecutionContext>,
+    ) -> Option<Command> {
         None
     }
 
@@ -354,10 +358,11 @@ mod tests {
     use super::*;
     use crate::cli::Cli;
     use clap::Parser;
+    use std::path::Path;
     use tracing_test::traced_test;
 
     fn get_user_context() -> Arc<UserExecutionContext> {
-        UserExecutionContext::new(Cli::parse_from::<[_; 0], &str>([])).unwrap()
+        UserExecutionContext::new(Cli::parse_from::<[_; 0], &str>([]), Path::new("/etc")).unwrap()
     }
 
     fn enable_action() -> SystemdAction {

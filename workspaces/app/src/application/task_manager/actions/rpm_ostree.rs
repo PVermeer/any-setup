@@ -237,7 +237,11 @@ impl IsAction for RpmOstreeAction {
         }
     }
 
-    fn before_retry(&self, _output: &std::process::Output) -> Option<Command> {
+    fn before_retry(
+        &self,
+        _output: &std::process::Output,
+        _user_context: &Arc<UserExecutionContext>,
+    ) -> Option<Command> {
         let rpm_ostree_is_idle = dbus_query::get_property::<String>(DbusPropertyQuery {
             connection_type: DbusConnectionType::System,
             destination: "org.projectatomic.rpmostree1",
@@ -315,9 +319,10 @@ mod tests {
     use super::*;
     use crate::cli::Cli;
     use clap::Parser;
+    use std::path::Path;
 
     fn get_user_context() -> Arc<UserExecutionContext> {
-        UserExecutionContext::new(Cli::parse_from::<[_; 0], &str>([])).unwrap()
+        UserExecutionContext::new(Cli::parse_from::<[_; 0], &str>([]), Path::new("/etc")).unwrap()
     }
 
     #[test]

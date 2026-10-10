@@ -15,7 +15,7 @@ pub struct AppDirs {
     pub user_cache: PathBuf,
     pub user_runtime: PathBuf,
     pub system_data: PathBuf,
-    system_config: PathBuf,
+    pub system_config: PathBuf,
     pages_dir_run_argument: Option<PathBuf>,
 }
 impl AppDirs {

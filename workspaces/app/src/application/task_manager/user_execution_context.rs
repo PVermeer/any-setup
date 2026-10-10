@@ -6,7 +6,11 @@ use common::{
 };
 use serde::{Deserialize, Serialize};
 use std::{
-    collections::HashMap, os::unix::process::CommandExt, path::PathBuf, process::Command, sync::Arc,
+    collections::HashMap,
+    os::unix::process::CommandExt,
+    path::{Path, PathBuf},
+    process::Command,
+    sync::Arc,
 };
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -14,11 +18,13 @@ pub struct UserExecutionContext {
     pub user_id: u32,
     pub user_name: String,
     pub current_dir: PathBuf,
+    /// Usually /etc
+    pub system_config_dir: PathBuf,
     pub environment: HashMap<String, String>,
     pub arguments: Cli,
 }
 impl UserExecutionContext {
-    pub fn new(arguments: Cli) -> Result<Arc<Self>> {
+    pub fn new(arguments: Cli, system_config_dir: &Path) -> Result<Arc<Self>> {
         let environment = HashMap::from([
             (
                 "XDG_RUNTIME_DIR".to_string(),
@@ -34,6 +40,7 @@ impl UserExecutionContext {
             user_id: utils::env::get_user_id(),
             user_name: utils::env::get_user_name(),
             current_dir: utils::env::get_current_dir(),
+            system_config_dir: system_config_dir.to_path_buf(),
             environment,
             arguments,
         }))

@@ -212,7 +212,11 @@ impl IsAction for FlatpakAction {
         }
     }
 
-    fn before_retry(&self, _output: &std::process::Output) -> Option<Command> {
+    fn before_retry(
+        &self,
+        _output: &std::process::Output,
+        _user_context: &Arc<UserExecutionContext>,
+    ) -> Option<Command> {
         None
     }
 
@@ -244,9 +248,10 @@ mod tests {
     use super::*;
     use crate::cli::Cli;
     use clap::Parser;
+    use std::path::Path;
 
     fn get_user_context() -> Arc<UserExecutionContext> {
-        UserExecutionContext::new(Cli::parse_from::<[_; 0], &str>([])).unwrap()
+        UserExecutionContext::new(Cli::parse_from::<[_; 0], &str>([]), Path::new("/etc")).unwrap()
     }
 
     fn install_action() -> FlatpakAction {
@@ -498,7 +503,7 @@ mod tests {
             stderr: b"error".to_vec(),
         };
 
-        assert!(action.before_retry(&output).is_none());
+        assert!(action.before_retry(&output, &get_user_context()).is_none());
     }
 
     #[test]

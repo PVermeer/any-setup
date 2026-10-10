@@ -48,7 +48,11 @@ pub trait IsAction: Display {
     fn fail_allowed(&self) -> bool;
     fn to_undo(&self) -> Self;
     /// This function runs before a retry is attempted
-    fn before_retry(&self, output: &Output) -> Option<Command>;
+    fn before_retry(
+        &self,
+        output: &Output,
+        user_context: &Arc<UserExecutionContext>,
+    ) -> Option<Command>;
     fn needs_reboot(&self) -> bool;
 }
 

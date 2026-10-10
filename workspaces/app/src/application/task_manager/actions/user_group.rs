@@ -5,8 +5,9 @@ use crate::application::task_manager::{
 use anyhow::{Context, Result, anyhow, bail};
 use common::utils;
 use serde::{Deserialize, Serialize};
-use std::{fmt::Display, process::Command, sync::Arc};
-use tracing::{debug, error};
+use std::io::Write;
+use std::{fmt::Display, fs::OpenOptions, process::Command, sync::Arc};
+use tracing::{debug, error, info};
 
 #[derive(Serialize, Deserialize, Hash, Clone, Debug)]
 #[cfg_attr(test, derive(PartialEq))]
@@ -40,8 +41,8 @@ impl IsAction for UserGroupAction {
 
         match self {
             Self::Add { group, .. } => {
-                let mut command = Command::new("usermod");
-                command.arg("--append").arg("--groups").arg(group).arg(user);
+                let mut command = Command::new("gpasswd");
+                command.arg("--add").arg(user).arg(group);
 
                 command
             }
@@ -168,7 +169,11 @@ impl IsAction for UserGroupAction {
         }
     }
 
-    fn before_retry(&self, _output: &std::process::Output) -> Option<Command> {
+    fn before_retry(
+        &self,
+        _output: &std::process::Output,
+        user_context: &Arc<UserExecutionContext>,
+    ) -> Option<Command> {
         let Self::Add {
             group,
             create_if_missing,
@@ -182,41 +187,127 @@ impl IsAction for UserGroupAction {
             return None;
         }
 
-        let group_exists = match Command::new("getent").arg("group").arg(group).output() {
-            Ok(output) => output.status.success(),
-            Err(error) => {
-                error!(
-                    group = %group,
-                    error = %error,
-                    "Failed to check whether group exists"
-                );
-
-                return None;
-            }
-        };
-
-        if group_exists {
-            debug!(
-                group = %group,
-                "Group already exists; no recovery action needed"
-            );
-
-            return None;
-        }
-
         debug!(
             group = %group,
-            "Group does not exist; creating group before retry"
+            "Group might not exist; trying to create group before retry"
         );
 
-        let mut command = Command::new("groupadd");
-        command.arg(group);
-
-        Some(command)
+        match Self::try_to_add_to_group(user_context, group) {
+            Ok(()) => Some(Command::new("true")),
+            Err(_) => None,
+        }
     }
 
     fn needs_reboot(&self) -> bool {
         true
+    }
+}
+impl UserGroupAction {
+    fn try_to_add_to_group(user_context: &Arc<UserExecutionContext>, group: &String) -> Result<()> {
+        debug!(
+            group = %group,
+            "Trying groupadd"
+        );
+
+        match Command::new("groupadd").arg(group).status() {
+            Ok(status) => {
+                if status.success() {
+                    info!(%group, "Created group with groupadd");
+                    return Ok(());
+                }
+            }
+            Err(error) => {
+                error!(
+                    group = %group,
+                    error = %error,
+                    "Failed to run groupadd"
+                );
+                bail!("Failed to run groupadd")
+            }
+        }
+
+        debug!(
+            group = %group,
+            "Trying manual add to system config file (group)"
+        );
+
+        let group: Option<String> = match Command::new("getent").arg("group").arg(group).output() {
+            Ok(output) => {
+                if output.status.success() {
+                    Some(
+                        utils::command::parse_output(&output.stdout)
+                            .trim()
+                            .to_string(),
+                    )
+                } else {
+                    None
+                }
+            }
+            Err(error) => {
+                error!(
+                    group = %group,
+                    error = %error,
+                    "Failed to run getent"
+                );
+                bail!("Failed to run getent");
+            }
+        };
+
+        if let Some(group) = &group {
+            debug!(
+                group = %group,
+                "Group exists; checking further"
+            );
+
+            let system_config_group_file_path = &user_context.system_config_dir.join("group");
+
+            let exists_in_system_config = match Command::new("grep")
+                .arg(group)
+                .arg(system_config_group_file_path)
+                .status()
+            {
+                Ok(status) => {
+                    if status.success() {
+                        debug!(%group, ?system_config_group_file_path, "Group exists in system config file (group)");
+                    } else {
+                        debug!(%group, ?system_config_group_file_path, "Group does not exists in system config file (group)");
+                    }
+
+                    status.success()
+                }
+                Err(error) => {
+                    error!(
+                        %group,
+                        ?system_config_group_file_path,
+                        %error,
+                        "Failed to check whether group exists in system config file (group)"
+                    );
+
+                    bail!("Failed to run grep")
+                }
+            };
+
+            if !exists_in_system_config {
+                debug!(%group, ?system_config_group_file_path, "Manually adding it the sthe system config file (group)");
+
+                let file = OpenOptions::new()
+                    .create(false)
+                    .append(true)
+                    .open(system_config_group_file_path)
+                    .context("Failed to open the system config file")
+                    .inspect_err(|error| error!(%error))?;
+
+                match writeln!(&file, "{group}") {
+                    Ok(()) => info!(%group, ?file, "Wrote group manually in system config file"),
+                    Err(error) => {
+                        error!(%group, file = ?system_config_group_file_path, %error, "Failed to write group manually in system config file");
+                        bail!("Failed to write to file")
+                    }
+                }
+            }
+        }
+
+        Ok(())
     }
 }
 
@@ -226,9 +317,10 @@ mod tests {
     use super::*;
     use crate::cli::Cli;
     use clap::Parser;
+    use std::path::Path;
 
     fn get_user_context() -> Arc<UserExecutionContext> {
-        UserExecutionContext::new(Cli::parse_from::<[_; 0], &str>([])).unwrap()
+        UserExecutionContext::new(Cli::parse_from::<[_; 0], &str>([]), Path::new("/etc")).unwrap()
     }
 
     fn add_action() -> UserGroupAction {
@@ -260,12 +352,7 @@ mod tests {
     fn add_command() {
         assert_eq!(
             command_args(&add_action()),
-            vec![
-                "--append",
-                "--groups",
-                "developers",
-                &utils::env::get_user_name(),
-            ]
+            vec!["--add", &utils::env::get_user_name(), "developers",]
         );
     }
 
@@ -346,12 +433,7 @@ mod tests {
                 .get_args()
                 .map(|arg| arg.to_string_lossy().into_owned())
                 .collect::<Vec<_>>(),
-            vec![
-                "--append",
-                "--groups",
-                "developers",
-                &utils::env::get_user_name(),
-            ]
+            vec!["--add", &utils::env::get_user_name(), "developers",]
         );
     }
 
