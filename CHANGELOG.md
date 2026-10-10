@@ -1,3 +1,12 @@
+## [0.1.0] - 2026-10-10
+
+### 🚀 Features
+
+- *(flatpak)* Added optional repo setting
+
+### 🐛 Bug Fixes
+
+- *(user_group)* Added manual group adds for ostree systems
 ## [0.0.1] - 2026-10-07
 
 ### 🚀 Features
@@ -123,3 +132,4 @@
 - *(rpm-spec)* Added polkit file
 - *(rpm-spec)* Remove desktop file in rpm
 - *(dev)* Added version bump to local release
+- *(release)* 0.0.1
