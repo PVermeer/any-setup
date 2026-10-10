@@ -1,0 +1,23 @@
+page_type: settings
+section: Tools # Optional
+title: Apps
+icon: applications-utilities-symbolic # Optional
+groups:
+  - title: Some settings # Optional
+    settings:
+      - type: switch
+        title: Install flatpak system
+        subtitle: Install some flatpak
+        actions:
+          - action: flatpak
+            type: install
+            app: org.pvermeer.WebAppHub
+
+      - type: switch
+        title: Install flatpak user
+        subtitle: Install some flatpak
+        actions:
+          - action: flatpak
+            type: install
+            scope: user
+            app: org.pvermeer.WebAppHub

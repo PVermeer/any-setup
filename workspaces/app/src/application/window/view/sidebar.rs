@@ -8,11 +8,7 @@ use libadwaita::{
     HeaderBar, NavigationPage, Sidebar, SidebarItem, SidebarMode, SidebarSection, ToolbarView,
     prelude::{ActionRowExt, NavigationPageExt, SidebarItemExt},
 };
-use std::{
-    cell::RefCell,
-    collections::{HashMap, HashSet},
-    rc::Rc,
-};
+use std::{cell::RefCell, collections::HashMap, rc::Rc};
 use task_page::{TaskPage, task_progress::TaskProgress};
 use tracing::error;
 
@@ -20,7 +16,7 @@ pub struct SidebarPage {
     pub nav_page: NavigationPage,
     pub header: HeaderBar,
     pages: Rc<RefCell<HashMap<SidebarItem, Rc<dyn NavPage>>>>,
-    sections: RefCell<HashSet<SidebarSection>>,
+    sections: RefCell<HashMap<String, SidebarSection>>,
     base_section: SidebarSection,
     sidebar: Sidebar,
     bottom_box: ListBox,
@@ -68,7 +64,7 @@ impl SidebarPage {
             nav_page,
             header,
             pages: Rc::new(RefCell::new(HashMap::new())),
-            sections: RefCell::new(HashSet::new()),
+            sections: RefCell::new(HashMap::new()),
             base_section,
             sidebar,
             bottom_box,
@@ -147,13 +143,19 @@ impl SidebarPage {
         self.pages.borrow_mut().insert(item.clone(), page.clone());
 
         if let Some(section_name) = page.get_section() {
+            if let Some(section) = self.sections.borrow().get(section_name) {
+                section.append(item);
+                return;
+            }
+
             let section = SidebarSection::new();
             section.set_title(Some(section_name));
             section.append(item);
+            self.sidebar.append(section.clone());
 
-            if self.sections.borrow_mut().insert(section.clone()) {
-                self.sidebar.append(section);
-            }
+            self.sections
+                .borrow_mut()
+                .insert(section_name.to_string(), section);
         } else {
             self.base_section.append(item);
         }

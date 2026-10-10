@@ -1,7 +1,7 @@
 page_type: settings
-title: Tools
 section: Tools # Optional
-icon: applications-utilities-symbolic # Optional
+title: Setup
+icon: applications-engineering-symbolic # Optional
 groups:
   - title: Some settings # Optional
     settings:
@@ -78,20 +78,3 @@ groups:
             type: add
             group: docker
             create_if_missing: true # Optional
-
-      - type: switch
-        title: Install flatpak system
-        subtitle: Install some flatpak
-        actions:
-          - action: flatpak
-            type: install
-            app: org.pvermeer.WebAppHub
-
-      - type: switch
-        title: Install flatpak user
-        subtitle: Install some flatpak
-        actions:
-          - action: flatpak
-            type: install
-            scope: user
-            app: org.pvermeer.WebAppHub
