@@ -1,3 +1,8 @@
+## [0.1.1] - 2026-10-10
+
+### 🐛 Bug Fixes
+
+- *(sidebar)* Pages now group correctly under their section
 ## [0.1.0] - 2026-10-10
 
 ### 🚀 Features
@@ -7,6 +12,10 @@
 ### 🐛 Bug Fixes
 
 - *(user_group)* Added manual group adds for ostree systems
+
+### ⚙️ Miscellaneous Tasks
+
+- *(release)* 0.1.0
 ## [0.0.1] - 2026-10-07
 
 ### 🚀 Features
