@@ -1,18 +1,18 @@
 page_type: settings
-section: Tools # Optional
-title: Setup
+section: Tools & # Optional
+title: Setup &
 icon: applications-engineering-symbolic # Optional
 groups:
-  - title: Some settings # Optional
+  - title: Some settings & # Optional
     settings:
       - type: input
-        title: Input something
+        title: Input something &
         check: check it
         input_type: name
 
       - type: switch
-        title: SystemD
-        subtitle: Enable some services # Optional
+        title: SystemD &
+        subtitle: Enable some services & # Optional
         actions:
           - action: systemd
             type: enable

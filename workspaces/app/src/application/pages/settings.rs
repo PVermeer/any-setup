@@ -6,6 +6,7 @@ use crate::application::{
     task_manager::{TaskManager, user_execution_context::UserExecutionContext},
 };
 use anyhow::Result;
+use gtk::glib;
 use libadwaita::{
     EntryRow, NavigationPage, PreferencesGroup, PreferencesPage,
     prelude::{PreferencesGroupExt, PreferencesPageExt},
@@ -62,14 +63,14 @@ impl SettingsPage {
             let pref_group = PreferencesGroup::builder().build();
 
             if let Some(group_title) = &group.title {
-                pref_group.set_title(group_title);
+                pref_group.set_title(&glib::markup_escape_text(group_title));
             }
 
             for setting in &group.settings {
                 match setting {
                     Setting::Input(input) => {
                         let entry_row = EntryRow::builder()
-                            .title(&input.title)
+                            .title(glib::markup_escape_text(&input.title))
                             // .text()
                             .show_apply_button(true)
                             .input_purpose(input.input_type.to_gtk())

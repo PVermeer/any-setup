@@ -1,9 +1,9 @@
 page_type: settings
-section: Tools # Optional
+section: Tools & # Optional
 title: Apps
 icon: applications-utilities-symbolic # Optional
 groups:
-  - title: Some settings # Optional
+  - title: Some settings & more # Optional
     settings:
       - type: switch
         title: Install flatpak system
