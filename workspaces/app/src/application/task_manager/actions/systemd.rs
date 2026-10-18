@@ -1,4 +1,4 @@
-use super::ActionState;
+use super::{ActionState, OutputExt};
 use crate::application::task_manager::{
     actions::IsAction, user_execution_context::UserExecutionContext,
 };
@@ -34,7 +34,7 @@ impl Scope {
     }
 }
 
-/// Enum for mapping systemctl is-enabled output
+/// Enum for mapping systemctl is-enabled output.
 enum IsEnabledOutput {
     /// Will start at boot (has proper symlinks)
     Enabled,
@@ -132,7 +132,11 @@ impl IsEnabledOutput {
 
             let depth = recursive_depth.unwrap_or(0);
             if depth > 10 {
-                error!(%action, depth, "Reached max recursive depth trying to resolve an alias");
+                error!(
+                    %action,
+                    depth,
+                    "Reached max recursive depth trying to resolve an alias"
+                );
                 return ActionState::UnAvailable;
             }
 
@@ -151,7 +155,11 @@ impl IsEnabledOutput {
                 return ActionState::UnAvailable;
             };
 
-            debug!(%new_is_enabled_output, "Re-running alias from depth: {depth}");
+            debug!(
+                %new_is_enabled_output,
+                "Re-running alias from depth: {depth}"
+            );
+
             new_is_enabled_output.to_action_state(&action_clone, Some(depth + 1))
         }
 
@@ -195,49 +203,36 @@ impl Display for SystemdAction {
         match self {
             Self::Enable {
                 unit: name, scope, ..
-            } => {
-                write!(f, "Systemd enable {scope} unit: {name}")
-            }
+            } => write!(f, "Systemd enable {scope} unit: {name}"),
+
             Self::Disable {
                 unit: name, scope, ..
-            } => {
-                write!(f, "Systemd disable {scope} unit: {name}")
-            }
+            } => write!(f, "Systemd disable {scope} unit: {name}"),
         }
     }
 }
+
 impl IsAction for SystemdAction {
-    fn get_command(&self, _user_context: &Arc<UserExecutionContext>) -> Command {
-        match self {
-            Self::Enable {
-                unit, scope, now, ..
-            } => {
-                let mut command = Command::new("systemctl");
-                command.arg(scope.to_arg());
-                command.arg("enable");
-                if now.is_none_or(|now| now) {
-                    command.arg("--now");
-                }
-                command.arg(unit);
+    fn run_action(
+        &self,
+        output: &mut Output,
+        user_context: &Arc<UserExecutionContext>,
+        needs_user_context: bool,
+    ) -> Result<()> {
+        let mut command = self.get_command();
 
-                command
-            }
-
-            // In dev container it will output failures twice. This is not our bug.
-            Self::Disable {
-                unit, scope, now, ..
-            } => {
-                let mut command = Command::new("systemctl");
-                command.arg(scope.to_arg());
-                command.arg("disable");
-                if now.is_none_or(|now| now) {
-                    command.arg("--now");
-                }
-                command.arg(unit);
-
-                command
-            }
+        if needs_user_context {
+            user_context.apply_to(&mut command);
         }
+
+        let command_output = command.output().context(match self {
+            Self::Enable { .. } => "Failed to run systemd enable action",
+            Self::Disable { .. } => "Failed to run systemd disable action",
+        })?;
+
+        output.append_output(command_output);
+
+        Ok(())
     }
 
     fn needs_elevation(&self) -> bool {
@@ -254,7 +249,12 @@ impl IsAction for SystemdAction {
         let is_enabled_output = IsEnabledOutput::from_action(self)?;
         let action_state = is_enabled_output.to_action_state(self, None);
 
-        debug!(action = %self, is_enabled_output = %is_enabled_output, action_state = %action_state, "Action state");
+        debug!(
+            action = %self,
+            is_enabled_output = %is_enabled_output,
+            action_state = %action_state,
+            "Action state"
+        );
 
         Ok(action_state)
     }
@@ -266,7 +266,7 @@ impl IsAction for SystemdAction {
 
                 debug!(allowed_to_fail, fail_allowed, "Fail allowed check");
 
-                fail_allowed.is_some_and(|fail_allowed| fail_allowed)
+                allowed_to_fail
             }
         }
     }
@@ -312,6 +312,42 @@ impl IsAction for SystemdAction {
     }
 }
 impl SystemdAction {
+    fn get_command(&self) -> Command {
+        match self {
+            Self::Enable {
+                unit, scope, now, ..
+            } => {
+                let mut command = Command::new("systemctl");
+                command.arg(scope.to_arg());
+                command.arg("enable");
+
+                if now.is_none_or(|now| now) {
+                    command.arg("--now");
+                }
+
+                command.arg(unit);
+
+                command
+            }
+
+            Self::Disable {
+                unit, scope, now, ..
+            } => {
+                let mut command = Command::new("systemctl");
+                command.arg(scope.to_arg());
+                command.arg("disable");
+
+                if now.is_none_or(|now| now) {
+                    command.arg("--now");
+                }
+
+                command.arg(unit);
+
+                command
+            }
+        }
+    }
+
     fn get_check_command(&self) -> Command {
         match self {
             Self::Enable { unit, scope, .. } | Self::Disable { unit, scope, .. } => {
@@ -327,9 +363,9 @@ impl SystemdAction {
         debug!("Resolving alias");
 
         match self {
-            SystemdAction::Enable { unit, scope, .. }
-            | SystemdAction::Disable { unit, scope, .. } => {
+            Self::Enable { unit, scope, .. } | Self::Disable { unit, scope, .. } => {
                 let mut command = Command::new("systemctl");
+
                 command
                     .arg(scope.to_arg())
                     .arg("show")
@@ -346,8 +382,9 @@ impl SystemdAction {
                     error!(message);
                     bail!(message);
                 }
-                let mut output = utils::command::parse_output(&output.stdout);
-                output = output.trim().to_string();
+
+                let output = utils::command::parse_output(&output.stdout);
+                let output = output.trim().to_string();
 
                 info!(output, "Resolved alias");
 
@@ -361,14 +398,7 @@ impl SystemdAction {
 #[allow(clippy::unwrap_used)]
 mod tests {
     use super::*;
-    use crate::cli::Cli;
-    use clap::Parser;
-    use std::path::Path;
     use tracing_test::traced_test;
-
-    fn get_user_context() -> Arc<UserExecutionContext> {
-        UserExecutionContext::new(Cli::parse_from::<[_; 0], &str>([]), Path::new("/etc")).unwrap()
-    }
 
     fn enable_action() -> SystemdAction {
         SystemdAction::Enable {
@@ -389,10 +419,8 @@ mod tests {
     }
 
     fn command_args(action: &SystemdAction) -> Vec<String> {
-        let user_context = get_user_context();
-
         action
-            .get_command(&user_context)
+            .get_command()
             .get_args()
             .map(|arg| arg.to_string_lossy().into_owned())
             .collect()
@@ -401,12 +429,12 @@ mod tests {
     #[test]
     fn serde_yaml_parses_enable_action() {
         let yaml = r"
-            type: enable
-            unit: some-unit
-            scope: user
-            now: true
-            fail_allowed: false
-            ";
+        type: enable
+        unit: some-unit
+        scope: user
+        now: true
+        fail_allowed: false
+        ";
 
         let action: SystemdAction = serde_yaml::from_str(yaml).unwrap();
 
@@ -430,12 +458,12 @@ mod tests {
     #[test]
     fn serde_yaml_parses_disable_action() {
         let yaml = r"
-            type: disable
-            unit: some-unit
-            scope: system
-            now: false
-            fail_allowed: true
-            ";
+        type: disable
+        unit: some-unit
+        scope: system
+        now: false
+        fail_allowed: true
+        ";
 
         let action: SystemdAction = serde_yaml::from_str(yaml).unwrap();
 
@@ -459,10 +487,10 @@ mod tests {
     #[test]
     fn serde_yaml_parses_optional_values() {
         let yaml = r"
-            type: enable
-            unit: some-unit
-            scope: user
-            ";
+        type: enable
+        unit: some-unit
+        scope: user
+        ";
 
         let action: SystemdAction = serde_yaml::from_str(yaml).unwrap();
 

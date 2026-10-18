@@ -6,8 +6,7 @@ use crate::application::task_manager::{
 use anyhow::{Context, Result, anyhow, bail};
 use common::utils;
 use serde::{Deserialize, Serialize};
-use std::{fmt::Display, fs::OpenOptions, process::Command, sync::Arc};
-use std::{io::Write, process::Output};
+use std::{fmt::Display, fs::OpenOptions, io::Write, process::Command, process::Output, sync::Arc};
 use tracing::{debug, error, info};
 
 #[derive(Serialize, Deserialize, Hash, Clone, Debug)]
@@ -38,24 +37,22 @@ impl Display for UserGroupAction {
     }
 }
 impl IsAction for UserGroupAction {
-    fn get_command(&self, user_context: &Arc<UserExecutionContext>) -> Command {
-        let user = &user_context.user_name;
+    fn run_action(
+        &self,
+        output: &mut Output,
+        user_context: &Arc<UserExecutionContext>,
+        needs_user_context: bool,
+    ) -> Result<()> {
+        let mut command = self.get_command(user_context, needs_user_context);
 
-        match self {
-            Self::Add { group, .. } => {
-                let mut command = Command::new("gpasswd");
-                command.arg("--add").arg(user).arg(group);
+        let command_output = command.output().context(match self {
+            Self::Add { .. } => "Failed to run user group add action",
+            Self::Remove { .. } => "Failed to run user group remove action",
+        })?;
 
-                command
-            }
+        output.append_output(command_output);
 
-            Self::Remove { group, .. } => {
-                let mut command = Command::new("gpasswd");
-                command.arg("--delete").arg(user).arg(group);
-
-                command
-            }
-        }
+        Ok(())
     }
 
     fn needs_elevation(&self) -> bool {
@@ -205,6 +202,31 @@ impl IsAction for UserGroupAction {
     }
 }
 impl UserGroupAction {
+    fn get_command(
+        &self,
+        user_context: &Arc<UserExecutionContext>,
+        needs_user_context: bool,
+    ) -> Command {
+        let user = &user_context.user_name;
+
+        let mut command = Command::new("gpasswd");
+
+        match self {
+            Self::Add { group, .. } => {
+                command.arg("--add").arg(user).arg(group);
+            }
+            Self::Remove { group, .. } => {
+                command.arg("--delete").arg(user).arg(group);
+            }
+        }
+
+        if needs_user_context {
+            user_context.apply_to(&mut command);
+        }
+
+        command
+    }
+
     fn try_to_add_to_group(
         output: &mut Output,
         user_context: &Arc<UserExecutionContext>,
@@ -344,7 +366,7 @@ mod tests {
         let user_context = get_user_context();
 
         action
-            .get_command(&user_context)
+            .get_command(&user_context, false)
             .get_args()
             .map(|arg| arg.to_string_lossy().into_owned())
             .collect()
@@ -354,7 +376,7 @@ mod tests {
     fn add_command() {
         assert_eq!(
             command_args(&add_action()),
-            vec!["--add", &utils::env::get_user_name(), "developers",]
+            vec!["--add", &utils::env::get_user_name(), "developers"]
         );
     }
 
@@ -362,7 +384,7 @@ mod tests {
     fn remove_command() {
         assert_eq!(
             command_args(&remove_action()),
-            vec!["--delete", &utils::env::get_user_name(), "developers",]
+            vec!["--delete", &utils::env::get_user_name(), "developers"]
         );
     }
 
@@ -413,14 +435,14 @@ mod tests {
     fn add_undo_command_is_remove() {
         let user_context = get_user_context();
 
-        let command = add_action().to_undo().get_command(&user_context);
+        let command = add_action().to_undo().get_command(&user_context, false);
 
         assert_eq!(
             command
                 .get_args()
                 .map(|arg| arg.to_string_lossy().into_owned())
                 .collect::<Vec<_>>(),
-            vec!["--delete", &utils::env::get_user_name(), "developers",]
+            vec!["--delete", &utils::env::get_user_name(), "developers"]
         );
     }
 
@@ -428,14 +450,14 @@ mod tests {
     fn remove_undo_command_is_add() {
         let user_context = get_user_context();
 
-        let command = remove_action().to_undo().get_command(&user_context);
+        let command = remove_action().to_undo().get_command(&user_context, false);
 
         assert_eq!(
             command
                 .get_args()
                 .map(|arg| arg.to_string_lossy().into_owned())
                 .collect::<Vec<_>>(),
-            vec!["--add", &utils::env::get_user_name(), "developers",]
+            vec!["--add", &utils::env::get_user_name(), "developers"]
         );
     }
 

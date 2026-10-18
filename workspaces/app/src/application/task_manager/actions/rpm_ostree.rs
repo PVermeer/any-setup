@@ -1,4 +1,4 @@
-use super::ActionState;
+use super::{ActionState, OutputExt};
 use crate::application::task_manager::{
     actions::IsAction, user_execution_context::UserExecutionContext,
 };
@@ -9,10 +9,10 @@ use common::{
 };
 use serde::{Deserialize, Serialize};
 use std::{
-    fmt::Display,
+    fmt::{Display, Write},
     process::{Command, Output},
+    sync::Arc,
 };
-use std::{fmt::Write, sync::Arc};
 use tracing::debug;
 
 #[derive(Debug)]
@@ -44,6 +44,7 @@ struct RpmCommands {
     remove: Option<Command>,
     kargs: Option<KargsCommand>,
 }
+
 impl RpmCommands {
     fn get_status(self) -> Result<RpmStatus> {
         let is_installed = self
@@ -144,41 +145,29 @@ impl Display for RpmOstreeAction {
         }
     }
 }
+
 impl IsAction for RpmOstreeAction {
-    fn get_command(&self, _user_context: &Arc<UserExecutionContext>) -> Command {
-        match self {
-            Self::Install { packages, .. } => {
-                let mut command = Command::new("rpm-ostree");
-                command.arg("install").arg(packages.join(" "));
+    fn run_action(
+        &self,
+        output: &mut Output,
+        user_context: &Arc<UserExecutionContext>,
+        needs_user_context: bool,
+    ) -> Result<()> {
+        let mut command = self.get_command();
 
-                command
-            }
-
-            Self::Remove { packages, .. } => {
-                let mut command = Command::new("rpm-ostree");
-                command.arg("remove").arg(packages.join(" "));
-
-                command
-            }
-
-            Self::Kargs { add, remove, .. } => {
-                let mut command = Command::new("rpm-ostree");
-                command.arg("kargs");
-
-                if let Some(add) = add {
-                    for karg in add {
-                        command.arg(format!("--append-if-missing={karg}"));
-                    }
-                }
-                if let Some(remove) = remove {
-                    for karg in remove {
-                        command.arg(format!("--delete-if-present={karg}"));
-                    }
-                }
-
-                command
-            }
+        if needs_user_context {
+            user_context.apply_to(&mut command);
         }
+
+        let command_output = command.output().context(match self {
+            Self::Install { .. } => "Failed to run rpm-ostree install action",
+            Self::Remove { .. } => "Failed to run rpm-ostree remove action",
+            Self::Kargs { .. } => "Failed to run rpm-ostree kargs action",
+        })?;
+
+        output.append_output(command_output);
+
+        Ok(())
     }
 
     fn needs_elevation(&self) -> bool {
@@ -274,6 +263,41 @@ impl IsAction for RpmOstreeAction {
     }
 }
 impl RpmOstreeAction {
+    fn get_command(&self) -> Command {
+        match self {
+            Self::Install { packages, .. } => {
+                let mut command = Command::new("rpm-ostree");
+                command.arg("install").arg(packages.join(" "));
+                command
+            }
+
+            Self::Remove { packages, .. } => {
+                let mut command = Command::new("rpm-ostree");
+                command.arg("remove").arg(packages.join(" "));
+                command
+            }
+
+            Self::Kargs { add, remove } => {
+                let mut command = Command::new("rpm-ostree");
+                command.arg("kargs");
+
+                if let Some(add) = add {
+                    for karg in add {
+                        command.arg(format!("--append-if-missing={karg}"));
+                    }
+                }
+
+                if let Some(remove) = remove {
+                    for karg in remove {
+                        command.arg(format!("--delete-if-present={karg}"));
+                    }
+                }
+
+                command
+            }
+        }
+    }
+
     fn get_check_commands(&self) -> RpmCommands {
         match self {
             Self::Install { packages, .. } => {
@@ -320,13 +344,6 @@ impl RpmOstreeAction {
 #[allow(clippy::unwrap_used)]
 mod tests {
     use super::*;
-    use crate::cli::Cli;
-    use clap::Parser;
-    use std::path::Path;
-
-    fn get_user_context() -> Arc<UserExecutionContext> {
-        UserExecutionContext::new(Cli::parse_from::<[_; 0], &str>([]), Path::new("/etc")).unwrap()
-    }
 
     #[test]
     fn rpm_status_maps_to_action_state_correctly() {
@@ -334,7 +351,6 @@ mod tests {
             for removed in [false, true] {
                 for kargs in [false, true] {
                     let expected = match (installed, removed, kargs) {
-                        // Only these matches should result in a state other than UnAvailable
                         (true, true, true) => ActionState::Done,
                         (false, false, false) => ActionState::Available,
                         _ => ActionState::UnAvailable,
@@ -445,18 +461,55 @@ mod tests {
     }
 
     #[test]
-    fn kargs_action_creates_correct_command() {
-        let user_context = get_user_context();
+    fn install_action_creates_correct_command() {
+        let action = RpmOstreeAction::Install {
+            packages: Vec::from(["foo".to_string(), "bar".to_string()]),
+            fail_allowed: Some(false),
+        };
 
+        let command = action.get_command();
+
+        assert_eq!(
+            command
+                .get_args()
+                .map(|arg| arg.to_string_lossy().into_owned())
+                .collect::<Vec<_>>(),
+            vec!["install", "foo bar"]
+        );
+    }
+
+    #[test]
+    fn remove_action_creates_correct_command() {
+        let action = RpmOstreeAction::Remove {
+            packages: Vec::from(["foo".to_string(), "bar".to_string()]),
+            fail_allowed: Some(false),
+        };
+
+        let command = action.get_command();
+
+        assert_eq!(
+            command
+                .get_args()
+                .map(|arg| arg.to_string_lossy().into_owned())
+                .collect::<Vec<_>>(),
+            vec!["remove", "foo bar"]
+        );
+    }
+
+    #[test]
+    fn kargs_action_creates_correct_command() {
         let action = RpmOstreeAction::Kargs {
             add: Some(Vec::from(["foo=bar".to_string(), "baz".to_string()])),
             remove: Some(Vec::from(["quiet".to_string()])),
         };
 
-        let command = action.get_command(&user_context);
+        let command = action.get_command();
 
         assert_eq!(
-            command.get_args().collect::<Vec<_>>(),
+            command
+                .get_args()
+                .map(|arg| arg.to_string_lossy().into_owned())
+                .collect::<Vec<_>>(),
             vec![
                 "kargs",
                 "--append-if-missing=foo=bar",

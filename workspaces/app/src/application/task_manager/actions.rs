@@ -22,6 +22,7 @@ use user_group::UserGroupAction;
 pub trait OutputExt {
     fn append_stdout(&mut self, message: &str);
     fn append_stderr(&mut self, message: &str);
+    fn append_output(&mut self, output: Output);
 }
 impl OutputExt for Output {
     fn append_stdout(&mut self, message: &str) {
@@ -32,6 +33,12 @@ impl OutputExt for Output {
     fn append_stderr(&mut self, message: &str) {
         self.stderr
             .extend_from_slice(format!("{message}\n").as_bytes());
+    }
+
+    fn append_output(&mut self, output: Output) {
+        self.stdout.extend(output.stdout);
+        self.stderr.extend(output.stderr);
+        self.status = output.status;
     }
 }
 
@@ -59,7 +66,12 @@ impl ActionState {
 }
 
 pub trait IsAction: Display {
-    fn get_command(&self, user_context: &Arc<UserExecutionContext>) -> Command;
+    fn run_action(
+        &self,
+        output: &mut Output,
+        user_context: &Arc<UserExecutionContext>,
+        needs_user_contex: bool,
+    ) -> Result<()>;
     fn needs_elevation(&self) -> bool;
     fn get_status(&self, user_context: &Arc<UserExecutionContext>) -> Result<ActionState>;
     fn fail_allowed(&self) -> bool;

@@ -17,10 +17,10 @@ macro_rules! impl_action {
         }
 
         impl IsAction for $enum {
-            fn get_command(&self, user_context: &Arc<UserExecutionContext>) -> Command {
+            fn run_action(&self, output: &mut Output, user_context: &Arc<UserExecutionContext>, needs_user_contex: bool) -> Result<()> {
                 match self {
                     $(
-                        Self::$variant(action) => action.get_command(user_context),
+                        Self::$variant(action) => action.run_action(output, user_context, needs_user_contex),
                     )+
                 }
             }

@@ -232,19 +232,11 @@ impl ActionRunner {
             match status {
                 ActionState::Available => {
                     output.append_stdout(&status.to_log_message());
+                    let needs_user_context = self.needs_elevation() && !action.needs_elevation();
 
-                    let mut command = action.get_command(&self.user_context);
-
-                    if self.needs_elevation() && !action.needs_elevation() {
-                        self.user_context.apply_to(&mut command);
-                    }
-
-                    let command_output =
-                        command.output().context("Failed to run action command")?;
-
-                    output.stdout.extend(command_output.stdout);
-                    output.stderr.extend(command_output.stderr);
-                    output.status = command_output.status;
+                    action
+                        .run_action(&mut output, &self.user_context, needs_user_context)
+                        .context("Failed to run action")?;
 
                     if !output.status.success()
                         && let Some(mut on_error_command) =
@@ -261,14 +253,9 @@ impl ActionRunner {
 
                         output.append_stdout("\n== Retrying action command");
 
-                        let retry_output = action
-                            .get_command(&self.user_context)
-                            .output()
-                            .context("Failed to re-run action command")?;
-
-                        output.stdout.extend(retry_output.stdout);
-                        output.stderr.extend(retry_output.stderr);
-                        output.status = retry_output.status;
+                        action
+                            .run_action(&mut output, &self.user_context, needs_user_context)
+                            .context("Failed to re-run action")?;
                     }
                 }
 

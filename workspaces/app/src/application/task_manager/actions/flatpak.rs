@@ -1,4 +1,4 @@
-use super::ActionState;
+use super::{ActionState, OutputExt};
 use crate::application::task_manager::{
     actions::IsAction, user_execution_context::UserExecutionContext,
 };
@@ -116,6 +116,7 @@ pub enum FlatpakAction {
         fail_allowed: Option<bool>,
     },
 }
+
 impl Display for FlatpakAction {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
@@ -133,38 +134,26 @@ impl Display for FlatpakAction {
     }
 }
 impl IsAction for FlatpakAction {
-    fn get_command(&self, _user_context: &Arc<UserExecutionContext>) -> Command {
-        match self {
-            Self::Install {
-                app: app_id,
-                repo,
-                scope,
-                fail_allowed: _,
-            } => {
-                let mut command = Command::new("flatpak");
-                command.arg(scope.to_arg());
-                command.arg("install");
-                if let Some(repo) = repo {
-                    command.arg(repo.to_arg());
-                }
-                command.arg("--noninteractive");
-                command.arg(app_id);
+    fn run_action(
+        &self,
+        output: &mut Output,
+        user_context: &Arc<UserExecutionContext>,
+        needs_user_context: bool,
+    ) -> Result<()> {
+        let mut command = self.get_command();
 
-                command
-            }
-
-            Self::Remove {
-                app: app_id, scope, ..
-            } => {
-                let mut command = Command::new("flatpak");
-                command.arg(scope.to_arg());
-                command.arg("uninstall");
-                command.arg("--noninteractive");
-                command.arg(app_id);
-
-                command
-            }
+        if needs_user_context {
+            user_context.apply_to(&mut command);
         }
+
+        let command_output = command.output().context(match self {
+            Self::Install { .. } => "Failed to run flatpak install action",
+            Self::Remove { .. } => "Failed to run flatpak remove action",
+        })?;
+
+        output.append_output(command_output);
+
+        Ok(())
     }
 
     fn needs_elevation(&self) -> bool {
@@ -177,7 +166,12 @@ impl IsAction for FlatpakAction {
         let info_output = InfoOutput::from_action(self)?;
         let action_state = info_output.to_action_state(self);
 
-        debug!(action = %self, info_output = %info_output, action_state = %action_state, "Action state");
+        debug!(
+            action = %self,
+            info_output = %info_output,
+            action_state = %action_state,
+            "Action state"
+        );
 
         Ok(action_state)
     }
@@ -229,6 +223,42 @@ impl IsAction for FlatpakAction {
     }
 }
 impl FlatpakAction {
+    fn get_command(&self) -> Command {
+        match self {
+            Self::Install {
+                app: app_id,
+                repo,
+                scope,
+                ..
+            } => {
+                let mut command = Command::new("flatpak");
+                command.arg(scope.to_arg());
+                command.arg("install");
+
+                if let Some(repo) = repo {
+                    command.arg(repo.to_arg());
+                }
+
+                command.arg("--noninteractive");
+                command.arg(app_id);
+
+                command
+            }
+
+            Self::Remove {
+                app: app_id, scope, ..
+            } => {
+                let mut command = Command::new("flatpak");
+                command.arg(scope.to_arg());
+                command.arg("uninstall");
+                command.arg("--noninteractive");
+                command.arg(app_id);
+
+                command
+            }
+        }
+    }
+
     fn get_check_command(&self) -> Command {
         match self {
             Self::Install {
@@ -276,10 +306,8 @@ mod tests {
     }
 
     fn command_args(action: &FlatpakAction) -> Vec<String> {
-        let user_context = get_user_context();
-
         action
-            .get_command(&user_context)
+            .get_command()
             .get_args()
             .map(|arg| arg.to_string_lossy().into_owned())
             .collect()
@@ -288,12 +316,12 @@ mod tests {
     #[test]
     fn serde_yaml_parses_install_action() {
         let yaml = r"
-            type: install
-            app: org.gimp.GIMP
-            scope: user
-            repo: fedora
-            fail_allowed: false
-            ";
+        type: install
+        app: org.gimp.GIMP
+        scope: user
+        repo: fedora
+        fail_allowed: false
+        ";
 
         let action: FlatpakAction = serde_yaml::from_str(yaml).unwrap();
 
@@ -323,11 +351,11 @@ mod tests {
     #[test]
     fn serde_yaml_parses_remove_action() {
         let yaml = r"
-            type: remove
-            app: org.gimp.GIMP
-            scope: system
-            fail_allowed: true
-            ";
+        type: remove
+        app: org.gimp.GIMP
+        scope: system
+        fail_allowed: true
+        ";
 
         let action: FlatpakAction = serde_yaml::from_str(yaml).unwrap();
 
@@ -350,9 +378,9 @@ mod tests {
     #[test]
     fn serde_yaml_parses_optional_values() {
         let yaml = r"
-            type: install
-            app: org.gimp.GIMP
-            ";
+        type: install
+        app: org.gimp.GIMP
+        ";
 
         let action: FlatpakAction = serde_yaml::from_str(yaml).unwrap();
 
@@ -376,10 +404,10 @@ mod tests {
     #[test]
     fn serde_yaml_parses_explicit_flathub_repo() {
         let yaml = r"
-            type: install
-            app: org.gimp.GIMP
-            repo: flathub
-            ";
+        type: install
+        app: org.gimp.GIMP
+        repo: flathub
+        ";
 
         let action: FlatpakAction = serde_yaml::from_str(yaml).unwrap();
 
@@ -501,7 +529,7 @@ mod tests {
     #[test]
     fn before_retry_always_returns_none() {
         let action = install_action();
-        let mut output = std::process::Output {
+        let mut output = Output {
             status: std::process::ExitStatus::default(),
             stdout: Vec::new(),
             stderr: b"error".to_vec(),
@@ -517,9 +545,9 @@ mod tests {
     #[test]
     fn scope_defaults_to_system() {
         let yaml = r"
-            type: install
-            app: org.gimp.GIMP
-            ";
+        type: install
+        app: org.gimp.GIMP
+        ";
 
         let action: FlatpakAction = serde_yaml::from_str(yaml).unwrap();
 
@@ -537,9 +565,9 @@ mod tests {
     #[test]
     fn scope_defaults_to_system_on_remove() {
         let yaml = r"
-            type: remove
-            app: org.gimp.GIMP
-            ";
+        type: remove
+        app: org.gimp.GIMP
+        ";
 
         let action: FlatpakAction = serde_yaml::from_str(yaml).unwrap();
 
