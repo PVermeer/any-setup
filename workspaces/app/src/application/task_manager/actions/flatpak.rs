@@ -214,7 +214,8 @@ impl IsAction for FlatpakAction {
         &self,
         _output: &mut Output,
         _user_context: &Arc<UserExecutionContext>,
-    ) -> Option<Command> {
+        _needs_user_context: bool,
+    ) -> Option<Result<()>> {
         None
     }
 
@@ -537,7 +538,7 @@ mod tests {
 
         assert!(
             action
-                .before_retry(&mut output, &get_user_context())
+                .before_retry(&mut output, &get_user_context(), false)
                 .is_none()
         );
     }

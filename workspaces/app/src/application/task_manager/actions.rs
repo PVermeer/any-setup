@@ -10,11 +10,7 @@ use anyhow::Result;
 use flatpak::FlatpakAction;
 use rpm_ostree::RpmOstreeAction;
 use serde::{Deserialize, Serialize};
-use std::{
-    fmt::Display,
-    process::{Command, Output},
-    sync::Arc,
-};
+use std::{fmt::Display, process::Output, sync::Arc};
 use systemd::SystemdAction;
 use user_group::UserGroupAction;
 
@@ -81,7 +77,8 @@ pub trait IsAction: Display {
         &self,
         output: &mut Output,
         user_context: &Arc<UserExecutionContext>,
-    ) -> Option<Command>;
+        needs_user_contex: bool,
+    ) -> Option<Result<()>>;
     fn needs_reboot(&self) -> bool;
 }
 

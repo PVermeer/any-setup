@@ -2,7 +2,7 @@ use super::{ActionState, OutputExt};
 use crate::application::task_manager::{
     actions::IsAction, user_execution_context::UserExecutionContext,
 };
-use anyhow::{Context, Result};
+use anyhow::{Context, Result, anyhow};
 use common::{
     dbus_query::{self, DbusConnectionType, DbusPropertyQuery},
     utils,
@@ -231,9 +231,10 @@ impl IsAction for RpmOstreeAction {
 
     fn before_retry(
         &self,
-        _output: &mut Output,
-        _user_context: &Arc<UserExecutionContext>,
-    ) -> Option<Command> {
+        output: &mut Output,
+        user_context: &Arc<UserExecutionContext>,
+        needs_user_context: bool,
+    ) -> Option<Result<()>> {
         let rpm_ostree_is_idle = dbus_query::get_property::<String>(DbusPropertyQuery {
             connection_type: DbusConnectionType::System,
             destination: "org.projectatomic.rpmostree1",
@@ -250,10 +251,25 @@ impl IsAction for RpmOstreeAction {
 
         match self {
             Self::Install { .. } | Self::Remove { .. } | Self::Kargs { .. } => {
+                output.append_stdout("== Transaction in progress, canceling");
+
                 let mut command = Command::new("rpm-ostree");
                 command.arg("cancel");
+                if needs_user_context {
+                    user_context.apply_to(&mut command);
+                }
 
-                Some(command)
+                match command.output() {
+                    Err(error) => {
+                        output.append_stderr(&error.to_string());
+                        Some(Err(anyhow!(error)))
+                    }
+
+                    Ok(cancel_output) => {
+                        output.append_output(cancel_output);
+                        Some(Ok(()))
+                    }
+                }
             }
         }
     }

@@ -303,7 +303,8 @@ impl IsAction for SystemdAction {
         &self,
         _output: &mut Output,
         _user_context: &Arc<UserExecutionContext>,
-    ) -> Option<Command> {
+        _needs_user_context: bool,
+    ) -> Option<Result<()>> {
         None
     }
 

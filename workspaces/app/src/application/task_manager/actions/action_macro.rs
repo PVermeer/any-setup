@@ -59,10 +59,10 @@ macro_rules! impl_action {
                 }
             }
 
-            fn before_retry(&self, output: &mut Output, user_context: &Arc<UserExecutionContext>) -> Option<Command> {
+            fn before_retry(&self, output: &mut Output, user_context: &Arc<UserExecutionContext>, needs_user_contex: bool) -> Option<Result<()>> {
                 match self {
                     $(
-                        Self::$variant(action) => action.before_retry(output, user_context),
+                        Self::$variant(action) => action.before_retry(output, user_context, needs_user_contex),
                     )+
                 }
             }

@@ -6,7 +6,13 @@ use crate::application::task_manager::{
 use anyhow::{Context, Result, anyhow, bail};
 use common::utils;
 use serde::{Deserialize, Serialize};
-use std::{fmt::Display, fs::OpenOptions, io::Write, process::Command, process::Output, sync::Arc};
+use std::{
+    fmt::Display,
+    fs::OpenOptions,
+    io::Write,
+    process::{Command, Output},
+    sync::Arc,
+};
 use tracing::{debug, error, info};
 
 #[derive(Serialize, Deserialize, Hash, Clone, Debug)]
@@ -43,7 +49,10 @@ impl IsAction for UserGroupAction {
         user_context: &Arc<UserExecutionContext>,
         needs_user_context: bool,
     ) -> Result<()> {
-        let mut command = self.get_command(user_context, needs_user_context);
+        let mut command = self.get_command(user_context);
+        if needs_user_context {
+            user_context.apply_to(&mut command);
+        }
 
         let command_output = command.output().context(match self {
             Self::Add { .. } => "Failed to run user group add action",
@@ -172,7 +181,8 @@ impl IsAction for UserGroupAction {
         &self,
         output: &mut Output,
         user_context: &Arc<UserExecutionContext>,
-    ) -> Option<Command> {
+        needs_user_context: bool,
+    ) -> Option<Result<()>> {
         let Self::Add {
             group,
             create_if_missing,
@@ -191,10 +201,12 @@ impl IsAction for UserGroupAction {
             "Group might not exist; trying to create group before retry"
         );
 
-        match Self::try_to_add_to_group(output, user_context, group) {
-            Ok(()) => Some(Command::new("true")),
-            Err(_) => None,
-        }
+        Some(Self::try_to_add_to_group(
+            output,
+            user_context,
+            needs_user_context,
+            group,
+        ))
     }
 
     fn needs_reboot(&self) -> bool {
@@ -202,11 +214,7 @@ impl IsAction for UserGroupAction {
     }
 }
 impl UserGroupAction {
-    fn get_command(
-        &self,
-        user_context: &Arc<UserExecutionContext>,
-        needs_user_context: bool,
-    ) -> Command {
+    fn get_command(&self, user_context: &Arc<UserExecutionContext>) -> Command {
         let user = &user_context.user_name;
 
         let mut command = Command::new("gpasswd");
@@ -220,21 +228,25 @@ impl UserGroupAction {
             }
         }
 
-        if needs_user_context {
-            user_context.apply_to(&mut command);
-        }
-
         command
     }
 
+    #[allow(clippy::too_many_lines)]
     fn try_to_add_to_group(
         output: &mut Output,
         user_context: &Arc<UserExecutionContext>,
+        needs_user_context: bool,
         group: &String,
     ) -> Result<()> {
         debug!(group = %group, "Trying groupadd");
 
-        match Command::new("groupadd").arg(group).status() {
+        let mut groupadd_command = Command::new("groupadd");
+        groupadd_command.arg(group);
+        if needs_user_context {
+            user_context.apply_to(&mut groupadd_command);
+        }
+
+        match groupadd_command.status() {
             Ok(status) => {
                 if status.success() {
                     let message = "Created group with groupadd";
@@ -253,7 +265,14 @@ impl UserGroupAction {
 
         debug!(group = %group, "Trying manual add to system config file (group)");
 
-        let group: Option<String> = match Command::new("getent").arg("group").arg(group).output() {
+        let mut getent_command = Command::new("getent");
+        getent_command.arg("group");
+        getent_command.arg(group);
+        if needs_user_context {
+            user_context.apply_to(&mut getent_command);
+        }
+
+        let group: Option<String> = match getent_command.output() {
             Ok(output) => {
                 if output.status.success() {
                     Some(
@@ -278,11 +297,14 @@ impl UserGroupAction {
 
             let system_config_group_file_path = &user_context.system_config_dir.join("group");
 
-            let exists_in_system_config = match Command::new("grep")
-                .arg(group)
-                .arg(system_config_group_file_path)
-                .status()
-            {
+            let mut grep_command = Command::new("grep");
+            grep_command.arg(group);
+            grep_command.arg(system_config_group_file_path);
+            if needs_user_context {
+                user_context.apply_to(&mut getent_command);
+            }
+
+            let exists_in_system_config = match grep_command.status() {
                 Ok(status) => {
                     if status.success() {
                         debug!(%group, ?system_config_group_file_path, "Group exists in system config file (group)");
@@ -366,7 +388,7 @@ mod tests {
         let user_context = get_user_context();
 
         action
-            .get_command(&user_context, false)
+            .get_command(&user_context)
             .get_args()
             .map(|arg| arg.to_string_lossy().into_owned())
             .collect()
@@ -435,7 +457,7 @@ mod tests {
     fn add_undo_command_is_remove() {
         let user_context = get_user_context();
 
-        let command = add_action().to_undo().get_command(&user_context, false);
+        let command = add_action().to_undo().get_command(&user_context);
 
         assert_eq!(
             command
@@ -450,7 +472,7 @@ mod tests {
     fn remove_undo_command_is_add() {
         let user_context = get_user_context();
 
-        let command = remove_action().to_undo().get_command(&user_context, false);
+        let command = remove_action().to_undo().get_command(&user_context);
 
         assert_eq!(
             command

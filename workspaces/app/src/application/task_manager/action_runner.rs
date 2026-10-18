@@ -238,24 +238,19 @@ impl ActionRunner {
                         .run_action(&mut output, &self.user_context, needs_user_context)
                         .context("Failed to run action")?;
 
-                    if !output.status.success()
-                        && let Some(mut on_error_command) =
-                            action.before_retry(&mut output, &self.user_context)
-                    {
-                        output.append_stdout("\n== Running on_error command");
+                    if !output.status.success() {
+                        output.append_stdout("\n== Trying to fix");
 
-                        let on_error_output = on_error_command
-                            .output()
-                            .context("Failed to run on_error command")?;
+                        if let Some(retry_result) =
+                            action.before_retry(&mut output, &self.user_context, needs_user_context)
+                            && let Ok(()) = retry_result
+                        {
+                            output.append_stdout("\n== Retrying action command");
 
-                        output.stdout.extend(on_error_output.stdout);
-                        output.stderr.extend(on_error_output.stderr);
-
-                        output.append_stdout("\n== Retrying action command");
-
-                        action
-                            .run_action(&mut output, &self.user_context, needs_user_context)
-                            .context("Failed to re-run action")?;
+                            action
+                                .run_action(&mut output, &self.user_context, needs_user_context)
+                                .context("Failed to re-run action")?;
+                        }
                     }
                 }
 
