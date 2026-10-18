@@ -5,7 +5,12 @@ use crate::application::task_manager::{
 use anyhow::{Context, Result, anyhow, bail};
 use common::utils;
 use serde::{Deserialize, Serialize};
-use std::{fmt::Display, process::Command, str::FromStr, sync::Arc};
+use std::{
+    fmt::Display,
+    process::{Command, Output},
+    str::FromStr,
+    sync::Arc,
+};
 use tracing::{debug, error, info, warn};
 
 #[derive(Serialize, Deserialize, Hash, Clone, Debug)]
@@ -296,7 +301,7 @@ impl IsAction for SystemdAction {
 
     fn before_retry(
         &self,
-        _output: &std::process::Output,
+        _output: &mut Output,
         _user_context: &Arc<UserExecutionContext>,
     ) -> Option<Command> {
         None

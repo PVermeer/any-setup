@@ -8,7 +8,10 @@ use common::{
     utils,
 };
 use serde::{Deserialize, Serialize};
-use std::{fmt::Display, process::Command};
+use std::{
+    fmt::Display,
+    process::{Command, Output},
+};
 use std::{fmt::Write, sync::Arc};
 use tracing::debug;
 
@@ -239,7 +242,7 @@ impl IsAction for RpmOstreeAction {
 
     fn before_retry(
         &self,
-        _output: &std::process::Output,
+        _output: &mut Output,
         _user_context: &Arc<UserExecutionContext>,
     ) -> Option<Command> {
         let rpm_ostree_is_idle = dbus_query::get_property::<String>(DbusPropertyQuery {

@@ -18,6 +18,23 @@ use std::{
 use systemd::SystemdAction;
 use user_group::UserGroupAction;
 
+/// Extend Output with some convenience methods
+pub trait OutputExt {
+    fn append_stdout(&mut self, message: &str);
+    fn append_stderr(&mut self, message: &str);
+}
+impl OutputExt for Output {
+    fn append_stdout(&mut self, message: &str) {
+        self.stdout
+            .extend_from_slice(format!("{message}\n").as_bytes());
+    }
+
+    fn append_stderr(&mut self, message: &str) {
+        self.stderr
+            .extend_from_slice(format!("{message}\n").as_bytes());
+    }
+}
+
 #[derive(Default, Serialize, Deserialize, Clone, Debug)]
 #[cfg_attr(test, derive(PartialEq))]
 pub enum ActionState {
@@ -50,7 +67,7 @@ pub trait IsAction: Display {
     /// This function runs before a retry is attempted
     fn before_retry(
         &self,
-        output: &Output,
+        output: &mut Output,
         user_context: &Arc<UserExecutionContext>,
     ) -> Option<Command>;
     fn needs_reboot(&self) -> bool;

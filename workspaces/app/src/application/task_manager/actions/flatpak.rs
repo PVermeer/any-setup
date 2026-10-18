@@ -4,7 +4,11 @@ use crate::application::task_manager::{
 };
 use anyhow::{Context, Result};
 use serde::{Deserialize, Serialize};
-use std::{fmt::Display, process::Command, sync::Arc};
+use std::{
+    fmt::Display,
+    process::{Command, Output},
+    sync::Arc,
+};
 use tracing::debug;
 
 #[derive(Serialize, Deserialize, Hash, Clone, Debug, Default)]
@@ -214,7 +218,7 @@ impl IsAction for FlatpakAction {
 
     fn before_retry(
         &self,
-        _output: &std::process::Output,
+        _output: &mut Output,
         _user_context: &Arc<UserExecutionContext>,
     ) -> Option<Command> {
         None
@@ -497,13 +501,17 @@ mod tests {
     #[test]
     fn before_retry_always_returns_none() {
         let action = install_action();
-        let output = std::process::Output {
+        let mut output = std::process::Output {
             status: std::process::ExitStatus::default(),
             stdout: Vec::new(),
             stderr: b"error".to_vec(),
         };
 
-        assert!(action.before_retry(&output, &get_user_context()).is_none());
+        assert!(
+            action
+                .before_retry(&mut output, &get_user_context())
+                .is_none()
+        );
     }
 
     #[test]

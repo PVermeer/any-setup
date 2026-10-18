@@ -1,7 +1,7 @@
 use super::user_execution_context::UserExecutionContext;
 use crate::application::{
     pages::page_config::PageYaml,
-    task_manager::actions::{Action, ActionState, IsAction},
+    task_manager::actions::{Action, ActionState, IsAction, OutputExt},
 };
 use anyhow::{Context, Result, bail};
 use common::{app_dirs::AppDirs, utils};
@@ -14,22 +14,6 @@ use std::{
     time::Duration,
 };
 use tracing::{debug, error};
-
-trait OutputExt {
-    fn append_stdout(&mut self, messsage: &str);
-    fn append_stderr(&mut self, messsage: &str);
-}
-impl OutputExt for Output {
-    fn append_stdout(&mut self, message: &str) {
-        self.stdout
-            .extend_from_slice(format!("{message}\n").as_bytes());
-    }
-
-    fn append_stderr(&mut self, message: &str) {
-        self.stderr
-            .extend_from_slice(format!("{message}\n").as_bytes());
-    }
-}
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct ActionResult {
@@ -264,7 +248,7 @@ impl ActionRunner {
 
                     if !output.status.success()
                         && let Some(mut on_error_command) =
-                            action.before_retry(&output, &self.user_context)
+                            action.before_retry(&mut output, &self.user_context)
                     {
                         output.append_stdout("\n== Running on_error command");
 
