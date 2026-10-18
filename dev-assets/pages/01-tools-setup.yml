@@ -78,3 +78,55 @@ groups:
             type: add
             group: docker
             create_if_missing: true # Optional
+
+      - type: switch
+        title: Do some USB udev
+        subtitle: Add udev rule
+        actions:
+          - action: udev
+            type: add
+            order: 70
+            name: my-usb-device
+            rule:
+              - action:
+                  operator: match
+                  value: add
+              - subsystem:
+                  operator: match
+                  value: usb
+              - attr:
+                  selector: idVendor
+                  operator: match
+                  value: "1234"
+              - attr:
+                  selector: idProduct
+                  operator: match
+                  value: "5678"
+              - mode:
+                  operator: assign
+                  value: "0660"
+              - tag:
+                  operator: append
+                  value: uaccess
+
+      - type: switch
+        title: Enable wake-on-lan
+        subtitle: Add udev rule to enable wol on all network devices
+        actions:
+          - action: udev
+            type: add
+            order: 81
+            name: wol
+            rule:
+              - action:
+                  operator: match
+                  value: add
+              - subsystem:
+                  operator: match
+                  value: net
+              - name:
+                  operator: match
+                  value: "en*"
+              - run:
+                  operator: append
+                  value: "/usr/bin/ethtool -s $name wol g"

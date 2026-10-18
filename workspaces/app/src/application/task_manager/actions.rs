@@ -3,6 +3,7 @@ mod action_macro;
 pub mod flatpak;
 pub mod rpm_ostree;
 pub mod systemd;
+pub mod udev;
 pub mod user_group;
 
 use super::user_execution_context::UserExecutionContext;
@@ -12,6 +13,7 @@ use rpm_ostree::RpmOstreeAction;
 use serde::{Deserialize, Serialize};
 use std::{fmt::Display, process::Output, sync::Arc};
 use systemd::SystemdAction;
+use udev::UdevAction;
 use user_group::UserGroupAction;
 
 /// Extend Output with some convenience methods
@@ -89,6 +91,7 @@ pub enum Action {
     RpmOstree(RpmOstreeAction),
     UserGroup(UserGroupAction),
     Flatpak(FlatpakAction),
+    Udev(UdevAction),
 }
 // Using macro to impl because it's just a function map of IsAction to all the Actions
 impl_action! {
@@ -96,6 +99,7 @@ impl_action! {
         SystemD,
         RpmOstree,
         UserGroup,
-        Flatpak
+        Flatpak,
+        Udev
     }
 }
