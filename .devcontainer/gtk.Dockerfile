@@ -19,10 +19,10 @@ RUN rpm2cpio libadwaita-*.rpm | sudo cpio -idm -D /
 RUN rm libadwaita-*.rpm
 
 # Dev tools
-RUN dnf install -y git flatpak-builder rpmdevtools rpmlint jq curl gh rustup gcc gcc-c++ make cmake clang python3 python3-pip pipx shfmt shellcheck doxygen
+RUN dnf install -y git flatpak-builder rpmdevtools rpmlint jq curl gh rustup gcc gcc-c++ make cmake clang python3 python3-pip pipx shfmt shellcheck doxygen nodejs npm vulkan-tools pipewire-utils appstream desktop-file-utils
 
 # Libs
-RUN dnf install -y gtk4-devel libdrm-devel vulkan-tools OpenCL-ICD-Loader-devel boost-devel intel-mediasdk-devel libappindicator-gtk3-devel libcap-devel libcurl-devel libdrm-devel libevdev-devel libnotify-devel libva-devel libvdpau-devel libX11-devel libxcb-devel libXcursor-devel libXfixes-devel libXi-devel libXinerama-devel libXrandr-devel libXtst-devel mesa-libGL-devel miniupnpc-devel npm numactl-devel openssl-devel opus-devel pulseaudio-libs-devel rpm-build pipewire-devel pipewire-utils libadwaita-devel python3-devel appstream desktop-file-utils
+RUN dnf install -y gtk4-devel libdrm-devel OpenCL-ICD-Loader-devel boost-devel intel-mediasdk-devel libappindicator-gtk3-devel libcap-devel libcurl-devel libdrm-devel libevdev-devel libnotify-devel libva-devel libvdpau-devel libX11-devel libxcb-devel libXcursor-devel libXfixes-devel libXi-devel libXinerama-devel libXrandr-devel libXtst-devel mesa-libGL-devel miniupnpc-devel numactl-devel openssl-devel opus-devel pulseaudio-libs-devel rpm-build pipewire-devel libadwaita-devel python3-devel
 
 # Don't use this, only --user, but for GTK4 and loading images in memory (PixBuf with glycin)
 # it needs a valid repo setup for it to work with flatpaks.
@@ -41,7 +41,7 @@ RUN mkdir -p /etc/flatpak/installations.d; \
 
 RUN flatpak --installation="some_custom_installation" remote-add --if-not-exists flathub https://flathub.org/repo/flathub.flatpakrepo
 
-# Add DBus user session startup for all login shells
+# Add Dbus user session startup for all login shells
 RUN echo 'if [ -z "$DBUS_SESSION_BUS_ADDRESS" ]; then \
     eval $(dbus-launch --sh-syntax); \
     fi; \
@@ -65,5 +65,6 @@ RUN mkdir -p /tmp/user/1000/gvfsd
 RUN sudo mkdir -p /run/dbus
 RUN flatpak --user remote-add --if-not-exists flathub https://dl.flathub.org/repo/flathub.flatpakrepo
 RUN pipx install poetry
-RUN ./home/${USERNAME}/.cargo/bin/cargo install cargo-shear --locked
-RUN ./home/${USERNAME}/.cargo/bin/cargo install cargo-audit --locked --features=fix
+RUN /home/${USERNAME}/.cargo/bin/cargo install cargo-shear --locked
+RUN /home/${USERNAME}/.cargo/bin/cargo install cargo-audit --locked --features=fix
+
