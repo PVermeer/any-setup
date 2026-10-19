@@ -3,7 +3,7 @@ use crate::application::task_manager::{
     actions::{IsAction, OutputExt},
     user_execution_context::UserExecutionContext,
 };
-use anyhow::{Context, Result, anyhow, bail};
+use anyhow::{Context, Result, bail};
 use common::utils;
 use serde::{Deserialize, Serialize};
 use std::{
@@ -68,7 +68,7 @@ impl IsAction for UserGroupAction {
         true
     }
 
-    fn get_status(&self, user_context: &Arc<UserExecutionContext>) -> Result<ActionState> {
+    fn get_status(&self, user_context: &Arc<UserExecutionContext>) -> ActionState {
         let group = match self {
             Self::Add { group, .. } | Self::Remove { group, .. } => group,
         };
@@ -76,41 +76,47 @@ impl IsAction for UserGroupAction {
 
         debug!(action = %self, "Running status command");
 
-        let output = Command::new("id")
-            .arg("--groups")
-            .arg(user)
-            .output()
-            .context("Failed to run id command")?;
+        if !utils::command::test_command_available_sync("id") {
+            error!("'id' Command not available");
+            return ActionState::UnAvailable;
+        }
+        if !utils::command::test_command_available_sync("getent") {
+            error!("'getent' Command not available");
+            return ActionState::UnAvailable;
+        }
+
+        let Ok(output) = Command::new("id").arg("--groups").arg(user).output() else {
+            error!("Failed to run 'id --groups'");
+            return ActionState::UnAvailable;
+        };
 
         if !output.status.success() {
             let stderr = utils::command::parse_output(&output.stderr);
 
             error!(
-                user = %user,
-                stderr = %stderr,
+                %user,
+                %stderr,
                 "Failed to determine user group membership"
             );
-
-            bail!("Failed to determine groups for user {user}: {stderr}");
+            return ActionState::UnAvailable;
         }
 
         let groups = utils::command::parse_output(&output.stdout);
 
-        let group_output = Command::new("getent")
-            .arg("group")
-            .arg(group)
-            .output()
-            .context("Failed to run getent command")?;
+        let Ok(group_output) = Command::new("getent").arg("group").arg(group).output() else {
+            error!("Failed to run 'getent group'");
+            return ActionState::UnAvailable;
+        };
 
         let group_exists = group_output.status.success();
 
         let is_member = if group_exists {
             let group_entry = utils::command::parse_output(&group_output.stdout);
 
-            let group_gid = group_entry
-                .split(':')
-                .nth(2)
-                .ok_or_else(|| anyhow!("Invalid getent output for group {group}"))?;
+            let Some(group_gid) = group_entry.split(':').nth(2) else {
+                error!("Failed to parse getent output for group {group}");
+                return ActionState::UnAvailable;
+            };
 
             groups.split_whitespace().any(|gid| gid == group_gid)
         } else {
@@ -144,7 +150,7 @@ impl IsAction for UserGroupAction {
             "Action state"
         );
 
-        Ok(action_state)
+        action_state
     }
 
     fn fail_allowed(&self) -> bool {

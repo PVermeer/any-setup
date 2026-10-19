@@ -120,7 +120,7 @@ impl IsEnabledOutput {
         let output = action
             .get_check_command()
             .output()
-            .context("Failed to run command")?;
+            .context("Failed to run check command")?;
         let stdout = utils::command::parse_output(&output.stdout);
 
         Self::from_str(&stdout)
@@ -243,10 +243,18 @@ impl IsAction for SystemdAction {
         }
     }
 
-    fn get_status(&self, _user_context: &Arc<UserExecutionContext>) -> Result<ActionState> {
+    fn get_status(&self, _user_context: &Arc<UserExecutionContext>) -> ActionState {
         debug!(action = %self, "Running status command");
 
-        let is_enabled_output = IsEnabledOutput::from_action(self)?;
+        if !utils::command::test_command_available_sync("systemctl") {
+            error!("'systemctl' Command not available");
+            return ActionState::UnAvailable;
+        }
+
+        let Ok(is_enabled_output) = IsEnabledOutput::from_action(self) else {
+            error!("Failed to get is-enabled output");
+            return ActionState::UnAvailable;
+        };
         let action_state = is_enabled_output.to_action_state(self, None);
 
         debug!(
@@ -256,7 +264,7 @@ impl IsAction for SystemdAction {
             "Action state"
         );
 
-        Ok(action_state)
+        action_state
     }
 
     fn fail_allowed(&self) -> bool {

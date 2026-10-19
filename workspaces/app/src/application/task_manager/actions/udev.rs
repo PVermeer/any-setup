@@ -13,7 +13,7 @@ use std::{
     process::{Command, Output},
     sync::Arc,
 };
-use tracing::{debug, info, warn};
+use tracing::{debug, error, info, warn};
 
 #[derive(Serialize, Deserialize, Hash, Clone, Debug, PartialEq, Eq)]
 #[serde(rename_all = "kebab-case")]
@@ -198,41 +198,47 @@ impl IsAction for UdevAction {
         true
     }
 
-    fn get_status(&self, user_context: &Arc<UserExecutionContext>) -> Result<ActionState> {
+    fn get_status(&self, user_context: &Arc<UserExecutionContext>) -> ActionState {
         debug!(action = %self, "Checking udev rule status");
 
         let path = self.file_path(user_context);
 
         match self {
             Self::Add { .. } => {
-                let expected = self.create_rule()?;
+                let Ok(expected) = self.create_rule() else {
+                    error!("Failed to create the udev rule");
+                    return ActionState::UnAvailable;
+                };
 
                 match fs::read(&path) {
                     Ok(actual) if actual == expected.as_bytes() => match Self::verify_file(&path) {
-                        Ok(()) => Ok(ActionState::Done),
+                        Ok(()) => ActionState::Done,
                         Err(error) => {
                             warn!(
                                 %error,
                                 "Existing udev rule failed verification"
                             );
-                            Ok(ActionState::Available)
+                            ActionState::Available
                         }
                     },
-                    Ok(_) => Ok(ActionState::Available),
+                    Ok(_) => ActionState::Available,
                     Err(error) if error.kind() == std::io::ErrorKind::NotFound => {
-                        Ok(ActionState::Available)
+                        ActionState::Available
                     }
-                    Err(error) => Err(error).with_context(|| {
-                        format!("Failed to read udev rule file {}", path.display())
-                    }),
+                    Err(error) => {
+                        error!(%error, "Failed to read udev rule file {}", path.display());
+                        ActionState::UnAvailable
+                    }
                 }
             }
+
             Self::Remove { .. } => match fs::metadata(&path) {
-                Ok(_) => Ok(ActionState::Available),
-                Err(error) if error.kind() == std::io::ErrorKind::NotFound => Ok(ActionState::Done),
-                Err(error) => Err(error).with_context(|| {
-                    format!("Failed to inspect udev rule file {}", path.display())
-                }),
+                Ok(_) => ActionState::Available,
+                Err(error) if error.kind() == std::io::ErrorKind::NotFound => ActionState::Done,
+                Err(error) => {
+                    error!(%error, "Failed to inspect udev rule file {}", path.display());
+                    ActionState::UnAvailable
+                }
             },
         }
     }

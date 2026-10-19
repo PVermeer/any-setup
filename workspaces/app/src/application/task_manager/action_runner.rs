@@ -221,9 +221,7 @@ impl ActionRunner {
             output.append_stdout(&format!("\n==== Running action {} ====", i + 1));
             output.append_stdout(&format!("== {action}"));
 
-            let status = action
-                .get_status(&self.user_context)
-                .context("Failed to get status before running the action")?;
+            let status = action.get_status(&self.user_context);
 
             if cfg!(debug_assertions) && utils::env::is_devcontainer() {
                 std::thread::sleep(Duration::from_secs(2));

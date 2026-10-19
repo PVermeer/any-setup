@@ -73,7 +73,7 @@ pub trait IsAction: Display {
         needs_user_contex: bool,
     ) -> Result<()>;
     fn needs_elevation(&self) -> bool;
-    fn get_status(&self, user_context: &Arc<UserExecutionContext>) -> Result<ActionState>;
+    fn get_status(&self, user_context: &Arc<UserExecutionContext>) -> ActionState;
     fn fail_allowed(&self) -> bool;
     fn to_undo(&self) -> Self;
     /// This function runs before a retry is attempted

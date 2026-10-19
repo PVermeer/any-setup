@@ -55,7 +55,7 @@ impl Switch {
         let status: Vec<ActionState> = self
             .actions
             .iter()
-            .map(|action| action.get_status(user_context).unwrap_or_default())
+            .map(|action| action.get_status(user_context))
             .collect();
 
         let done = status

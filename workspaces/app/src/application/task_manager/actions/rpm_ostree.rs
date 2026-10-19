@@ -177,22 +177,80 @@ impl IsAction for RpmOstreeAction {
         }
     }
 
-    fn get_status(&self, _user_context: &Arc<UserExecutionContext>) -> Result<ActionState> {
+    fn get_status(&self, _user_context: &Arc<UserExecutionContext>) -> ActionState {
         debug!(action = %self, "Running check command");
 
-        let status = self.get_check_commands().get_status()?;
-        let action_state = status.to_action_state();
+        if !utils::command::test_command_available_sync("rpm-ostree") {
+            error!("'rpm-ostree' Command not available");
+            return ActionState::UnAvailable;
+        }
+        if !utils::command::test_command_available_sync("rpm") {
+            error!("'rpm' Command not available");
+            return ActionState::UnAvailable;
+        }
 
-        debug!(
-            action = %self,
-            is_installed = status.installed,
-            is_removed = status.removed,
-            kargs = status.kargs,
-            action_state = %action_state,
-            "Action state"
-        );
+        let action_state = match self {
+            Self::Install { packages, .. } => {
+                let Ok(status) = Command::new("rpm").arg("-q").args(packages).status() else {
+                    error!("Failed to run 'rpm -q'");
+                    return ActionState::UnAvailable;
+                };
 
-        Ok(action_state)
+                if status.success() {
+                    ActionState::Done
+                } else {
+                    ActionState::Available
+                }
+            }
+
+            Self::Remove { packages, .. } => {
+                let Ok(status) = Command::new("rpm").arg("-q").args(packages).status() else {
+                    error!("Failed to run 'rpm -q'");
+                    return ActionState::UnAvailable;
+                };
+
+                if status.success() {
+                    ActionState::Available
+                } else {
+                    ActionState::Done
+                }
+            }
+
+            Self::Kargs { add, remove } => {
+                let Ok(output) = Command::new("rpm-ostree").arg("kargs").output() else {
+                    error!("Failed to run 'rpm-ostree kargs'");
+                    return ActionState::UnAvailable;
+                };
+
+                if !output.status.success() {
+                    error!(
+                        stderr = utils::command::parse_output(&output.stderr),
+                        "'rpm-ostree kargs' failed"
+                    );
+                    return ActionState::UnAvailable;
+                }
+
+                let stdout = utils::command::parse_output(&output.stdout);
+
+                let add_needed = add
+                    .as_ref()
+                    .is_some_and(|args| args.iter().any(|arg| !stdout.contains(arg)));
+
+                let remove_needed = remove
+                    .as_ref()
+                    .is_some_and(|args| args.iter().any(|arg| stdout.contains(arg)));
+
+                if add_needed || remove_needed {
+                    ActionState::Available
+                } else {
+                    ActionState::Done
+                }
+            }
+        };
+
+        debug!(action = %self, %action_state, "Current action state");
+
+        action_state
     }
 
     fn fail_allowed(&self) -> bool {

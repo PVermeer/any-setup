@@ -3,13 +3,14 @@ use crate::application::task_manager::{
     actions::IsAction, user_execution_context::UserExecutionContext,
 };
 use anyhow::{Context, Result};
+use common::utils;
 use serde::{Deserialize, Serialize};
 use std::{
     fmt::Display,
     process::{Command, Output},
     sync::Arc,
 };
-use tracing::debug;
+use tracing::{debug, error};
 
 #[derive(Serialize, Deserialize, Hash, Clone, Debug, Default)]
 #[cfg_attr(test, derive(PartialEq))]
@@ -160,10 +161,18 @@ impl IsAction for FlatpakAction {
         false
     }
 
-    fn get_status(&self, _user_context: &Arc<UserExecutionContext>) -> Result<ActionState> {
+    fn get_status(&self, _user_context: &Arc<UserExecutionContext>) -> ActionState {
         debug!(action = %self, "Running status command");
 
-        let info_output = InfoOutput::from_action(self)?;
+        if !utils::command::test_command_available_sync("flatpak") {
+            error!("'flatpak' Command not available");
+            return ActionState::UnAvailable;
+        }
+
+        let Ok(info_output) = InfoOutput::from_action(self) else {
+            error!("Failed to get info output");
+            return ActionState::UnAvailable;
+        };
         let action_state = info_output.to_action_state(self);
 
         debug!(
@@ -173,7 +182,7 @@ impl IsAction for FlatpakAction {
             "Action state"
         );
 
-        Ok(action_state)
+        action_state
     }
 
     fn fail_allowed(&self) -> bool {

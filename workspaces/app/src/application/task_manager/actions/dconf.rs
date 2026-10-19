@@ -76,13 +76,19 @@ impl IsAction for DconfAction {
         false
     }
 
-    fn get_status(&self, _user_context: &Arc<UserExecutionContext>) -> Result<ActionState> {
+    fn get_status(&self, _user_context: &Arc<UserExecutionContext>) -> ActionState {
         debug!(action = %self, "Running GSettings status command");
 
+        if !utils::command::test_command_available_sync("gsettings") {
+            error!("'gsettings' Command not available");
+            return ActionState::UnAvailable;
+        }
+
         let mut command = self.get_check_command();
-        let command_output = command
-            .output()
-            .context("Failed to run gsettings get command")?;
+        let Ok(command_output) = command.output() else {
+            error!("Failed to run 'gsettings get'");
+            return ActionState::UnAvailable;
+        };
 
         if !command_output.status.success() {
             let stderr = utils::command::parse_output(&command_output.stderr);
@@ -90,7 +96,7 @@ impl IsAction for DconfAction {
             let message = format!("Failed to read GSettings value: {}", stderr.trim());
 
             error!(action = %self, %message);
-            bail!("{message}");
+            return ActionState::UnAvailable;
         }
 
         let current_value = utils::command::parse_output(&command_output.stdout);
@@ -114,7 +120,7 @@ impl IsAction for DconfAction {
             "GSettings action state"
         );
 
-        Ok(action_state)
+        action_state
     }
 
     fn fail_allowed(&self) -> bool {
