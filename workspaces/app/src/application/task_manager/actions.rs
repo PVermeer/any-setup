@@ -1,5 +1,6 @@
 #[macro_use]
 mod action_macro;
+pub mod dconf;
 pub mod flatpak;
 pub mod rpm_ostree;
 pub mod systemd;
@@ -8,6 +9,7 @@ pub mod user_group;
 
 use super::user_execution_context::UserExecutionContext;
 use anyhow::Result;
+use dconf::DconfAction;
 use flatpak::FlatpakAction;
 use rpm_ostree::RpmOstreeAction;
 use serde::{Deserialize, Serialize};
@@ -92,6 +94,7 @@ pub enum Action {
     UserGroup(UserGroupAction),
     Flatpak(FlatpakAction),
     Udev(UdevAction),
+    Dconf(DconfAction),
 }
 // Using macro to impl because it's just a function map of IsAction to all the Actions
 impl_action! {
@@ -100,6 +103,7 @@ impl_action! {
         RpmOstree,
         UserGroup,
         Flatpak,
-        Udev
+        Udev,
+        Dconf
     }
 }

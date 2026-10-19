@@ -9,10 +9,10 @@
       "request": "launch",
       "name": "Debug",
       "env": {
+        "AS_LOG": "debug",
         // "RUST_BACKTRACE": "1",
         // "LANG": "nl_NL.UTF-8",
-        "AS_LOG": "debug",
-        "GSETTINGS_BACKEND": "memory"
+        // "GSETTINGS_BACKEND": "memory"
       },
       "cargo": {
         "args": [
@@ -29,7 +29,7 @@
       "name": "Debug unit tests",
       "env": {
         "AS_LOG": "debug",
-        "GSETTINGS_BACKEND": "memory"
+        // "GSETTINGS_BACKEND": "memory"
       },
       "cargo": {
         "args": [

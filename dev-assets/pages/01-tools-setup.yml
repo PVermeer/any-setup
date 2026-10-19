@@ -130,3 +130,13 @@ groups:
               - run:
                   operator: append
                   value: "/usr/bin/ethtool -s $name wol g"
+
+      - type: switch
+        title: Disable logout prompt
+        subtitle: Set Gnome to not show a prompt on logout / restart / shutdown
+        actions:
+          - action: dconf
+            type: set
+            schema: org.gnome.SessionManager
+            key: logout-prompt
+            value: "false"
