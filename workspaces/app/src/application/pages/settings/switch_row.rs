@@ -5,7 +5,7 @@ use crate::application::{
         user_execution_context::UserExecutionContext,
     },
 };
-use gtk::{glib, prelude::WidgetExt};
+use gtk::prelude::WidgetExt;
 use libadwaita::{
     Spinner, SwitchRow,
     prelude::{ActionRowExt, PreferencesRowExt},
@@ -66,10 +66,11 @@ pub fn build_switch_row(
     let switch = Rc::new(switch.clone());
 
     let switch_row = SwitchRow::builder()
-        .title(glib::markup_escape_text(&switch.title))
+        .title(&switch.title)
+        .use_markup(false)
         .build();
     if let Some(subtitle) = &switch.subtitle {
-        switch_row.set_subtitle(&glib::markup_escape_text(subtitle));
+        switch_row.set_subtitle(subtitle);
     }
 
     set_switch_row_from_status(&switch, &switch_row, user_context);

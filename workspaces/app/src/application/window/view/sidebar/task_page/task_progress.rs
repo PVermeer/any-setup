@@ -47,7 +47,10 @@ impl TaskProgress {
             .hexpand(true)
             .build();
 
-        let progress_row = ActionRow::builder().activatable(true).build();
+        let progress_row = ActionRow::builder()
+            .activatable(true)
+            .use_markup(false)
+            .build();
         let progress_row_content = gtk::Box::new(Orientation::Horizontal, 10);
         let progress_row_warning = Image::builder()
             .icon_name("dialog-warning-symbolic")

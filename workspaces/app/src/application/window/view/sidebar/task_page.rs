@@ -8,7 +8,7 @@ use crate::application::{
     pages::PrefNavPageBuild,
     task_manager::{TaskEvent, TaskStatus, action_runner::ActionRunnerResult},
 };
-use gtk::{Image, prelude::WidgetExt};
+use gtk::{Image, glib, prelude::WidgetExt};
 use libadwaita::{
     ActionRow, NavigationPage, NavigationView, PreferencesGroup, Spinner,
     prelude::{ActionRowExt, PreferencesGroupExt, PreferencesPageExt},
@@ -92,6 +92,7 @@ impl TaskUi {
         let title = &task_event.name;
         let task_row = ActionRow::builder()
             .title(title)
+            .use_markup(false)
             .activatable(true)
             .subtitle_lines(1)
             .build();
@@ -165,7 +166,7 @@ impl TaskPage {
         } = Self::build_preferences_nav_page(&t!("pages.tasks.title"));
 
         let tasks_pref_group = PreferencesGroup::builder()
-            .title(t!("pages.tasks.title"))
+            .title(glib::markup_escape_text(&t!("pages.tasks.title")))
             .build();
 
         prefs_page.add(&tasks_pref_group);

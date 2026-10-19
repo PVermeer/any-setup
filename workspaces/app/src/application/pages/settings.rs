@@ -70,7 +70,8 @@ impl SettingsPage {
                 match setting {
                     Setting::Input(input) => {
                         let entry_row = EntryRow::builder()
-                            .title(glib::markup_escape_text(&input.title))
+                            .title(&input.title)
+                            .use_markup(false)
                             // .text()
                             .show_apply_button(true)
                             .input_purpose(input.input_type.to_gtk())

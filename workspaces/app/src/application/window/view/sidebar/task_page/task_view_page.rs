@@ -5,7 +5,7 @@ use crate::application::{
     task_manager::{TaskEvent, TaskStatus, action_runner::ActionRunnerResult, actions::IsAction},
 };
 use gtk::{
-    Image, TextBuffer, TextView, WrapMode,
+    Image, TextBuffer, TextView, WrapMode, glib,
     prelude::{TextBufferExt, TextBufferExtManual, TextTagExt, TextViewExt, WidgetExt},
 };
 use libadwaita::{
@@ -81,7 +81,9 @@ impl TaskViewPage {
         progress_prefs_group.add(&task_progress.get_progress_bar());
 
         let status_prefs_group = PreferencesGroup::builder()
-            .title(t!("pages.tasks.details.status.title"))
+            .title(glib::markup_escape_text(&t!(
+                "pages.tasks.details.status.title"
+            )))
             .build();
         prefs_page.add(&status_prefs_group);
 
@@ -124,7 +126,7 @@ impl TaskViewPage {
             .build();
         let running_icon = Spinner::new();
 
-        let row = ActionRow::builder().build();
+        let row = ActionRow::builder().use_markup(false).build();
         row.add_suffix(&running_icon);
         row.add_suffix(&success_icon);
         row.add_suffix(&fail_icon);
@@ -145,10 +147,10 @@ impl TaskViewPage {
 
         TextBufferTag::add_all_to_text_buffer(&task_output_buffer);
 
-        // let task_status = StatusPage::builder().child(&task_output).build();
         let margin = 12;
         let task_output_row = PreferencesRow::builder()
             .child(&task_output)
+            .use_markup(false)
             .activatable(false)
             .margin_top(margin)
             .margin_bottom(margin)
