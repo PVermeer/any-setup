@@ -13,93 +13,7 @@ use std::{
     process::{Command, Output},
     sync::Arc,
 };
-use tracing::debug;
-
-#[derive(Debug)]
-struct KargsCommand {
-    command: Command,
-    add: Option<Vec<String>>,
-    remove: Option<Vec<String>>,
-}
-
-#[derive(Debug)]
-struct RpmStatus {
-    installed: bool,
-    removed: bool,
-    kargs: bool,
-}
-impl RpmStatus {
-    fn to_action_state(&self) -> ActionState {
-        match (self.installed, self.removed, self.kargs) {
-            (true, true, true) => ActionState::Done,
-            (false, false, false) => ActionState::Available,
-            _ => ActionState::UnAvailable,
-        }
-    }
-}
-
-#[derive(Debug)]
-struct RpmCommands {
-    install: Option<Command>,
-    remove: Option<Command>,
-    kargs: Option<KargsCommand>,
-}
-
-impl RpmCommands {
-    fn get_status(self) -> Result<RpmStatus> {
-        let is_installed = self
-            .install
-            .map(|mut command| {
-                command
-                    .status()
-                    .context("Failed to run command")
-                    .map(|status| status.success())
-            })
-            .transpose()?
-            .unwrap_or(true);
-
-        let is_removed = self
-            .remove
-            .map(|mut command| {
-                command
-                    .status()
-                    .context("Failed to run command")
-                    .map(|status| !status.success())
-            })
-            .transpose()?
-            .unwrap_or(true);
-
-        let kargs = self
-            .kargs
-            .map(|mut kargs_command| {
-                kargs_command
-                    .command
-                    .output()
-                    .context("Failed to run command")
-                    .map(|output| {
-                        let stdout = utils::command::parse_output(&output.stdout);
-
-                        let add_needed = kargs_command
-                            .add
-                            .is_some_and(|add| add.iter().any(|karg| !stdout.contains(karg)));
-
-                        let remove_needed = kargs_command
-                            .remove
-                            .is_some_and(|remove| remove.iter().any(|karg| stdout.contains(karg)));
-
-                        !(add_needed || remove_needed)
-                    })
-            })
-            .transpose()?
-            .unwrap_or(true);
-
-        Ok(RpmStatus {
-            installed: is_installed,
-            removed: is_removed,
-            kargs,
-        })
-    }
-}
+use tracing::{debug, error};
 
 #[derive(Serialize, Deserialize, Hash, Clone, Debug)]
 #[serde(tag = "type", rename_all = "lowercase")]
@@ -126,7 +40,7 @@ impl Display for RpmOstreeAction {
             Self::Remove { packages, .. } => {
                 write!(f, "Rpm Ostree removing: {}.", packages.join(","))
             }
-            Self::Kargs { add, remove, .. } => {
+            Self::Kargs { add, remove } => {
                 let mut fmt_string = String::new();
 
                 if let Some(remove) = remove {
@@ -145,7 +59,6 @@ impl Display for RpmOstreeAction {
         }
     }
 }
-
 impl IsAction for RpmOstreeAction {
     fn run_action(
         &self,
@@ -232,19 +145,7 @@ impl IsAction for RpmOstreeAction {
 
                 let stdout = utils::command::parse_output(&output.stdout);
 
-                let add_needed = add
-                    .as_ref()
-                    .is_some_and(|args| args.iter().any(|arg| !stdout.contains(arg)));
-
-                let remove_needed = remove
-                    .as_ref()
-                    .is_some_and(|args| args.iter().any(|arg| stdout.contains(arg)));
-
-                if add_needed || remove_needed {
-                    ActionState::Available
-                } else {
-                    ActionState::Done
-                }
+                Self::get_action_state_from_kargs(add, remove, &stdout)
             }
         };
 
@@ -307,27 +208,24 @@ impl IsAction for RpmOstreeAction {
             return None;
         }
 
-        match self {
-            Self::Install { .. } | Self::Remove { .. } | Self::Kargs { .. } => {
-                output.append_stdout("== Transaction in progress, canceling");
+        output.append_stdout("== Transaction in progress, canceling");
 
-                let mut command = Command::new("rpm-ostree");
-                command.arg("cancel");
-                if needs_user_context {
-                    user_context.apply_to(&mut command);
-                }
+        let mut command = Command::new("rpm-ostree");
+        command.arg("cancel");
 
-                match command.output() {
-                    Err(error) => {
-                        output.append_stderr(&error.to_string());
-                        Some(Err(anyhow!(error)))
-                    }
+        if needs_user_context {
+            user_context.apply_to(&mut command);
+        }
 
-                    Ok(cancel_output) => {
-                        output.append_output(cancel_output);
-                        Some(Ok(()))
-                    }
-                }
+        match command.output() {
+            Err(error) => {
+                output.append_stderr(&error.to_string());
+                Some(Err(anyhow!(error)))
+            }
+
+            Ok(cancel_output) => {
+                output.append_output(cancel_output);
+                Some(Ok(()))
             }
         }
     }
@@ -372,44 +270,24 @@ impl RpmOstreeAction {
         }
     }
 
-    fn get_check_commands(&self) -> RpmCommands {
-        match self {
-            Self::Install { packages, .. } => {
-                let mut command = Command::new("rpm");
-                command.arg("-q").arg(packages.join(" "));
+    #[allow(clippy::ref_option)]
+    fn get_action_state_from_kargs(
+        add: &Option<Vec<String>>,
+        remove: &Option<Vec<String>>,
+        stdout: &str,
+    ) -> ActionState {
+        let add_needed = add
+            .as_ref()
+            .is_some_and(|args| args.iter().any(|arg| !stdout.contains(arg)));
 
-                RpmCommands {
-                    install: Some(command),
-                    remove: None,
-                    kargs: None,
-                }
-            }
+        let remove_needed = remove
+            .as_ref()
+            .is_some_and(|args| args.iter().any(|arg| stdout.contains(arg)));
 
-            Self::Remove { packages, .. } => {
-                let mut command = Command::new("rpm");
-                command.arg("-q").arg(packages.join(" "));
-
-                RpmCommands {
-                    install: None,
-                    remove: Some(command),
-                    kargs: None,
-                }
-            }
-
-            Self::Kargs { add, remove, .. } => {
-                let mut command = Command::new("rpm-ostree");
-                command.arg("kargs");
-
-                RpmCommands {
-                    install: None,
-                    remove: None,
-                    kargs: Some(KargsCommand {
-                        command,
-                        add: add.clone(),
-                        remove: remove.clone(),
-                    }),
-                }
-            }
+        if add_needed || remove_needed {
+            ActionState::Available
+        } else {
+            ActionState::Done
         }
     }
 }
@@ -419,125 +297,14 @@ impl RpmOstreeAction {
 mod tests {
     use super::*;
 
-    #[test]
-    fn rpm_status_maps_to_action_state_correctly() {
-        for installed in [false, true] {
-            for removed in [false, true] {
-                for kargs in [false, true] {
-                    let expected = match (installed, removed, kargs) {
-                        (true, true, true) => ActionState::Done,
-                        (false, false, false) => ActionState::Available,
-                        _ => ActionState::UnAvailable,
-                    };
-
-                    assert_eq!(
-                        RpmStatus {
-                            installed,
-                            removed,
-                            kargs,
-                        }
-                        .to_action_state(),
-                        expected,
-                        "unexpected state for installed={installed}, removed={removed}, kargs={kargs}"
-                    );
-                }
-            }
-        }
-    }
-
-    #[test]
-    fn install_action_creates_install_check() {
-        let action = RpmOstreeAction::Install {
-            packages: Vec::from(["foo".to_string()]),
-            fail_allowed: Some(false),
-        };
-
-        let commands = action.get_check_commands();
-
-        assert!(commands.install.is_some());
-        assert!(commands.remove.is_none());
-        assert!(commands.kargs.is_none());
-    }
-
-    #[test]
-    fn remove_action_creates_remove_check() {
-        let action = RpmOstreeAction::Remove {
-            packages: Vec::from(["foo".to_string()]),
-            fail_allowed: Some(false),
-        };
-
-        let commands = action.get_check_commands();
-
-        assert!(commands.install.is_none());
-        assert!(commands.remove.is_some());
-        assert!(commands.kargs.is_none());
-    }
-
-    #[test]
-    fn kargs_action_creates_kargs_check() {
-        let action = RpmOstreeAction::Kargs {
-            add: Some(Vec::from(["foo=bar".to_string()])),
-            remove: Some(Vec::from(["quiet".to_string()])),
-        };
-
-        let commands = action.get_check_commands();
-
-        assert!(commands.install.is_none());
-        assert!(commands.remove.is_none());
-        assert!(commands.kargs.is_some());
-
-        let kargs = commands.kargs.unwrap();
-
-        assert_eq!(kargs.add, Some(Vec::from(["foo=bar".to_string()])));
-        assert_eq!(kargs.remove, Some(Vec::from(["quiet".to_string()])));
-    }
-
-    #[test]
-    fn kargs_action_supports_only_add() {
-        let action = RpmOstreeAction::Kargs {
-            add: Some(Vec::from(["foo=bar".to_string()])),
-            remove: None,
-        };
-
-        let commands = action.get_check_commands();
-        let kargs = commands.kargs.unwrap();
-
-        assert_eq!(kargs.add, Some(Vec::from(["foo=bar".to_string()])));
-        assert!(kargs.remove.is_none());
-    }
-
-    #[test]
-    fn kargs_action_supports_only_remove() {
-        let action = RpmOstreeAction::Kargs {
-            add: None,
-            remove: Some(Vec::from(["quiet".to_string()])),
-        };
-
-        let commands = action.get_check_commands();
-        let kargs = commands.kargs.unwrap();
-
-        assert!(kargs.add.is_none());
-        assert_eq!(kargs.remove, Some(Vec::from(["quiet".to_string()])));
-    }
-
-    #[test]
-    fn kargs_action_supports_neither_add_nor_remove() {
-        let action = RpmOstreeAction::Kargs {
-            add: None,
-            remove: None,
-        };
-
-        let commands = action.get_check_commands();
-        let kargs = commands.kargs.unwrap();
-
-        assert!(kargs.add.is_none());
-        assert!(kargs.remove.is_none());
+    fn strings(values: &[&str]) -> Vec<String> {
+        values.iter().map(|value| (*value).to_string()).collect()
     }
 
     #[test]
     fn install_action_creates_correct_command() {
         let action = RpmOstreeAction::Install {
-            packages: Vec::from(["foo".to_string(), "bar".to_string()]),
+            packages: strings(&["foo", "bar"]),
             fail_allowed: Some(false),
         };
 
@@ -555,7 +322,7 @@ mod tests {
     #[test]
     fn remove_action_creates_correct_command() {
         let action = RpmOstreeAction::Remove {
-            packages: Vec::from(["foo".to_string(), "bar".to_string()]),
+            packages: strings(&["foo", "bar"]),
             fail_allowed: Some(false),
         };
 
@@ -573,8 +340,8 @@ mod tests {
     #[test]
     fn kargs_action_creates_correct_command() {
         let action = RpmOstreeAction::Kargs {
-            add: Some(Vec::from(["foo=bar".to_string(), "baz".to_string()])),
-            remove: Some(Vec::from(["quiet".to_string()])),
+            add: Some(strings(&["foo=bar", "baz"])),
+            remove: Some(strings(&["quiet"])),
         };
 
         let command = action.get_command();
@@ -594,18 +361,243 @@ mod tests {
     }
 
     #[test]
-    fn rpm_commands_with_no_checks_are_treated_as_true() {
-        let status = RpmCommands {
-            install: None,
+    fn kargs_action_supports_only_add() {
+        let action = RpmOstreeAction::Kargs {
+            add: Some(strings(&["foo=bar"])),
             remove: None,
-            kargs: None,
-        }
-        .get_status()
-        .unwrap();
+        };
 
-        assert!(status.installed);
-        assert!(status.removed);
-        assert!(status.kargs);
-        assert_eq!(status.to_action_state(), ActionState::Done);
+        assert_eq!(
+            action
+                .get_command()
+                .get_args()
+                .map(|arg| arg.to_string_lossy().into_owned())
+                .collect::<Vec<_>>(),
+            vec!["kargs", "--append-if-missing=foo=bar"]
+        );
+    }
+
+    #[test]
+    fn kargs_action_supports_only_remove() {
+        let action = RpmOstreeAction::Kargs {
+            add: None,
+            remove: Some(strings(&["quiet"])),
+        };
+
+        assert_eq!(
+            action
+                .get_command()
+                .get_args()
+                .map(|arg| arg.to_string_lossy().into_owned())
+                .collect::<Vec<_>>(),
+            vec!["kargs", "--delete-if-present=quiet"]
+        );
+    }
+
+    #[test]
+    fn kargs_action_supports_neither_add_nor_remove() {
+        let action = RpmOstreeAction::Kargs {
+            add: None,
+            remove: None,
+        };
+
+        assert_eq!(
+            action
+                .get_command()
+                .get_args()
+                .map(|arg| arg.to_string_lossy().into_owned())
+                .collect::<Vec<_>>(),
+            vec!["kargs"]
+        );
+    }
+
+    #[test]
+    fn kargs_status_is_available_when_argument_is_missing() {
+        assert_eq!(
+            RpmOstreeAction::get_action_state_from_kargs(
+                &Some(strings(&["amdgpu.ppfeaturemask=0xFFF7FFFF"])),
+                &None,
+                "quiet splash",
+            ),
+            ActionState::Available
+        );
+    }
+
+    #[test]
+    fn kargs_status_is_done_when_added_argument_exists() {
+        assert_eq!(
+            RpmOstreeAction::get_action_state_from_kargs(
+                &Some(strings(&["amdgpu.ppfeaturemask=0xFFF7FFFF"])),
+                &None,
+                "quiet amdgpu.ppfeaturemask=0xFFF7FFFF splash",
+            ),
+            ActionState::Done
+        );
+    }
+
+    #[test]
+    fn kargs_status_is_available_when_removal_argument_exists() {
+        assert_eq!(
+            RpmOstreeAction::get_action_state_from_kargs(
+                &None,
+                &Some(strings(&["quiet"])),
+                "quiet splash",
+            ),
+            ActionState::Available
+        );
+    }
+
+    #[test]
+    fn kargs_status_is_done_when_removal_argument_is_absent() {
+        assert_eq!(
+            RpmOstreeAction::get_action_state_from_kargs(
+                &None,
+                &Some(strings(&["quiet"])),
+                "splash",
+            ),
+            ActionState::Done
+        );
+    }
+
+    #[test]
+    fn kargs_status_checks_all_requested_arguments() {
+        assert_eq!(
+            RpmOstreeAction::get_action_state_from_kargs(
+                &Some(strings(&["foo=1", "bar=2"])),
+                &None,
+                "foo=1",
+            ),
+            ActionState::Available
+        );
+    }
+
+    #[test]
+    fn kargs_status_handles_add_and_remove_together() {
+        assert_eq!(
+            RpmOstreeAction::get_action_state_from_kargs(
+                &Some(strings(&["foo=1"])),
+                &Some(strings(&["quiet"])),
+                "quiet splash",
+            ),
+            ActionState::Available
+        );
+
+        assert_eq!(
+            RpmOstreeAction::get_action_state_from_kargs(
+                &Some(strings(&["foo=1"])),
+                &Some(strings(&["quiet"])),
+                "foo=1 splash",
+            ),
+            ActionState::Done
+        );
+    }
+
+    #[test]
+    fn kargs_undo_swaps_add_and_remove() {
+        let action = RpmOstreeAction::Kargs {
+            add: Some(strings(&["foo=bar"])),
+            remove: Some(strings(&["quiet"])),
+        };
+
+        assert!(matches!(
+            action.to_undo(),
+            RpmOstreeAction::Kargs {
+                add: Some(add),
+                remove: Some(remove),
+            } if add == strings(&["quiet"]) && remove == strings(&["foo=bar"])
+        ));
+    }
+
+    #[test]
+    fn kargs_undo_of_add_becomes_remove() {
+        let action = RpmOstreeAction::Kargs {
+            add: Some(strings(&["amdgpu.ppfeaturemask=0xFFF7FFFF"])),
+            remove: None,
+        };
+
+        let undo = action.to_undo();
+
+        assert!(matches!(
+            &undo,
+            RpmOstreeAction::Kargs {
+                add: None,
+                remove: Some(remove),
+            } if remove == &strings(&["amdgpu.ppfeaturemask=0xFFF7FFFF"])
+        ));
+
+        if let RpmOstreeAction::Kargs { add, remove } = undo {
+            assert_eq!(
+                RpmOstreeAction::get_action_state_from_kargs(
+                    &add,
+                    &remove,
+                    "quiet amdgpu.ppfeaturemask=0xFFF7FFFF",
+                ),
+                ActionState::Available
+            );
+
+            assert_eq!(
+                RpmOstreeAction::get_action_state_from_kargs(&add, &remove, "quiet"),
+                ActionState::Done
+            );
+        }
+    }
+
+    #[test]
+    fn install_and_remove_are_undo_operations_of_each_other() {
+        let install = RpmOstreeAction::Install {
+            packages: strings(&["foo"]),
+            fail_allowed: Some(true),
+        };
+
+        assert!(matches!(
+            install.to_undo(),
+            RpmOstreeAction::Remove {
+                packages,
+                fail_allowed: Some(true),
+            } if packages == strings(&["foo"])
+        ));
+
+        let remove = RpmOstreeAction::Remove {
+            packages: strings(&["bar"]),
+            fail_allowed: Some(false),
+        };
+
+        assert!(matches!(
+            remove.to_undo(),
+            RpmOstreeAction::Install {
+                packages,
+                fail_allowed: Some(false),
+            } if packages == strings(&["bar"])
+        ));
+    }
+
+    #[test]
+    fn action_metadata_is_correct() {
+        let install = RpmOstreeAction::Install {
+            packages: strings(&["foo"]),
+            fail_allowed: Some(true),
+        };
+
+        let remove = RpmOstreeAction::Remove {
+            packages: strings(&["foo"]),
+            fail_allowed: Some(false),
+        };
+
+        let kargs = RpmOstreeAction::Kargs {
+            add: Some(strings(&["foo=bar"])),
+            remove: None,
+        };
+
+        assert!(!install.needs_elevation());
+        assert!(!remove.needs_elevation());
+        assert!(kargs.needs_elevation());
+
+        assert!(install.fail_allowed());
+        assert!(!remove.fail_allowed());
+        assert!(!kargs.fail_allowed());
+
+        assert!(install.needs_reboot());
+        assert!(remove.needs_reboot());
+        assert!(kargs.needs_reboot());
     }
 }
