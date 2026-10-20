@@ -1,18 +1,19 @@
 mod switch_row;
 
-use super::settings_yaml::{Setting, SettingsPageYaml};
+use super::settings_yaml::{Link, Setting, SettingsPageYaml};
 use crate::application::{
     pages::{DynPage, NavPage, PrefNavPageBuild},
     task_manager::{TaskManager, user_execution_context::UserExecutionContext},
 };
 use anyhow::Result;
-use gtk::glib;
+use gtk::{Button, glib, prelude::ButtonExt};
 use libadwaita::{
-    EntryRow, NavigationPage, PreferencesGroup, PreferencesPage,
+    ButtonContent, EntryRow, NavigationPage, PreferencesGroup, PreferencesPage,
     prelude::{PreferencesGroupExt, PreferencesPageExt},
 };
-use std::{rc::Rc, sync::Arc};
+use std::{process::Command, rc::Rc, sync::Arc};
 use switch_row::build_switch_row;
+use tracing::{debug, error};
 
 pub struct SettingsPage {
     yaml: SettingsPageYaml,
@@ -69,6 +70,11 @@ impl SettingsPage {
                 }
             }
 
+            if let Some(group_link) = &group.link {
+                let link_button = Self::create_button_from_link(group_link);
+                pref_group.set_header_suffix(Some(&link_button));
+            }
+
             for setting in &group.settings {
                 match setting {
                     Setting::Input(input) => {
@@ -92,5 +98,28 @@ impl SettingsPage {
 
             self.prefs_page.add(&pref_group);
         }
+    }
+
+    fn create_button_from_link(group_link: &Link) -> Button {
+        let button_content = ButtonContent::builder()
+            .label(&group_link.title)
+            .icon_name("web-browser-symbolic")
+            .build();
+
+        let link_button = Button::builder()
+            .child(&button_content)
+            .css_classes(["flat"])
+            .build();
+        let url_str = group_link.url.to_string();
+
+        link_button.connect_clicked(move |_button| {
+            debug!(url_str, "Running xdg-open");
+
+            if let Err(error) = Command::new("xdg-open").arg(&url_str).spawn() {
+                error!(%error);
+            }
+        });
+
+        link_button
     }
 }

@@ -4,7 +4,10 @@ title: Setup &
 icon: applications-engineering-symbolic # Optional
 groups:
   - title: Some settings & # Optional
-    description: Set some settings &
+    description: Set some settings
+    link:
+      title: More info &
+      url: https://www.google.com
     settings:
       - type: input
         title: Input something &

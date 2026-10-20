@@ -8,6 +8,7 @@ use anyhow::Result;
 use gtk::InputPurpose;
 use serde::Deserialize;
 use std::{collections::HashMap, sync::Arc};
+use url::Url;
 
 #[derive(Deserialize, Clone, Debug)]
 #[serde(rename_all = "lowercase")]
@@ -84,9 +85,16 @@ pub enum Setting {
 }
 
 #[derive(Deserialize, Debug)]
+pub struct Link {
+    pub title: String,
+    pub url: Url,
+}
+
+#[derive(Deserialize, Debug)]
 pub struct Group {
     pub title: Option<String>,
     pub description: Option<String>,
+    pub link: Option<Link>,
     pub settings: Vec<Setting>,
 }
 
