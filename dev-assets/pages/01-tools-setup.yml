@@ -4,6 +4,7 @@ title: Setup &
 icon: applications-engineering-symbolic # Optional
 groups:
   - title: Some settings & # Optional
+    description: Set some settings &
     settings:
       - type: input
         title: Input something &

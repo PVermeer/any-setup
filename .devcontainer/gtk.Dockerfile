@@ -67,4 +67,3 @@ RUN flatpak --user remote-add --if-not-exists flathub https://dl.flathub.org/rep
 RUN pipx install poetry
 RUN /home/${USERNAME}/.cargo/bin/cargo install cargo-shear --locked
 RUN /home/${USERNAME}/.cargo/bin/cargo install cargo-audit --locked --features=fix
-

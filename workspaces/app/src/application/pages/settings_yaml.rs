@@ -86,6 +86,7 @@ pub enum Setting {
 #[derive(Deserialize, Debug)]
 pub struct Group {
     pub title: Option<String>,
+    pub description: Option<String>,
     pub settings: Vec<Setting>,
 }
 

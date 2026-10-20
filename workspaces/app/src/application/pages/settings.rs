@@ -64,6 +64,9 @@ impl SettingsPage {
 
             if let Some(group_title) = &group.title {
                 pref_group.set_title(&glib::markup_escape_text(group_title));
+                if let Some(group_description) = &group.description {
+                    pref_group.set_description(Some(&glib::markup_escape_text(group_description)));
+                }
             }
 
             for setting in &group.settings {
