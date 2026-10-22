@@ -298,8 +298,7 @@ impl ActionRunner {
         if !success && !is_a_undo_after_failure_run {
             // Try to undo the actions
             if let Some(undo_action_runner) = self.to_undo_from_results(&results) {
-                let undo_results =
-                    undo_action_runner.run_actions(is_a_undo_after_failure_run, on_progress);
+                let undo_results = undo_action_runner.run_actions(true, on_progress);
 
                 match undo_results {
                     Err(error) => {
