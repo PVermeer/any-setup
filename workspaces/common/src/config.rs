@@ -51,12 +51,18 @@ struct CargoAppToml {
     bin: Vec<CargoPackageBin>,
 }
 
+static INIT: OnceLock<bool> = OnceLock::new();
+
 static CARGO_TOML: &str = include_str!("../../../Cargo.toml");
 static CARGO_TOML_APP: &str = include_str!("../../app/Cargo.toml");
 
 pub fn init() {
-    set_from_cargo_toml();
-    set_from_assets();
+    if INIT.get().is_none() {
+        set_from_cargo_toml();
+        set_from_assets();
+    }
+
+    let _ = INIT.set(true);
 }
 
 #[allow(unused_variables)]

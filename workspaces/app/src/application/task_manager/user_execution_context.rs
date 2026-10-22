@@ -1,15 +1,13 @@
-use crate::cli::Cli;
 use anyhow::Result;
 use common::{
+    app_dirs::AppDirs,
+    cli::Cli,
     dbus_query::{self, DbusConnectionType},
     utils,
 };
 use serde::{Deserialize, Serialize};
 use std::{
-    collections::HashMap,
-    os::unix::process::CommandExt,
-    path::{Path, PathBuf},
-    process::Command,
+    collections::HashMap, os::unix::process::CommandExt, path::PathBuf, process::Command, rc::Rc,
     sync::Arc,
 };
 
@@ -18,13 +16,15 @@ pub struct UserExecutionContext {
     pub user_id: u32,
     pub user_name: String,
     pub current_dir: PathBuf,
-    /// Usually /etc
     pub system_config_dir: PathBuf,
+    pub system_data_dir: PathBuf,
+    pub pages_dir: Option<PathBuf>,
+    pub configs_dir: Option<PathBuf>,
     pub environment: HashMap<String, String>,
     pub arguments: Cli,
 }
 impl UserExecutionContext {
-    pub fn new(arguments: Cli, system_config_dir: &Path) -> Result<Arc<Self>> {
+    pub fn new(arguments: Cli, app_dirs: &Rc<AppDirs>) -> Result<Arc<Self>> {
         let environment = HashMap::from([
             (
                 "XDG_RUNTIME_DIR".to_string(),
@@ -40,7 +40,10 @@ impl UserExecutionContext {
             user_id: utils::env::get_user_id(),
             user_name: utils::env::get_user_name(),
             current_dir: utils::env::get_current_dir(),
-            system_config_dir: system_config_dir.to_path_buf(),
+            system_config_dir: app_dirs.system_config.clone(),
+            system_data_dir: app_dirs.system_data.clone(),
+            pages_dir: app_dirs.app_system_data_pages(),
+            configs_dir: app_dirs.app_system_data_configs(),
             environment,
             arguments,
         }))

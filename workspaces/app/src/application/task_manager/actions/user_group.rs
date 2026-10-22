@@ -77,35 +77,35 @@ impl IsAction for UserGroupAction {
         debug!(action = %self, "Running status command");
 
         if !utils::command::test_command_available_sync("id") {
-            error!("'id' Command not available");
-            return ActionState::UnAvailable;
+            let message = "'id' Command not available";
+            error!(message);
+            return ActionState::UnAvailable(message.to_string());
         }
         if !utils::command::test_command_available_sync("getent") {
-            error!("'getent' Command not available");
-            return ActionState::UnAvailable;
+            let message = "'getent' Command not available";
+            error!(message);
+            return ActionState::UnAvailable(message.to_string());
         }
 
         let Ok(output) = Command::new("id").arg("--groups").arg(user).output() else {
-            error!("Failed to run 'id --groups'");
-            return ActionState::UnAvailable;
+            let message = "Failed to run 'id --groups'";
+            error!(message);
+            return ActionState::UnAvailable(message.to_string());
         };
 
         if !output.status.success() {
             let stderr = utils::command::parse_output(&output.stderr);
-
-            error!(
-                %user,
-                %stderr,
-                "Failed to determine user group membership"
-            );
-            return ActionState::UnAvailable;
+            let message = "Failed to determine user group membership";
+            error!(%user, %stderr, message);
+            return ActionState::UnAvailable(message.to_string());
         }
 
         let groups = utils::command::parse_output(&output.stdout);
 
         let Ok(group_output) = Command::new("getent").arg("group").arg(group).output() else {
-            error!("Failed to run 'getent group'");
-            return ActionState::UnAvailable;
+            let message = "Failed to run 'getent group'";
+            error!(message);
+            return ActionState::UnAvailable(message.to_string());
         };
 
         let group_exists = group_output.status.success();
@@ -114,8 +114,9 @@ impl IsAction for UserGroupAction {
             let group_entry = utils::command::parse_output(&group_output.stdout);
 
             let Some(group_gid) = group_entry.split(':').nth(2) else {
-                error!("Failed to parse getent output for group {group}");
-                return ActionState::UnAvailable;
+                let message = "Failed to parse getent output for group {group}";
+                error!(message);
+                return ActionState::UnAvailable(message.to_string());
             };
 
             groups.split_whitespace().any(|gid| gid == group_gid)
@@ -367,12 +368,20 @@ impl UserGroupAction {
 #[allow(clippy::unwrap_used)]
 mod tests {
     use super::*;
-    use crate::cli::Cli;
-    use clap::Parser;
-    use std::path::Path;
+    use common::{
+        app_dirs::AppDirs,
+        cli::{Cli, Parser},
+        config,
+    };
+    use std::rc::Rc;
 
     fn get_user_context() -> Arc<UserExecutionContext> {
-        UserExecutionContext::new(Cli::parse_from::<[_; 0], &str>([]), Path::new("/etc")).unwrap()
+        config::init();
+
+        let arguments = Cli::parse_from::<[_; 0], &str>([]);
+        let app_dirs = Rc::new(AppDirs::new(&arguments).unwrap());
+
+        UserExecutionContext::new(arguments, &app_dirs).unwrap()
     }
 
     fn add_action() -> UserGroupAction {

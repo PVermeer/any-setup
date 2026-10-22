@@ -165,13 +165,15 @@ impl IsAction for FlatpakAction {
         debug!(action = %self, "Running status command");
 
         if !utils::command::test_command_available_sync("flatpak") {
-            error!("'flatpak' Command not available");
-            return ActionState::UnAvailable;
+            let message = "'flatpak' Command not available";
+            error!(message);
+            return ActionState::UnAvailable(message.to_string());
         }
 
         let Ok(info_output) = InfoOutput::from_action(self) else {
-            error!("Failed to get info output");
-            return ActionState::UnAvailable;
+            let message = "Failed to get info output";
+            error!(message);
+            return ActionState::UnAvailable(message.to_string());
         };
         let action_state = info_output.to_action_state(self);
 
@@ -290,12 +292,20 @@ impl FlatpakAction {
 #[allow(clippy::unwrap_used)]
 mod tests {
     use super::*;
-    use crate::cli::Cli;
-    use clap::Parser;
-    use std::path::Path;
+    use common::{
+        app_dirs::AppDirs,
+        cli::{Cli, Parser},
+        config,
+    };
+    use std::rc::Rc;
 
     fn get_user_context() -> Arc<UserExecutionContext> {
-        UserExecutionContext::new(Cli::parse_from::<[_; 0], &str>([]), Path::new("/etc")).unwrap()
+        config::init();
+
+        let arguments = Cli::parse_from::<[_; 0], &str>([]);
+        let app_dirs = Rc::new(AppDirs::new(&arguments).unwrap());
+
+        UserExecutionContext::new(arguments, &app_dirs).unwrap()
     }
 
     fn install_action() -> FlatpakAction {

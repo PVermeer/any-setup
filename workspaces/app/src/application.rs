@@ -5,12 +5,12 @@ pub mod pages;
 pub mod task_manager;
 mod window;
 
-use crate::cli::Cli;
 use anyhow::{Error, Result};
 use common::{
     app_dirs::AppDirs,
     assets::{self},
     cache_settings::CacheSettings,
+    cli::Cli,
 };
 use error_dialog::ErrorDialog;
 use gtk::{IconTheme, Settings, gdk};
@@ -34,17 +34,15 @@ impl App {
         Rc::new({
             let display = gdk::Display::default().expect("Failed to connect to display");
             let icon_theme = Rc::new(IconTheme::for_display(&display));
-            let app_dirs =
-                AppDirs::new(&arguments.pages_dir).expect("Failed to get all needed directories");
+            let app_dirs = AppDirs::new(arguments).expect("Failed to get all needed directories");
             app_config::init(&app_dirs);
             let settings = Settings::default().expect("Failed to load gtk settings");
             let cache_settings = RefCell::new(
                 CacheSettings::new(&app_dirs).expect("Failed to load cached settings"),
             );
             let window = AppWindow::new(adw_application);
-            let user_context =
-                UserExecutionContext::new(arguments.clone(), &app_dirs.system_config)
-                    .expect("Failed to load UserContext");
+            let user_context = UserExecutionContext::new(arguments.clone(), &app_dirs)
+                .expect("Failed to load UserContext");
             let task_manager = TaskManager::new(&user_context, &window.view);
             let pages = Pages::new(&app_dirs, &task_manager, &user_context)
                 .expect("Failed to create config pages");

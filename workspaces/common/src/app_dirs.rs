@@ -1,4 +1,5 @@
 use crate::{
+    cli::Cli,
     config::{self},
     utils::OnceLockExt,
 };
@@ -15,13 +16,18 @@ pub struct AppDirs {
     pub user_cache: PathBuf,
     pub user_runtime: PathBuf,
     pub system_data: PathBuf,
+    /// Usually /etc
     pub system_config: PathBuf,
-    pages_dir_run_argument: Option<PathBuf>,
+    pages_dir_cli: Option<PathBuf>,
+    configs_dir_cli: Option<PathBuf>,
 }
 impl AppDirs {
     const PAGES_DIR_NAME: &str = "pages";
+    const CONFIGS_DIR_NAME: &str = "configs";
 
-    pub fn new(pages_dir: &Option<PathBuf>) -> Result<Rc<Self>> {
+    pub fn new(arguments: &Cli) -> Result<Rc<Self>> {
+        config::init();
+
         let user_home = glib::home_dir();
         let user_data = glib::user_data_dir();
         let user_config = glib::user_config_dir();
@@ -44,7 +50,6 @@ impl AppDirs {
         let system_config = PathBuf::from("/etc");
 
         let me = Self {
-            pages_dir_run_argument: pages_dir.clone(),
             user_home,
             user_data,
             user_config,
@@ -52,6 +57,8 @@ impl AppDirs {
             user_runtime,
             system_data,
             system_config,
+            pages_dir_cli: arguments.pages_dir.clone(),
+            configs_dir_cli: arguments.configs_dir.clone(),
         };
 
         debug!(?me, "Application dirs");
@@ -102,7 +109,7 @@ impl AppDirs {
     }
 
     pub fn app_system_data_pages(&self) -> Option<PathBuf> {
-        let mut path = if let Some(pages_dir) = &self.pages_dir_run_argument {
+        let mut path = if let Some(pages_dir) = &self.pages_dir_cli {
             info!(?pages_dir, "Found user set pages dir argument");
 
             let pages_dir_abs = pages_dir.canonicalize().unwrap_or_default();
@@ -130,6 +137,41 @@ impl AppDirs {
                 glib::current_dir()
                     .join("dev-assets")
                     .join(Self::PAGES_DIR_NAME),
+            );
+        }
+
+        path
+    }
+
+    pub fn app_system_data_configs(&self) -> Option<PathBuf> {
+        let mut path = if let Some(configs_dir) = &self.configs_dir_cli {
+            info!(?configs_dir, "Found user set configs dir argument");
+
+            let configs_dir_abs = configs_dir.canonicalize().unwrap_or_default();
+
+            if !configs_dir_abs.is_dir() {
+                error!(?configs_dir_abs, "User set configs dir is not a directory");
+            }
+
+            Some(configs_dir_abs)
+        } else {
+            self.app_system_data()
+                .map(|dir| dir.join(Self::CONFIGS_DIR_NAME))
+                .filter(|dir| {
+                    let exists = dir.is_dir();
+                    if !exists {
+                        warn!(path = %dir.display(), "App system configs path does not exists");
+                    }
+
+                    exists
+                })
+        };
+
+        if cfg!(debug_assertions) && path.is_none() {
+            path = Some(
+                glib::current_dir()
+                    .join("dev-assets")
+                    .join(Self::CONFIGS_DIR_NAME),
             );
         }
 

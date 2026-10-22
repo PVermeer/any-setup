@@ -132,17 +132,19 @@ impl IsEnabledOutput {
 
             let depth = recursive_depth.unwrap_or(0);
             if depth > 10 {
+                let message = "Reached max recursive depth trying to resolve an alias";
                 error!(
                     %action,
                     depth,
-                    "Reached max recursive depth trying to resolve an alias"
+                    message
                 );
-                return ActionState::UnAvailable;
+                return ActionState::UnAvailable(message.to_string());
             }
 
             let Ok(resolved_unit_name) = action.resolve_alias() else {
-                error!("Failed to resolve alias for");
-                return ActionState::UnAvailable;
+                let message = "Failed to resolve alias for";
+                error!(message);
+                return ActionState::UnAvailable(message.to_string());
             };
             let mut action_clone = action.clone();
             match &mut action_clone {
@@ -151,8 +153,9 @@ impl IsEnabledOutput {
                 }
             }
             let Ok(new_is_enabled_output) = IsEnabledOutput::from_action(&action_clone) else {
+                let message = "Unable to resolve unit alias";
                 warn!("Unable to resolve unit alias");
-                return ActionState::UnAvailable;
+                return ActionState::UnAvailable(message.to_string());
             };
 
             debug!(
@@ -168,14 +171,18 @@ impl IsEnabledOutput {
                 Self::Enabled => ActionState::Done,
                 Self::Disabled => ActionState::Available,
                 Self::Alias => handle_alias(action, recursive_depth),
-                _ => ActionState::UnAvailable,
+                _ => ActionState::UnAvailable(
+                    "Does not match any systemctl is-enabled output".to_string(),
+                ),
             },
 
             SystemdAction::Disable { .. } => match self {
                 Self::Enabled => ActionState::Available,
                 Self::Disabled => ActionState::Done,
                 Self::Alias => handle_alias(action, recursive_depth),
-                _ => ActionState::UnAvailable,
+                _ => ActionState::UnAvailable(
+                    "Does not match any systemctl is-enabled output".to_string(),
+                ),
             },
         }
     }
@@ -247,13 +254,15 @@ impl IsAction for SystemdAction {
         debug!(action = %self, "Running status command");
 
         if !utils::command::test_command_available_sync("systemctl") {
-            error!("'systemctl' Command not available");
-            return ActionState::UnAvailable;
+            let message = "'systemctl' Command not available";
+            error!(message);
+            return ActionState::UnAvailable(message.to_string());
         }
 
         let Ok(is_enabled_output) = IsEnabledOutput::from_action(self) else {
-            error!("Failed to get is-enabled output");
-            return ActionState::UnAvailable;
+            let message = "Failed to get is-enabled output";
+            error!(message);
+            return ActionState::UnAvailable(message.to_string());
         };
         let action_state = is_enabled_output.to_action_state(self, None);
 
@@ -406,6 +415,8 @@ impl SystemdAction {
 #[cfg(test)]
 #[allow(clippy::unwrap_used)]
 mod tests {
+    use std::assert_matches;
+
     use super::*;
     use tracing_test::traced_test;
 
@@ -554,9 +565,9 @@ mod tests {
             ActionState::Available
         );
 
-        assert_eq!(
+        assert_matches!(
             IsEnabledOutput::NotFound.to_action_state(&action, None),
-            ActionState::UnAvailable
+            ActionState::UnAvailable(_)
         );
     }
 
@@ -574,9 +585,9 @@ mod tests {
             ActionState::Available
         );
 
-        assert_eq!(
+        assert_matches!(
             IsEnabledOutput::NotFound.to_action_state(&action, None),
-            ActionState::UnAvailable
+            ActionState::UnAvailable(_)
         );
     }
 
@@ -585,9 +596,9 @@ mod tests {
     fn enable_alias_reaches_max_recursion_depth() {
         let action = enable_action();
 
-        assert_eq!(
+        assert_matches!(
             IsEnabledOutput::Alias.to_action_state(&action, Some(11)),
-            ActionState::UnAvailable
+            ActionState::UnAvailable(_)
         );
 
         assert!(logs_contain("Reached max recursive depth"));
@@ -598,9 +609,9 @@ mod tests {
     fn disable_alias_reaches_max_recursion_depth() {
         let action = disable_action();
 
-        assert_eq!(
+        assert_matches!(
             IsEnabledOutput::Alias.to_action_state(&action, Some(11)),
-            ActionState::UnAvailable
+            ActionState::UnAvailable(_)
         );
 
         assert!(logs_contain("Reached max recursive depth"));

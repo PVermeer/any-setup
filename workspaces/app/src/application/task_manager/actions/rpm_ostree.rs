@@ -94,19 +94,22 @@ impl IsAction for RpmOstreeAction {
         debug!(action = %self, "Running check command");
 
         if !utils::command::test_command_available_sync("rpm-ostree") {
-            error!("'rpm-ostree' Command not available");
-            return ActionState::UnAvailable;
+            let message = "'rpm-ostree' Command not available";
+            error!(message);
+            return ActionState::UnAvailable(message.to_string());
         }
         if !utils::command::test_command_available_sync("rpm") {
-            error!("'rpm' Command not available");
-            return ActionState::UnAvailable;
+            let message = "'rpm' Command not available";
+            error!(message);
+            return ActionState::UnAvailable(message.to_string());
         }
 
         let action_state = match self {
             Self::Install { packages, .. } => {
                 let Ok(status) = Command::new("rpm").arg("-q").args(packages).status() else {
-                    error!("Failed to run 'rpm -q'");
-                    return ActionState::UnAvailable;
+                    let message = "Failed to run 'rpm -q'";
+                    error!(message);
+                    return ActionState::UnAvailable(message.to_string());
                 };
 
                 if status.success() {
@@ -118,8 +121,9 @@ impl IsAction for RpmOstreeAction {
 
             Self::Remove { packages, .. } => {
                 let Ok(status) = Command::new("rpm").arg("-q").args(packages).status() else {
-                    error!("Failed to run 'rpm -q'");
-                    return ActionState::UnAvailable;
+                    let message = "Failed to run 'rpm -q'";
+                    error!(message);
+                    return ActionState::UnAvailable(message.to_string());
                 };
 
                 if status.success() {
@@ -131,16 +135,18 @@ impl IsAction for RpmOstreeAction {
 
             Self::Kargs { add, remove } => {
                 let Ok(output) = Command::new("rpm-ostree").arg("kargs").output() else {
-                    error!("Failed to run 'rpm-ostree kargs'");
-                    return ActionState::UnAvailable;
+                    let message = "Failed to run 'rpm-ostree kargs'";
+                    error!(message);
+                    return ActionState::UnAvailable(message.to_string());
                 };
 
                 if !output.status.success() {
+                    let message = "'rpm-ostree kargs' failed";
                     error!(
                         stderr = utils::command::parse_output(&output.stderr),
-                        "'rpm-ostree kargs' failed"
+                        message
                     );
-                    return ActionState::UnAvailable;
+                    return ActionState::UnAvailable(message.to_string());
                 }
 
                 let stdout = utils::command::parse_output(&output.stdout);

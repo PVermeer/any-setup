@@ -4,7 +4,7 @@ use crate::application::task_manager::{
     user_execution_context::UserExecutionContext,
 };
 use anyhow::{Context, Result, bail};
-use common::utils;
+use common::{cli::AppCommand, utils};
 use gtk::glib;
 use serde::{Deserialize, Serialize};
 use std::{
@@ -14,6 +14,7 @@ use std::{
 };
 use tracing::{debug, error};
 
+#[allow(clippy::large_enum_variant)]
 #[derive(Debug, Serialize, Deserialize)]
 pub enum ProcessRequest {
     Run {
@@ -57,7 +58,7 @@ impl ElevatedActionRunner {
     pub fn start(user_context: &Arc<UserExecutionContext>) -> Result<Self> {
         let current_exe = std::env::current_exe()
             .context("Failed to determine current executable for elevated ActionRunner")?;
-        let subcommand = crate::cli::AppCommand::ActionRunner.to_string();
+        let subcommand = AppCommand::ActionRunner.to_string();
 
         debug!(cwd = ?glib::current_dir());
 

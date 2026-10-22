@@ -53,10 +53,18 @@ pub struct Switch {
 }
 impl Switch {
     pub fn get_status(&self, user_context: &Arc<UserExecutionContext>) -> ActionState {
+        let mut unavailable_reason = String::new();
+
         let status: Vec<ActionState> = self
             .actions
             .iter()
-            .map(|action| action.get_status(user_context))
+            .map(|action| {
+                let status = action.get_status(user_context);
+                if let ActionState::UnAvailable(reason) = &status {
+                    unavailable_reason.clone_from(reason);
+                }
+                status
+            })
             .collect();
 
         let done = status
@@ -73,7 +81,7 @@ impl Switch {
             return ActionState::Available;
         }
 
-        ActionState::UnAvailable
+        ActionState::UnAvailable(unavailable_reason)
     }
 }
 

@@ -3,6 +3,7 @@
 use anyhow::{Context, Result, bail};
 use common::{
     app_dirs::AppDirs,
+    cli::{Cli, Parser},
     config::{self},
     desktop_assets,
     utils::{self, OnceLockExt},
@@ -16,7 +17,7 @@ use std::{
 fn main() -> Result<()> {
     println!("cargo:warning=Debug: App build script is running!");
     config::init();
-    let app_dirs = AppDirs::new(&None)?;
+    let app_dirs = AppDirs::new(&Cli::parse())?;
     let is_in_dev_container =
         option_env!("RUN_IN_VSCODE_DEVCONTAINER").is_some_and(|value| value == "true");
 

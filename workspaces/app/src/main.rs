@@ -12,13 +12,11 @@
 #![allow(clippy::unused_self)]
 
 mod application;
-mod cli;
 
 use anyhow::Result;
 use application::{App, task_manager::elevated_action_runner::run_elevated_action_runner};
-use clap::Parser;
-use cli::{AppCommand, Cli};
 use common::{
+    cli::{AppCommand, Cli, Parser},
     config::{self},
     utils::{self, OnceLockExt},
 };

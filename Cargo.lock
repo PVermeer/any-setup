@@ -73,7 +73,6 @@ version = "0.1.1"
 dependencies = [
  "anyhow",
  "async-channel",
- "clap",
  "common",
  "gtk4",
  "libadwaita",
@@ -262,6 +261,7 @@ name = "common"
 version = "0.1.1"
 dependencies = [
  "anyhow",
+ "clap",
  "dbus",
  "freedesktop-desktop-entry",
  "gtk4",

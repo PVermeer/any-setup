@@ -4,7 +4,7 @@ use crate::application::{
     task_manager::actions::{Action, ActionState, IsAction, OutputExt},
 };
 use anyhow::{Context, Result, bail};
-use common::{app_dirs::AppDirs, utils};
+use common::utils;
 use serde::{Deserialize, Serialize};
 use std::{
     hash::{DefaultHasher, Hash, Hasher},
@@ -92,10 +92,7 @@ impl ActionRunner {
         action_runner_id: u64,
         user_context: &Arc<UserExecutionContext>,
     ) -> Result<Arc<Self>> {
-        let app_dirs = AppDirs::new(&user_context.arguments.pages_dir)?;
-        let pages_dir = app_dirs.app_system_data_pages();
-
-        if let Some(pages_dir) = &pages_dir
+        if let Some(pages_dir) = &user_context.pages_dir
             && let Ok(pages_dir_entries) = utils::files::get_entries_in_dir(pages_dir)
         {
             for dir_entry in pages_dir_entries {
@@ -146,7 +143,7 @@ impl ActionRunner {
                     undo_actions.push(undo_action);
                 }
 
-                ActionState::Done | ActionState::UnAvailable => {}
+                ActionState::Done | ActionState::UnAvailable(_) => {}
             }
         }
 
@@ -252,7 +249,7 @@ impl ActionRunner {
                     }
                 }
 
-                ActionState::UnAvailable => {
+                ActionState::UnAvailable(_) => {
                     output.append_stderr(&status.to_log_message());
                     output.status = ExitStatus::from_raw(1);
                 }

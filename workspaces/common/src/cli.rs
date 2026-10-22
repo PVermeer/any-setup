@@ -1,4 +1,4 @@
-use clap::{Parser, Subcommand};
+pub use clap::{Parser, Subcommand};
 use serde::{Deserialize, Serialize};
 use std::{fmt::Display, path::PathBuf};
 
@@ -8,9 +8,13 @@ pub struct Cli {
     #[command(subcommand)]
     pub command: Option<AppCommand>,
 
-    /// Set custom config pages directory
+    /// Set custom pages directory
     #[arg(short, long)]
     pub pages_dir: Option<PathBuf>,
+
+    /// Set custom configs directory
+    #[arg(short, long)]
+    pub configs_dir: Option<PathBuf>,
 }
 #[derive(Subcommand, Debug, Clone, Serialize, Deserialize)]
 pub enum AppCommand {
