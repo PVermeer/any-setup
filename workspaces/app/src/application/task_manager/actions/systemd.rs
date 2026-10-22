@@ -172,22 +172,18 @@ impl IsEnabledOutput {
         }
 
         match action {
-            SystemdAction::Enable { .. } => match self {
+            SystemdAction::Enable { unit, .. } => match self {
                 Self::Enabled => ActionState::Done,
                 Self::Disabled => ActionState::Available,
                 Self::Alias => handle_alias(action, recursive_depth),
-                _ => ActionState::UnAvailable(
-                    "Does not match any systemctl is-enabled output".to_string(),
-                ),
+                _ => ActionState::UnAvailable(format!("Unable to handle unit {unit}: {self}")),
             },
 
-            SystemdAction::Disable { .. } => match self {
+            SystemdAction::Disable { unit, .. } => match self {
                 Self::Enabled => ActionState::Available,
                 Self::Disabled => ActionState::Done,
                 Self::Alias => handle_alias(action, recursive_depth),
-                _ => ActionState::UnAvailable(
-                    "Does not match any systemctl is-enabled output".to_string(),
-                ),
+                _ => ActionState::UnAvailable(format!("Unable to handle unit {unit}: {self}")),
             },
         }
     }
