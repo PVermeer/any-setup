@@ -35,11 +35,13 @@ impl ActionResult {
         }
     }
 }
+
 #[derive(Serialize, Deserialize, Clone, Debug)]
 pub enum ActionStatus {
     Running,
     Finished,
 }
+
 #[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct ActionProgress {
     pub action: Option<String>,
@@ -65,6 +67,7 @@ pub struct ActionRunner {
     is_undo: bool,
     user_context: Arc<UserExecutionContext>,
 }
+
 impl Hash for ActionRunner {
     fn hash<H: Hasher>(&self, state: &mut H) {
         self.name.hash(state);
@@ -73,6 +76,7 @@ impl Hash for ActionRunner {
         self.is_undo.hash(state);
     }
 }
+
 impl ActionRunner {
     pub fn new(
         name: &str,

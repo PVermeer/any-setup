@@ -31,6 +31,7 @@ pub enum RpmOstreeAction {
         remove: Option<Vec<String>>,
     },
 }
+
 impl Display for RpmOstreeAction {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
@@ -59,6 +60,65 @@ impl Display for RpmOstreeAction {
         }
     }
 }
+
+impl RpmOstreeAction {
+    fn get_command(&self) -> Command {
+        match self {
+            Self::Install { packages, .. } => {
+                let mut command = Command::new("rpm-ostree");
+                command.arg("install").arg(packages.join(" "));
+                command
+            }
+
+            Self::Remove { packages, .. } => {
+                let mut command = Command::new("rpm-ostree");
+                command.arg("remove").arg(packages.join(" "));
+                command
+            }
+
+            Self::Kargs { add, remove } => {
+                let mut command = Command::new("rpm-ostree");
+                command.arg("kargs");
+
+                if let Some(add) = add {
+                    for karg in add {
+                        command.arg(format!("--append-if-missing={karg}"));
+                    }
+                }
+
+                if let Some(remove) = remove {
+                    for karg in remove {
+                        command.arg(format!("--delete-if-present={karg}"));
+                    }
+                }
+
+                command
+            }
+        }
+    }
+
+    #[allow(clippy::ref_option)]
+    fn get_action_state_from_kargs(
+        add: &Option<Vec<String>>,
+        remove: &Option<Vec<String>>,
+        stdout: &str,
+    ) -> ActionState {
+        let add_needed = add
+            .as_ref()
+            .is_some_and(|args| args.iter().any(|arg| !stdout.contains(arg)));
+
+        let remove_needed = remove
+            .as_ref()
+            .is_some_and(|args| args.iter().any(|arg| stdout.contains(arg)));
+
+        if add_needed || remove_needed {
+            ActionState::Available
+        } else {
+            ActionState::Done
+        }
+    }
+}
+
 impl IsAction for RpmOstreeAction {
     fn run_action(
         &self,
@@ -238,63 +298,6 @@ impl IsAction for RpmOstreeAction {
 
     fn needs_reboot(&self) -> bool {
         true
-    }
-}
-impl RpmOstreeAction {
-    fn get_command(&self) -> Command {
-        match self {
-            Self::Install { packages, .. } => {
-                let mut command = Command::new("rpm-ostree");
-                command.arg("install").arg(packages.join(" "));
-                command
-            }
-
-            Self::Remove { packages, .. } => {
-                let mut command = Command::new("rpm-ostree");
-                command.arg("remove").arg(packages.join(" "));
-                command
-            }
-
-            Self::Kargs { add, remove } => {
-                let mut command = Command::new("rpm-ostree");
-                command.arg("kargs");
-
-                if let Some(add) = add {
-                    for karg in add {
-                        command.arg(format!("--append-if-missing={karg}"));
-                    }
-                }
-
-                if let Some(remove) = remove {
-                    for karg in remove {
-                        command.arg(format!("--delete-if-present={karg}"));
-                    }
-                }
-
-                command
-            }
-        }
-    }
-
-    #[allow(clippy::ref_option)]
-    fn get_action_state_from_kargs(
-        add: &Option<Vec<String>>,
-        remove: &Option<Vec<String>>,
-        stdout: &str,
-    ) -> ActionState {
-        let add_needed = add
-            .as_ref()
-            .is_some_and(|args| args.iter().any(|arg| !stdout.contains(arg)));
-
-        let remove_needed = remove
-            .as_ref()
-            .is_some_and(|args| args.iter().any(|arg| stdout.contains(arg)));
-
-        if add_needed || remove_needed {
-            ActionState::Available
-        } else {
-            ActionState::Done
-        }
     }
 }
 

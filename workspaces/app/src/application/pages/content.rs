@@ -16,30 +16,7 @@ pub struct ContentPage {
     nav_page: NavigationPage,
     content_box: gtk::Box,
 }
-impl DynPage for ContentPage {
-    fn build_page(
-        mut self,
-        _task_manager: &Rc<TaskManager>,
-        _user_context: &Arc<UserExecutionContext>,
-    ) -> Result<Rc<dyn DynPage>> {
-        self.build();
 
-        Ok(Rc::new(self))
-    }
-}
-impl NavPage for ContentPage {
-    fn get_navpage(&self) -> &NavigationPage {
-        &self.nav_page
-    }
-
-    fn get_section(&self) -> Option<&str> {
-        self.yaml.section.as_deref()
-    }
-
-    fn get_icon(&self) -> Option<&str> {
-        Some(&self.yaml.icon)
-    }
-}
 impl ContentPage {
     pub fn new(yaml: ContentPageYaml) -> Self {
         let ContentNavPageBuild {
@@ -131,5 +108,31 @@ impl ContentPage {
         }
 
         content_box
+    }
+}
+
+impl NavPage for ContentPage {
+    fn get_navpage(&self) -> &NavigationPage {
+        &self.nav_page
+    }
+
+    fn get_section(&self) -> Option<&str> {
+        self.yaml.section.as_deref()
+    }
+
+    fn get_icon(&self) -> Option<&str> {
+        Some(&self.yaml.icon)
+    }
+}
+
+impl DynPage for ContentPage {
+    fn build_page(
+        mut self,
+        _task_manager: &Rc<TaskManager>,
+        _user_context: &Arc<UserExecutionContext>,
+    ) -> Result<Rc<dyn DynPage>> {
+        self.build();
+
+        Ok(Rc::new(self))
     }
 }

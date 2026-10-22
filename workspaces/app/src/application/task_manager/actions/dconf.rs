@@ -38,6 +38,41 @@ impl Display for DconfAction {
         }
     }
 }
+
+impl DconfAction {
+    fn get_command(&self) -> Command {
+        let mut command = Command::new("gsettings");
+
+        match self {
+            Self::Set { schema, key, value } => {
+                debug!(
+                    value = %value.as_str(),
+                    "GSettings value argument"
+                );
+
+                command.arg("set").arg(schema).arg(key).arg(value.as_str());
+            }
+            Self::Reset { schema, key } => {
+                command.arg("reset").arg(schema).arg(key);
+            }
+        }
+
+        command
+    }
+
+    fn get_check_command(&self) -> Command {
+        let mut command = Command::new("gsettings");
+
+        match self {
+            Self::Set { schema, key, .. } | Self::Reset { schema, key } => {
+                command.arg("get").arg(schema).arg(key);
+            }
+        }
+
+        command
+    }
+}
+
 impl IsAction for DconfAction {
     fn run_action(
         &self,
@@ -148,39 +183,6 @@ impl IsAction for DconfAction {
 
     fn needs_reboot(&self) -> bool {
         false
-    }
-}
-impl DconfAction {
-    fn get_command(&self) -> Command {
-        let mut command = Command::new("gsettings");
-
-        match self {
-            Self::Set { schema, key, value } => {
-                debug!(
-                    value = %value.as_str(),
-                    "GSettings value argument"
-                );
-
-                command.arg("set").arg(schema).arg(key).arg(value.as_str());
-            }
-            Self::Reset { schema, key } => {
-                command.arg("reset").arg(schema).arg(key);
-            }
-        }
-
-        command
-    }
-
-    fn get_check_command(&self) -> Command {
-        let mut command = Command::new("gsettings");
-
-        match self {
-            Self::Set { schema, key, .. } | Self::Reset { schema, key } => {
-                command.arg("get").arg(schema).arg(key);
-            }
-        }
-
-        command
     }
 }
 

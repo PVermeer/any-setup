@@ -16,6 +16,7 @@ pub enum PageYaml {
     Content(ContentPageYaml),
     Settings(SettingsPageYaml),
 }
+
 impl PageYaml {
     pub fn from_file(file_path: &PathBuf) -> Result<Self> {
         info!(?file_path, "Reading yaml file");

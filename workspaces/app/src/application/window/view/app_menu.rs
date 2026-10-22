@@ -14,6 +14,7 @@ pub struct AppMenu {
     menu: Menu,
     actions: SimpleActionGroup,
 }
+
 impl AppMenu {
     pub const NAME: &str = "app-menu";
     pub const ACTION_LABEL: &str = "app-menu";

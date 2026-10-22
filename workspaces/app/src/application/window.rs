@@ -20,6 +20,7 @@ pub struct AppWindow {
     pub view: Rc<View>,
     pub confirmed_close: Rc<Cell<bool>>,
 }
+
 impl AppWindow {
     const DEFAULT_WIDTH: i32 = 950;
     const DEFAULT_HEIGHT: i32 = 850;

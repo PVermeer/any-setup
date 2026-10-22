@@ -18,6 +18,7 @@ enum TextBufferTag {
     Error,
     Success,
 }
+
 impl Display for TextBufferTag {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
@@ -26,6 +27,7 @@ impl Display for TextBufferTag {
         }
     }
 }
+
 impl TextBufferTag {
     fn add_all_to_text_buffer(text_buffer: &TextBuffer) {
         text_buffer
@@ -50,19 +52,7 @@ pub struct TaskViewPage {
     status_fail_icon: Image,
     task_output: TextView,
 }
-impl NavPage for TaskViewPage {
-    fn get_navpage(&self) -> &NavigationPage {
-        &self.nav_page
-    }
 
-    fn get_section(&self) -> Option<&str> {
-        None
-    }
-
-    fn get_icon(&self) -> Option<&str> {
-        None
-    }
-}
 impl TaskViewPage {
     pub fn from_event(task_event: &TaskEvent) -> Rc<Self> {
         let title = task_event.name.clone();
@@ -295,5 +285,19 @@ impl TaskViewPage {
 
     fn output_append_success(self: &Rc<Self>, line: &str) {
         self.output_append(&format!("✓ {line}"), Some(TextBufferTag::Success));
+    }
+}
+
+impl NavPage for TaskViewPage {
+    fn get_navpage(&self) -> &NavigationPage {
+        &self.nav_page
+    }
+
+    fn get_section(&self) -> Option<&str> {
+        None
+    }
+
+    fn get_icon(&self) -> Option<&str> {
+        None
     }
 }

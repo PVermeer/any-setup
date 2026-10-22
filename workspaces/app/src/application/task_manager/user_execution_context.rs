@@ -23,6 +23,7 @@ pub struct UserExecutionContext {
     pub environment: HashMap<String, String>,
     pub arguments: Cli,
 }
+
 impl UserExecutionContext {
     pub fn new(arguments: Cli, app_dirs: &Rc<AppDirs>) -> Result<Arc<Self>> {
         let environment = HashMap::from([

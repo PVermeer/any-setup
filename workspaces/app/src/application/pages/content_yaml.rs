@@ -40,6 +40,7 @@ pub struct ContentPageYaml {
     pub header: Option<Header>,
     pub contents: Option<Vec<Content>>,
 }
+
 impl YamlPage for ContentPageYaml {
     fn get_action_runners(
         &self,

@@ -17,6 +17,7 @@ pub struct TaskProgress {
     progress_row_content: gtk::Box,
     progress_row_warning: Image,
 }
+
 impl TaskProgress {
     pub fn new_as_row(task_run_id: Option<&str>) -> Self {
         let this = Self::build_self(task_run_id);

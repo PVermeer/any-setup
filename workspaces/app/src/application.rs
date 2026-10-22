@@ -29,6 +29,7 @@ pub struct App {
     window: Rc<AppWindow>,
     pages: Pages,
 }
+
 impl App {
     pub fn new(adw_application: &libadwaita::Application, arguments: &Cli) -> Rc<Self> {
         Rc::new({

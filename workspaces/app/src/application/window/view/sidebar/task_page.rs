@@ -28,6 +28,7 @@ pub struct TaskUi {
     running_icon: Spinner,
     results: Option<ActionRunnerResult>,
 }
+
 impl TaskUi {
     fn from_event(task_event: &TaskEvent, nav_view: &NavigationView, app: &Rc<App>) -> Self {
         let id = task_event.run_id.clone();
@@ -144,6 +145,7 @@ pub struct TaskPage {
     tasks_pref_group: PreferencesGroup,
     tasks: RefCell<TaskVec>,
 }
+
 impl NavPage for TaskPage {
     fn get_navpage(&self) -> &NavigationPage {
         &self.nav_page
@@ -157,6 +159,7 @@ impl NavPage for TaskPage {
         None
     }
 }
+
 impl TaskPage {
     pub fn new() -> Rc<Self> {
         let PrefNavPageBuild {

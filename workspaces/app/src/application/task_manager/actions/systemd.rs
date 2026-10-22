@@ -20,6 +20,7 @@ pub enum Scope {
     System,
     User,
 }
+
 impl Display for Scope {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
         match self {
@@ -28,6 +29,7 @@ impl Display for Scope {
         }
     }
 }
+
 impl Scope {
     fn to_arg(&self) -> String {
         format!("--{self}")
@@ -65,6 +67,7 @@ enum IsEnabledOutput {
     /// Invalid or broken unit file
     Bad,
 }
+
 impl Display for IsEnabledOutput {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
@@ -85,6 +88,7 @@ impl Display for IsEnabledOutput {
         }
     }
 }
+
 impl FromStr for IsEnabledOutput {
     type Err = anyhow::Error;
 
@@ -115,6 +119,7 @@ impl FromStr for IsEnabledOutput {
         }
     }
 }
+
 impl IsEnabledOutput {
     fn from_action(action: &SystemdAction) -> Result<Self> {
         let output = action
@@ -205,6 +210,7 @@ pub enum SystemdAction {
         fail_allowed: Option<bool>,
     },
 }
+
 impl Display for SystemdAction {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
@@ -215,6 +221,89 @@ impl Display for SystemdAction {
             Self::Disable {
                 unit: name, scope, ..
             } => write!(f, "Systemd disable {scope} unit: {name}"),
+        }
+    }
+}
+
+impl SystemdAction {
+    fn get_command(&self) -> Command {
+        match self {
+            Self::Enable {
+                unit, scope, now, ..
+            } => {
+                let mut command = Command::new("systemctl");
+                command.arg(scope.to_arg());
+                command.arg("enable");
+
+                if now.is_none_or(|now| now) {
+                    command.arg("--now");
+                }
+
+                command.arg(unit);
+
+                command
+            }
+
+            Self::Disable {
+                unit, scope, now, ..
+            } => {
+                let mut command = Command::new("systemctl");
+                command.arg(scope.to_arg());
+                command.arg("disable");
+
+                if now.is_none_or(|now| now) {
+                    command.arg("--now");
+                }
+
+                command.arg(unit);
+
+                command
+            }
+        }
+    }
+
+    fn get_check_command(&self) -> Command {
+        match self {
+            Self::Enable { unit, scope, .. } | Self::Disable { unit, scope, .. } => {
+                let mut command = Command::new("systemctl");
+                command.arg(scope.to_arg()).arg("is-enabled").arg(unit);
+
+                command
+            }
+        }
+    }
+
+    fn resolve_alias(&self) -> Result<String> {
+        debug!("Resolving alias");
+
+        match self {
+            Self::Enable { unit, scope, .. } | Self::Disable { unit, scope, .. } => {
+                let mut command = Command::new("systemctl");
+
+                command
+                    .arg(scope.to_arg())
+                    .arg("show")
+                    .arg("--property=Id")
+                    .arg("--value")
+                    .arg(unit);
+
+                let output = command
+                    .output()
+                    .context("Failed to run systemd alias resolve command")?;
+
+                if !output.status.success() {
+                    let message = format!("Failed to resolve systemd unit alias for: {unit}");
+                    error!(message);
+                    bail!(message);
+                }
+
+                let output = utils::command::parse_output(&output.stdout);
+                let output = output.trim().to_string();
+
+                info!(output, "Resolved alias");
+
+                Ok(output)
+            }
         }
     }
 }
@@ -327,88 +416,6 @@ impl IsAction for SystemdAction {
 
     fn needs_reboot(&self) -> bool {
         false
-    }
-}
-impl SystemdAction {
-    fn get_command(&self) -> Command {
-        match self {
-            Self::Enable {
-                unit, scope, now, ..
-            } => {
-                let mut command = Command::new("systemctl");
-                command.arg(scope.to_arg());
-                command.arg("enable");
-
-                if now.is_none_or(|now| now) {
-                    command.arg("--now");
-                }
-
-                command.arg(unit);
-
-                command
-            }
-
-            Self::Disable {
-                unit, scope, now, ..
-            } => {
-                let mut command = Command::new("systemctl");
-                command.arg(scope.to_arg());
-                command.arg("disable");
-
-                if now.is_none_or(|now| now) {
-                    command.arg("--now");
-                }
-
-                command.arg(unit);
-
-                command
-            }
-        }
-    }
-
-    fn get_check_command(&self) -> Command {
-        match self {
-            Self::Enable { unit, scope, .. } | Self::Disable { unit, scope, .. } => {
-                let mut command = Command::new("systemctl");
-                command.arg(scope.to_arg()).arg("is-enabled").arg(unit);
-
-                command
-            }
-        }
-    }
-
-    fn resolve_alias(&self) -> Result<String> {
-        debug!("Resolving alias");
-
-        match self {
-            Self::Enable { unit, scope, .. } | Self::Disable { unit, scope, .. } => {
-                let mut command = Command::new("systemctl");
-
-                command
-                    .arg(scope.to_arg())
-                    .arg("show")
-                    .arg("--property=Id")
-                    .arg("--value")
-                    .arg(unit);
-
-                let output = command
-                    .output()
-                    .context("Failed to run systemd alias resolve command")?;
-
-                if !output.status.success() {
-                    let message = format!("Failed to resolve systemd unit alias for: {unit}");
-                    error!(message);
-                    bail!(message);
-                }
-
-                let output = utils::command::parse_output(&output.stdout);
-                let output = output.trim().to_string();
-
-                info!(output, "Resolved alias");
-
-                Ok(output)
-            }
-        }
     }
 }
 

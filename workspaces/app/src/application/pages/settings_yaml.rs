@@ -51,6 +51,7 @@ pub struct Switch {
     pub subtitle: Option<String>,
     pub actions: Vec<Action>,
 }
+
 impl Switch {
     pub fn get_status(&self, user_context: &Arc<UserExecutionContext>) -> ActionState {
         let mut unavailable_reason = String::new();
@@ -113,6 +114,7 @@ pub struct SettingsPageYaml {
     pub icon: Option<String>,
     pub groups: Vec<Group>,
 }
+
 impl YamlPage for SettingsPageYaml {
     fn get_action_runners(
         &self,

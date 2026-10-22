@@ -3,6 +3,7 @@ pub mod actions;
 pub mod elevated_action_runner;
 pub mod user_execution_context;
 
+use super::window::view::View;
 use action_runner::{ActionRunner, ActionRunnerResult, ActionStatus};
 use anyhow::{Error, Result, anyhow, bail};
 use async_channel::{Receiver, Sender};
@@ -23,8 +24,6 @@ use std::{
 };
 use tracing::{debug, error, warn};
 use user_execution_context::UserExecutionContext;
-
-use super::window::view::View;
 
 #[derive(Debug)]
 struct Task {
@@ -129,6 +128,7 @@ pub struct TaskManager {
     active_tasks: Rc<RefCell<HashSet<u64>>>,
     listeners: Rc<RefCell<Vec<Listener>>>,
 }
+
 impl TaskManager {
     pub fn new(user_context: &Arc<UserExecutionContext>, view: &Rc<View>) -> Rc<Self> {
         let (task_sender, task_receiver) = async_channel::unbounded();

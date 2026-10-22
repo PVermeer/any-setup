@@ -23,6 +23,7 @@ pub struct View {
     pub breakpoint: Breakpoint,
     pub updated_button: Button,
 }
+
 impl View {
     pub fn new() -> Rc<Self> {
         let sidebar = SidebarPage::new();

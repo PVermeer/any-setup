@@ -30,6 +30,7 @@ pub enum UserGroupAction {
         fail_allowed: Option<bool>,
     },
 }
+
 impl Display for UserGroupAction {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
@@ -42,6 +43,151 @@ impl Display for UserGroupAction {
         }
     }
 }
+
+impl UserGroupAction {
+    fn get_command(&self, user_context: &Arc<UserExecutionContext>) -> Command {
+        let user = &user_context.user_name;
+
+        let mut command = Command::new("gpasswd");
+
+        match self {
+            Self::Add { group, .. } => {
+                command.arg("--add").arg(user).arg(group);
+            }
+            Self::Remove { group, .. } => {
+                command.arg("--delete").arg(user).arg(group);
+            }
+        }
+
+        command
+    }
+
+    #[allow(clippy::too_many_lines)]
+    fn try_to_add_to_group(
+        output: &mut Output,
+        user_context: &Arc<UserExecutionContext>,
+        needs_user_context: bool,
+        group: &String,
+    ) -> Result<()> {
+        debug!(group = %group, "Trying groupadd");
+
+        let mut groupadd_command = Command::new("groupadd");
+        groupadd_command.arg(group);
+        if needs_user_context {
+            user_context.apply_to(&mut groupadd_command);
+        }
+
+        match groupadd_command.status() {
+            Ok(status) => {
+                if status.success() {
+                    let message = "Created group with groupadd";
+                    info!(%group, message);
+                    output.append_stdout(message);
+                    return Ok(());
+                }
+            }
+            Err(error) => {
+                error!(group = %group, error = %error, "Failed to run groupadd");
+                let message = "Failed to run groupadd";
+                output.append_stderr(message);
+                bail!(message)
+            }
+        }
+
+        debug!(group = %group, "Trying manual add to system config file (group)");
+
+        let mut getent_command = Command::new("getent");
+        getent_command.arg("group");
+        getent_command.arg(group);
+        if needs_user_context {
+            user_context.apply_to(&mut getent_command);
+        }
+
+        let group: Option<String> = match getent_command.output() {
+            Ok(output) => {
+                if output.status.success() {
+                    Some(
+                        utils::command::parse_output(&output.stdout)
+                            .trim()
+                            .to_string(),
+                    )
+                } else {
+                    None
+                }
+            }
+            Err(error) => {
+                error!(group = %group, error = %error, "Failed to run getent");
+                let message = "Failed to run getent";
+                output.append_stderr(message);
+                bail!(message);
+            }
+        };
+
+        if let Some(group) = &group {
+            debug!(group = %group, "Group exists; checking further");
+
+            let system_config_group_file_path = &user_context.system_config_dir.join("group");
+
+            let mut grep_command = Command::new("grep");
+            grep_command.arg(group);
+            grep_command.arg(system_config_group_file_path);
+            if needs_user_context {
+                user_context.apply_to(&mut getent_command);
+            }
+
+            let exists_in_system_config = match grep_command.status() {
+                Ok(status) => {
+                    if status.success() {
+                        debug!(%group, ?system_config_group_file_path, "Group exists in system config file (group)");
+                    } else {
+                        debug!(%group, ?system_config_group_file_path, "Group does not exists in system config file (group)");
+                    }
+
+                    status.success()
+                }
+                Err(error) => {
+                    error!(
+                        %group,
+                        ?system_config_group_file_path,
+                        %error,
+                        "Failed to check whether group exists in system config file (group)"
+                    );
+
+                    let message = "Failed to run getent";
+                    output.append_stderr(message);
+                    bail!(message)
+                }
+            };
+
+            if !exists_in_system_config {
+                debug!(%group, ?system_config_group_file_path, "Manually adding group to the system config file (group)");
+
+                let file = OpenOptions::new()
+                    .create(false)
+                    .append(true)
+                    .open(system_config_group_file_path)
+                    .context("Failed to open the system config file")
+                    .inspect_err(|error| error!(%error))?;
+
+                match writeln!(&file, "{group}") {
+                    Ok(()) => {
+                        let message = "Wrote group manually in system config file";
+                        info!(%group, ?file, message);
+                        output.append_stdout(message);
+                    }
+                    Err(error) => {
+                        let message = "Failed to write to file";
+                        output.append_stderr(message);
+                        error!(%group, file = ?system_config_group_file_path, %error, "Failed to write group manually in system config file");
+                        bail!(message)
+                    }
+                }
+            }
+        }
+        Ok(())
+    }
+}
+
 impl IsAction for UserGroupAction {
     fn run_action(
         &self,
@@ -218,149 +364,6 @@ impl IsAction for UserGroupAction {
 
     fn needs_reboot(&self) -> bool {
         true
-    }
-}
-impl UserGroupAction {
-    fn get_command(&self, user_context: &Arc<UserExecutionContext>) -> Command {
-        let user = &user_context.user_name;
-
-        let mut command = Command::new("gpasswd");
-
-        match self {
-            Self::Add { group, .. } => {
-                command.arg("--add").arg(user).arg(group);
-            }
-            Self::Remove { group, .. } => {
-                command.arg("--delete").arg(user).arg(group);
-            }
-        }
-
-        command
-    }
-
-    #[allow(clippy::too_many_lines)]
-    fn try_to_add_to_group(
-        output: &mut Output,
-        user_context: &Arc<UserExecutionContext>,
-        needs_user_context: bool,
-        group: &String,
-    ) -> Result<()> {
-        debug!(group = %group, "Trying groupadd");
-
-        let mut groupadd_command = Command::new("groupadd");
-        groupadd_command.arg(group);
-        if needs_user_context {
-            user_context.apply_to(&mut groupadd_command);
-        }
-
-        match groupadd_command.status() {
-            Ok(status) => {
-                if status.success() {
-                    let message = "Created group with groupadd";
-                    info!(%group, message);
-                    output.append_stdout(message);
-                    return Ok(());
-                }
-            }
-            Err(error) => {
-                error!(group = %group, error = %error, "Failed to run groupadd");
-                let message = "Failed to run groupadd";
-                output.append_stderr(message);
-                bail!(message)
-            }
-        }
-
-        debug!(group = %group, "Trying manual add to system config file (group)");
-
-        let mut getent_command = Command::new("getent");
-        getent_command.arg("group");
-        getent_command.arg(group);
-        if needs_user_context {
-            user_context.apply_to(&mut getent_command);
-        }
-
-        let group: Option<String> = match getent_command.output() {
-            Ok(output) => {
-                if output.status.success() {
-                    Some(
-                        utils::command::parse_output(&output.stdout)
-                            .trim()
-                            .to_string(),
-                    )
-                } else {
-                    None
-                }
-            }
-            Err(error) => {
-                error!(group = %group, error = %error, "Failed to run getent");
-                let message = "Failed to run getent";
-                output.append_stderr(message);
-                bail!(message);
-            }
-        };
-
-        if let Some(group) = &group {
-            debug!(group = %group, "Group exists; checking further");
-
-            let system_config_group_file_path = &user_context.system_config_dir.join("group");
-
-            let mut grep_command = Command::new("grep");
-            grep_command.arg(group);
-            grep_command.arg(system_config_group_file_path);
-            if needs_user_context {
-                user_context.apply_to(&mut getent_command);
-            }
-
-            let exists_in_system_config = match grep_command.status() {
-                Ok(status) => {
-                    if status.success() {
-                        debug!(%group, ?system_config_group_file_path, "Group exists in system config file (group)");
-                    } else {
-                        debug!(%group, ?system_config_group_file_path, "Group does not exists in system config file (group)");
-                    }
-
-                    status.success()
-                }
-                Err(error) => {
-                    error!(
-                        %group,
-                        ?system_config_group_file_path,
-                        %error,
-                        "Failed to check whether group exists in system config file (group)"
-                    );
-
-                    let message = "Failed to run getent";
-                    output.append_stderr(message);
-                    bail!(message)
-                }
-            };
-
-            if !exists_in_system_config {
-                debug!(%group, ?system_config_group_file_path, "Manually adding group to the system config file (group)");
-
-                let file = OpenOptions::new()
-                    .create(false)
-                    .append(true)
-                    .open(system_config_group_file_path)
-                    .context("Failed to open the system config file")
-                    .inspect_err(|error| error!(%error))?;
-
-                match writeln!(&file, "{group}") {
-                    Ok(()) => {
-                        let message = "Wrote group manually in system config file";
-                        info!(%group, ?file, message);
-                        output.append_stdout(message);
-                    }
-                    Err(error) => {
-                        let message = "Failed to write to file";
-                        output.append_stderr(message);
-                        error!(%group, file = ?system_config_group_file_path, %error, "Failed to write group manually in system config file");
-                        bail!(message)
-                    }
-                }
-            }
-        }
-        Ok(())
     }
 }
 

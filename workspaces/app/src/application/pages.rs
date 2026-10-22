@@ -25,6 +25,7 @@ use tracing::{error, info};
 pub struct Pages {
     pub pages: Vec<Rc<dyn DynPage>>,
 }
+
 impl Pages {
     pub fn new(
         app_dirs: &Rc<AppDirs>,
@@ -111,11 +112,13 @@ pub struct NavPageBuild {
     pub nav_page: NavigationPage,
     pub toolbar: ToolbarView,
 }
+
 pub struct PrefNavPageBuild {
     pub nav_page: NavigationPage,
     pub nav_view: NavigationView,
     pub prefs_page: PreferencesPage,
 }
+
 pub struct ContentNavPageBuild {
     pub nav_page: NavigationPage,
     pub _toolbar: ToolbarView,

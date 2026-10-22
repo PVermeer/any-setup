@@ -23,6 +23,7 @@ pub struct SidebarPage {
     task_progress: TaskProgress,
     task_page: Rc<TaskPage>,
 }
+
 impl NavPage for SidebarPage {
     fn get_navpage(&self) -> &NavigationPage {
         &self.nav_page
@@ -36,6 +37,7 @@ impl NavPage for SidebarPage {
         None
     }
 }
+
 impl SidebarPage {
     pub fn new() -> Rc<Self> {
         let (sidebar, base_section) = Self::build_side_bar();

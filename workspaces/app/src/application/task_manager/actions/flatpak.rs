@@ -20,6 +20,7 @@ pub enum Scope {
     System,
     User,
 }
+
 impl Display for Scope {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
@@ -28,6 +29,7 @@ impl Display for Scope {
         }
     }
 }
+
 impl Scope {
     fn to_arg(&self) -> String {
         format!("--{self}")
@@ -42,6 +44,7 @@ pub enum Repo {
     Flathub,
     Fedora,
 }
+
 impl Display for Repo {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
@@ -50,6 +53,7 @@ impl Display for Repo {
         }
     }
 }
+
 impl Repo {
     fn to_arg(&self) -> String {
         self.to_string()
@@ -60,6 +64,7 @@ enum InfoOutput {
     Found,
     NotFound,
 }
+
 impl Display for InfoOutput {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
@@ -68,6 +73,7 @@ impl Display for InfoOutput {
         }
     }
 }
+
 impl InfoOutput {
     fn from_action(action: &FlatpakAction) -> Result<Self> {
         let mut command = action.get_check_command();
@@ -134,6 +140,61 @@ impl Display for FlatpakAction {
         }
     }
 }
+
+impl FlatpakAction {
+    fn get_command(&self) -> Command {
+        match self {
+            Self::Install {
+                app: app_id,
+                repo,
+                scope,
+                ..
+            } => {
+                let mut command = Command::new("flatpak");
+                command.arg(scope.to_arg());
+                command.arg("install");
+
+                if let Some(repo) = repo {
+                    command.arg(repo.to_arg());
+                }
+
+                command.arg("--noninteractive");
+                command.arg(app_id);
+
+                command
+            }
+
+            Self::Remove {
+                app: app_id, scope, ..
+            } => {
+                let mut command = Command::new("flatpak");
+                command.arg(scope.to_arg());
+                command.arg("uninstall");
+                command.arg("--noninteractive");
+                command.arg(app_id);
+
+                command
+            }
+        }
+    }
+
+    fn get_check_command(&self) -> Command {
+        match self {
+            Self::Install {
+                app: app_id, scope, ..
+            }
+            | Self::Remove {
+                app: app_id, scope, ..
+            } => {
+                let mut command = Command::new("flatpak");
+                command.arg(scope.to_arg()).arg("info").arg(app_id);
+
+                command
+            }
+        }
+    }
+}
+
 impl IsAction for FlatpakAction {
     fn run_action(
         &self,
@@ -232,59 +293,6 @@ impl IsAction for FlatpakAction {
 
     fn needs_reboot(&self) -> bool {
         false
-    }
-}
-impl FlatpakAction {
-    fn get_command(&self) -> Command {
-        match self {
-            Self::Install {
-                app: app_id,
-                repo,
-                scope,
-                ..
-            } => {
-                let mut command = Command::new("flatpak");
-                command.arg(scope.to_arg());
-                command.arg("install");
-
-                if let Some(repo) = repo {
-                    command.arg(repo.to_arg());
-                }
-
-                command.arg("--noninteractive");
-                command.arg(app_id);
-
-                command
-            }
-
-            Self::Remove {
-                app: app_id, scope, ..
-            } => {
-                let mut command = Command::new("flatpak");
-                command.arg(scope.to_arg());
-                command.arg("uninstall");
-                command.arg("--noninteractive");
-                command.arg(app_id);
-
-                command
-            }
-        }
-    }
-
-    fn get_check_command(&self) -> Command {
-        match self {
-            Self::Install {
-                app: app_id, scope, ..
-            }
-            | Self::Remove {
-                app: app_id, scope, ..
-            } => {
-                let mut command = Command::new("flatpak");
-                command.arg(scope.to_arg()).arg("info").arg(app_id);
-
-                command
-            }
-        }
     }
 }
 

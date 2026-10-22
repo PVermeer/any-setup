@@ -12,6 +12,7 @@ use std::rc::Rc;
 pub struct ErrorDialog {
     dialog: AlertDialog,
 }
+
 impl ErrorDialog {
     pub const DIALOG_EXIT: &str = "exit";
 

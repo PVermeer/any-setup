@@ -20,30 +20,7 @@ pub struct SettingsPage {
     nav_page: NavigationPage,
     prefs_page: PreferencesPage,
 }
-impl DynPage for SettingsPage {
-    fn build_page(
-        self,
-        task_manager: &Rc<TaskManager>,
-        user_context: &Arc<UserExecutionContext>,
-    ) -> Result<Rc<dyn DynPage>> {
-        self.build(task_manager, user_context);
 
-        Ok(Rc::new(self))
-    }
-}
-impl NavPage for SettingsPage {
-    fn get_navpage(&self) -> &NavigationPage {
-        &self.nav_page
-    }
-
-    fn get_section(&self) -> Option<&str> {
-        self.yaml.section.as_deref()
-    }
-
-    fn get_icon(&self) -> Option<&str> {
-        self.yaml.icon.as_deref()
-    }
-}
 impl SettingsPage {
     pub fn new(yaml: SettingsPageYaml) -> Self {
         let PrefNavPageBuild {
@@ -121,5 +98,31 @@ impl SettingsPage {
         });
 
         link_button
+    }
+}
+
+impl NavPage for SettingsPage {
+    fn get_navpage(&self) -> &NavigationPage {
+        &self.nav_page
+    }
+
+    fn get_section(&self) -> Option<&str> {
+        self.yaml.section.as_deref()
+    }
+
+    fn get_icon(&self) -> Option<&str> {
+        self.yaml.icon.as_deref()
+    }
+}
+
+impl DynPage for SettingsPage {
+    fn build_page(
+        self,
+        task_manager: &Rc<TaskManager>,
+        user_context: &Arc<UserExecutionContext>,
+    ) -> Result<Rc<dyn DynPage>> {
+        self.build(task_manager, user_context);
+
+        Ok(Rc::new(self))
     }
 }

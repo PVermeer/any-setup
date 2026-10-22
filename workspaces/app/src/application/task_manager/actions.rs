@@ -24,6 +24,7 @@ pub trait OutputExt {
     fn append_stderr(&mut self, message: &str);
     fn append_output(&mut self, output: Output);
 }
+
 impl OutputExt for Output {
     fn append_stdout(&mut self, message: &str) {
         self.stdout
@@ -50,6 +51,7 @@ pub enum ActionState {
     /// Reason
     UnAvailable(String),
 }
+
 impl Display for ActionState {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
@@ -59,6 +61,7 @@ impl Display for ActionState {
         }
     }
 }
+
 impl ActionState {
     pub fn to_log_message(&self) -> String {
         format!("Action is {self}.")
