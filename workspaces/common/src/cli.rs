@@ -2,7 +2,7 @@ pub use clap::{Parser, Subcommand};
 use serde::{Deserialize, Serialize};
 use std::{fmt::Display, path::PathBuf};
 
-#[derive(Parser, Debug, Clone, Serialize, Deserialize)]
+#[derive(Default, Parser, Debug, Clone, Serialize, Deserialize)]
 #[command(version, about, long_about = None)]
 pub struct Cli {
     #[command(subcommand)]

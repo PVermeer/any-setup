@@ -90,7 +90,7 @@ impl SymlinkAction {
         paths
     }
 
-    fn is_our_symlink(&self, source: &PathBuf, target: &PathBuf) -> bool {
+    fn is_our_symlink(&self, source: &Path, target: &PathBuf) -> bool {
         debug!("Checking config symlink");
 
         match fs::read_link(target) {
@@ -101,7 +101,10 @@ impl SymlinkAction {
                     target.parent().unwrap_or(Path::new(".")).join(link)
                 };
 
-                let matches = resolved == *source;
+                let matches = resolved
+                    .canonicalize()
+                    .and_then(|resolved| source.canonicalize().map(|source| resolved == source))
+                    .unwrap_or(false);
 
                 debug!(
                     action = %self,
@@ -207,7 +210,7 @@ impl SymlinkAction {
         Ok(())
     }
 
-    fn match_action_state_with_target(&self, source: &PathBuf, target: &PathBuf) -> ActionState {
+    fn match_action_state_with_target(&self, source: &Path, target: &PathBuf) -> ActionState {
         match self {
             Self::Pipewire(_) | Self::Udev(_) => {
                 if self.is_our_symlink(source, target) {
@@ -493,12 +496,16 @@ impl IsAction for SymlinkAction {
     fn get_status(&self, user_context: &Arc<UserExecutionContext>) -> ActionState {
         debug!(action = %self, "Checking symlink action status");
 
-        if let Self::Udev(_) = self
-            && !utils::command::test_command_available_sync("udevadm")
-        {
-            let message = "'udevadm' Command not available";
-            error!(message);
-            return ActionState::UnAvailable(message.to_string());
+        match self {
+            Self::Udev(_) | Self::UndoUdev(_) => {
+                if !utils::command::test_command_available_sync("udevadm") {
+                    let message = "'udevadm' Command not available";
+                    error!(message);
+                    return ActionState::UnAvailable(message.to_string());
+                }
+            }
+
+            Self::Pipewire(_) | Self::UndoPipewire(_) => {}
         }
 
         let Some(source) = self
@@ -567,5 +574,593 @@ impl IsAction for SymlinkAction {
 
     fn needs_reboot(&self) -> bool {
         false
+    }
+}
+
+#[cfg(test)]
+#[allow(clippy::unwrap_used)]
+mod tests {
+    use super::*;
+    use std::{
+        fs,
+        os::unix::fs::symlink,
+        path::Path,
+        process::{ExitStatus, Output},
+        sync::Arc,
+    };
+    use tempfile::TempDir;
+
+    const FILENAME: &str = "test.conf";
+
+    struct TestContext {
+        _temp_dir: TempDir,
+        context: Arc<UserExecutionContext>,
+        configs_dir: PathBuf,
+        source: PathBuf,
+        udev_target: PathBuf,
+        pipewire_pulse_target: PathBuf,
+        pipewire_target: PathBuf,
+    }
+
+    impl TestContext {
+        fn new() -> Self {
+            let temp_dir = tempfile::tempdir().unwrap();
+            let configs_dir = temp_dir.path().join("configs");
+            let system_config_dir = temp_dir.path().join("system");
+
+            fs::create_dir_all(&configs_dir).unwrap();
+            fs::create_dir_all(&system_config_dir).unwrap();
+
+            let source = configs_dir.join(FILENAME);
+            fs::write(&source, "test configuration\n").unwrap();
+
+            let udev_target = system_config_dir
+                .join("udev")
+                .join("rules.d")
+                .join(FILENAME);
+
+            let pipewire_pulse_target = system_config_dir
+                .join("pipewire")
+                .join("pipewire-pulse.conf.d")
+                .join(FILENAME);
+
+            let pipewire_target = system_config_dir
+                .join("pipewire")
+                .join("pipewire.conf.d")
+                .join(FILENAME);
+
+            // Adapt this initializer if UserExecutionContext requires
+            // additional fields or has a dedicated test constructor.
+            let context = Arc::new(UserExecutionContext {
+                configs_dir: Some(configs_dir.clone()),
+                system_config_dir: system_config_dir.clone(),
+                ..Default::default()
+            });
+
+            Self {
+                _temp_dir: temp_dir,
+                context,
+                configs_dir,
+                source,
+                udev_target,
+                pipewire_pulse_target,
+                pipewire_target,
+            }
+        }
+
+        fn output() -> Output {
+            Output {
+                status: ExitStatus::from_raw(0),
+                stdout: Vec::new(),
+                stderr: Vec::new(),
+            }
+        }
+
+        fn symlink_to_source(&self, target: &Path) {
+            fs::create_dir_all(target.parent().unwrap()).unwrap();
+            symlink(&self.source, target).unwrap();
+        }
+
+        fn assert_symlink_points_to(&self, target: &Path, expected: &Path) {
+            let link = fs::read_link(target).unwrap();
+            let resolved = if link.is_absolute() {
+                link
+            } else {
+                target.parent().unwrap().join(link)
+            };
+
+            assert_eq!(resolved, expected);
+        }
+    }
+
+    // Display
+
+    #[test]
+    fn display_formats_all_variants() {
+        assert_eq!(
+            SymlinkAction::Udev(FILENAME.into()).to_string(),
+            format!("Symlink udev rule {FILENAME}")
+        );
+        assert_eq!(
+            SymlinkAction::Pipewire(FILENAME.into()).to_string(),
+            format!("Symlink PipeWire config {FILENAME}")
+        );
+        assert_eq!(
+            SymlinkAction::UndoUdev(FILENAME.into()).to_string(),
+            format!("Undo symlink udev rule {FILENAME}")
+        );
+        assert_eq!(
+            SymlinkAction::UndoPipewire(FILENAME.into()).to_string(),
+            format!("Undo symlink PipeWire config {FILENAME}")
+        );
+    }
+
+    // Source and target paths
+
+    #[test]
+    fn source_path_resolves_for_all_variants() {
+        let fixture = TestContext::new();
+
+        for action in [
+            SymlinkAction::Udev(FILENAME.into()),
+            SymlinkAction::Pipewire(FILENAME.into()),
+            SymlinkAction::UndoUdev(FILENAME.into()),
+            SymlinkAction::UndoPipewire(FILENAME.into()),
+        ] {
+            assert_eq!(
+                action.source_path(&fixture.context).unwrap(),
+                fixture.source
+            );
+        }
+    }
+
+    #[test]
+    fn target_paths_resolve_for_udev_variants() {
+        let fixture = TestContext::new();
+
+        for action in [
+            SymlinkAction::Udev(FILENAME.into()),
+            SymlinkAction::UndoUdev(FILENAME.into()),
+        ] {
+            assert_eq!(
+                action.target_paths(&fixture.context),
+                vec![fixture.udev_target.clone()]
+            );
+        }
+    }
+
+    #[test]
+    fn target_paths_resolve_for_pipewire_variants() {
+        let fixture = TestContext::new();
+
+        for action in [
+            SymlinkAction::Pipewire(FILENAME.into()),
+            SymlinkAction::UndoPipewire(FILENAME.into()),
+        ] {
+            assert_eq!(
+                action.target_paths(&fixture.context),
+                vec![
+                    fixture.pipewire_pulse_target.clone(),
+                    fixture.pipewire_target.clone(),
+                ]
+            );
+        }
+    }
+
+    // Symlink detection
+
+    #[test]
+    fn is_our_symlink_recognizes_absolute_link() {
+        let fixture = TestContext::new();
+        let action = SymlinkAction::Pipewire(FILENAME.into());
+
+        fixture.symlink_to_source(&fixture.pipewire_pulse_target);
+
+        assert!(action.is_our_symlink(&fixture.source, &fixture.pipewire_pulse_target));
+    }
+
+    #[test]
+    fn is_our_symlink_recognizes_relative_link() {
+        let fixture = TestContext::new();
+        let action = SymlinkAction::Pipewire(FILENAME.into());
+
+        let target_parent = fixture.pipewire_pulse_target.parent().unwrap();
+        fs::create_dir_all(target_parent).unwrap();
+
+        // The target is located at:
+        // <temp>/system/pipewire/pipewire-pulse.conf.d/test.conf
+        //
+        // The source is located at:
+        // <temp>/configs/test.conf
+        //
+        // Three parent-directory traversals reach <temp>.
+        let relative_source = PathBuf::from("../../../configs/test.conf");
+
+        symlink(&relative_source, &fixture.pipewire_pulse_target).unwrap();
+
+        assert_eq!(
+            fs::read_link(&fixture.pipewire_pulse_target).unwrap(),
+            relative_source
+        );
+
+        // Confirm that the relative link resolves to the expected source.
+        let resolved = target_parent.join(&relative_source);
+        assert_eq!(
+            fs::canonicalize(&resolved).unwrap(),
+            fs::canonicalize(&fixture.source).unwrap()
+        );
+
+        assert!(action.is_our_symlink(&fixture.source, &fixture.pipewire_pulse_target));
+    }
+
+    #[test]
+    fn is_our_symlink_returns_false_for_missing_target() {
+        let fixture = TestContext::new();
+        let action = SymlinkAction::Pipewire(FILENAME.into());
+
+        assert!(!action.is_our_symlink(&fixture.source, &fixture.pipewire_target));
+    }
+
+    #[test]
+    fn is_our_symlink_returns_false_for_regular_file() {
+        let fixture = TestContext::new();
+        let action = SymlinkAction::Pipewire(FILENAME.into());
+
+        fs::create_dir_all(fixture.pipewire_target.parent().unwrap()).unwrap();
+        fs::write(&fixture.pipewire_target, "existing file").unwrap();
+
+        assert!(!action.is_our_symlink(&fixture.source, &fixture.pipewire_target));
+    }
+
+    #[test]
+    fn is_our_symlink_returns_false_for_foreign_symlink() {
+        let fixture = TestContext::new();
+        let action = SymlinkAction::Pipewire(FILENAME.into());
+
+        let other_source = fixture.configs_dir.join("other.conf");
+        fs::write(&other_source, "other configuration").unwrap();
+
+        fs::create_dir_all(fixture.pipewire_target.parent().unwrap()).unwrap();
+        symlink(&other_source, &fixture.pipewire_target).unwrap();
+
+        assert!(!action.is_our_symlink(&fixture.source, &fixture.pipewire_target));
+    }
+
+    // Action status
+
+    #[test]
+    fn add_action_is_available_when_target_is_missing() {
+        let fixture = TestContext::new();
+
+        for action in [
+            SymlinkAction::Pipewire(FILENAME.into()),
+            SymlinkAction::Udev(FILENAME.into()),
+        ] {
+            let target = action.target_paths(&fixture.context)[0].clone();
+
+            assert_eq!(
+                action.match_action_state_with_target(&fixture.source, &target),
+                ActionState::Available
+            );
+        }
+    }
+
+    #[test]
+    fn add_action_is_done_when_target_is_our_symlink() {
+        let fixture = TestContext::new();
+        let action = SymlinkAction::Pipewire(FILENAME.into());
+
+        fixture.symlink_to_source(&fixture.pipewire_pulse_target);
+
+        assert_eq!(
+            action.match_action_state_with_target(&fixture.source, &fixture.pipewire_pulse_target),
+            ActionState::Done
+        );
+    }
+
+    #[test]
+    fn add_action_is_unavailable_when_target_is_foreign_file() {
+        let fixture = TestContext::new();
+        let action = SymlinkAction::Udev(FILENAME.into());
+
+        fs::create_dir_all(fixture.udev_target.parent().unwrap()).unwrap();
+        fs::write(&fixture.udev_target, "foreign rule").unwrap();
+
+        assert!(matches!(
+            action.match_action_state_with_target(&fixture.source, &fixture.udev_target),
+            ActionState::UnAvailable(_)
+        ));
+    }
+
+    #[test]
+    fn undo_action_is_done_when_target_is_missing() {
+        let fixture = TestContext::new();
+
+        for action in [
+            SymlinkAction::UndoPipewire(FILENAME.into()),
+            SymlinkAction::UndoUdev(FILENAME.into()),
+        ] {
+            let target = action.target_paths(&fixture.context)[0].clone();
+
+            assert_eq!(
+                action.match_action_state_with_target(&fixture.source, &target),
+                ActionState::Done
+            );
+        }
+    }
+
+    #[test]
+    fn undo_action_is_available_when_target_is_our_symlink() {
+        let fixture = TestContext::new();
+        let action = SymlinkAction::UndoUdev(FILENAME.into());
+
+        fixture.symlink_to_source(&fixture.udev_target);
+
+        assert_eq!(
+            action.match_action_state_with_target(&fixture.source, &fixture.udev_target),
+            ActionState::Available
+        );
+    }
+
+    #[test]
+    fn undo_action_is_unavailable_when_target_is_foreign_file() {
+        let fixture = TestContext::new();
+        let action = SymlinkAction::UndoUdev(FILENAME.into());
+
+        fs::create_dir_all(fixture.udev_target.parent().unwrap()).unwrap();
+        fs::write(&fixture.udev_target, "foreign rule").unwrap();
+
+        assert!(matches!(
+            action.match_action_state_with_target(&fixture.source, &fixture.udev_target),
+            ActionState::UnAvailable(_)
+        ));
+    }
+
+    // Creating symlinks
+
+    #[test]
+    fn add_pipewire_symlinks_creates_both_targets() {
+        let fixture = TestContext::new();
+        let action = SymlinkAction::Pipewire(FILENAME.into());
+        let mut output = TestContext::output();
+
+        action.add_symlinks(&mut output, &fixture.context).unwrap();
+
+        fixture.assert_symlink_points_to(&fixture.pipewire_pulse_target, &fixture.source);
+        fixture.assert_symlink_points_to(&fixture.pipewire_target, &fixture.source);
+    }
+
+    #[test]
+    fn add_pipewire_symlinks_is_idempotent() {
+        let fixture = TestContext::new();
+        let action = SymlinkAction::Pipewire(FILENAME.into());
+
+        fixture.symlink_to_source(&fixture.pipewire_pulse_target);
+        fixture.symlink_to_source(&fixture.pipewire_target);
+
+        let mut output = TestContext::output();
+
+        action.add_symlinks(&mut output, &fixture.context).unwrap();
+
+        fixture.assert_symlink_points_to(&fixture.pipewire_pulse_target, &fixture.source);
+        fixture.assert_symlink_points_to(&fixture.pipewire_target, &fixture.source);
+    }
+
+    #[test]
+    fn add_pipewire_symlinks_fails_without_overwriting_foreign_file() {
+        let fixture = TestContext::new();
+        let action = SymlinkAction::Pipewire(FILENAME.into());
+
+        fs::create_dir_all(fixture.pipewire_target.parent().unwrap()).unwrap();
+        fs::write(&fixture.pipewire_target, "keep me").unwrap();
+
+        let mut output = TestContext::output();
+
+        assert!(action.add_symlinks(&mut output, &fixture.context).is_err());
+
+        // The first link is rolled back when the second target conflicts.
+        assert!(!fixture.pipewire_pulse_target.exists());
+        assert_eq!(
+            fs::read_to_string(&fixture.pipewire_target).unwrap(),
+            "keep me"
+        );
+    }
+
+    #[test]
+    fn add_pipewire_symlinks_rolls_back_when_second_target_is_directory() {
+        let fixture = TestContext::new();
+        let action = SymlinkAction::Pipewire(FILENAME.into());
+
+        fs::create_dir_all(fixture.pipewire_target.parent().unwrap()).unwrap();
+        fs::create_dir(&fixture.pipewire_target).unwrap();
+
+        let mut output = TestContext::output();
+
+        assert!(action.add_symlinks(&mut output, &fixture.context).is_err());
+
+        assert!(!fixture.pipewire_pulse_target.exists());
+        assert!(fixture.pipewire_target.is_dir());
+    }
+
+    #[test]
+    fn add_symlinks_fails_when_source_is_missing() {
+        let fixture = TestContext::new();
+        fs::remove_file(&fixture.source).unwrap();
+
+        let action = SymlinkAction::Pipewire(FILENAME.into());
+        let mut output = TestContext::output();
+
+        assert!(action.add_symlinks(&mut output, &fixture.context).is_err());
+
+        assert_ne!(output.stderr, [] as [u8; 0]);
+        assert!(!fixture.pipewire_pulse_target.exists());
+        assert!(!fixture.pipewire_target.exists());
+    }
+
+    // Removing symlinks
+
+    #[test]
+    fn remove_pipewire_symlinks_removes_our_links_only() {
+        let fixture = TestContext::new();
+        let action = SymlinkAction::UndoPipewire(FILENAME.into());
+
+        fixture.symlink_to_source(&fixture.pipewire_pulse_target);
+
+        let other_source = fixture.configs_dir.join("other.conf");
+        fs::write(&other_source, "other configuration").unwrap();
+
+        fs::create_dir_all(fixture.pipewire_target.parent().unwrap()).unwrap();
+        symlink(&other_source, &fixture.pipewire_target).unwrap();
+
+        let mut output = TestContext::output();
+
+        action
+            .remove_symlinks(&mut output, &fixture.context)
+            .unwrap();
+
+        assert!(!fixture.pipewire_pulse_target.is_symlink());
+        assert!(fixture.pipewire_target.is_symlink());
+        assert_eq!(
+            fs::read_link(&fixture.pipewire_target).unwrap(),
+            other_source
+        );
+    }
+
+    #[test]
+    fn remove_symlinks_succeeds_when_targets_are_missing() {
+        let fixture = TestContext::new();
+        let action = SymlinkAction::UndoPipewire(FILENAME.into());
+        let mut output = TestContext::output();
+
+        action
+            .remove_symlinks(&mut output, &fixture.context)
+            .unwrap();
+
+        assert!(!fixture.pipewire_pulse_target.exists());
+        assert!(!fixture.pipewire_target.exists());
+    }
+
+    // Undo mapping
+
+    #[test]
+    fn to_undo_maps_each_variant() {
+        assert_eq!(
+            SymlinkAction::Udev(FILENAME.into()).to_undo(),
+            SymlinkAction::UndoUdev(FILENAME.into())
+        );
+        assert_eq!(
+            SymlinkAction::Pipewire(FILENAME.into()).to_undo(),
+            SymlinkAction::UndoPipewire(FILENAME.into())
+        );
+        assert_eq!(
+            SymlinkAction::UndoUdev(FILENAME.into()).to_undo(),
+            SymlinkAction::Udev(FILENAME.into())
+        );
+        assert_eq!(
+            SymlinkAction::UndoPipewire(FILENAME.into()).to_undo(),
+            SymlinkAction::Pipewire(FILENAME.into())
+        );
+    }
+
+    #[test]
+    fn to_undo_is_involutive() {
+        for action in [
+            SymlinkAction::Udev(FILENAME.into()),
+            SymlinkAction::Pipewire(FILENAME.into()),
+            SymlinkAction::UndoUdev(FILENAME.into()),
+            SymlinkAction::UndoPipewire(FILENAME.into()),
+        ] {
+            assert_eq!(action.to_undo().to_undo(), action);
+        }
+    }
+
+    // Validation commands
+
+    #[test]
+    fn get_validate_command_is_defined_only_for_add_udev() {
+        let fixture = TestContext::new();
+
+        let command = SymlinkAction::Udev(FILENAME.into())
+            .get_validate_command(&fixture.source, &fixture.context)
+            .unwrap();
+
+        assert_eq!(command.get_program(), "udevadm");
+        assert_eq!(
+            command.get_args().collect::<Vec<_>>(),
+            vec![std::ffi::OsStr::new("verify"), fixture.source.as_os_str(),]
+        );
+
+        assert!(
+            SymlinkAction::Pipewire(FILENAME.into())
+                .get_validate_command(&fixture.source, &fixture.context)
+                .is_none()
+        );
+        assert!(
+            SymlinkAction::UndoUdev(FILENAME.into())
+                .get_validate_command(&fixture.source, &fixture.context)
+                .is_none()
+        );
+        assert!(
+            SymlinkAction::UndoPipewire(FILENAME.into())
+                .get_validate_command(&fixture.source, &fixture.context)
+                .is_none()
+        );
+    }
+
+    #[test]
+    fn validate_source_file_skips_validation_for_pipewire_and_undo() {
+        let fixture = TestContext::new();
+
+        for action in [
+            SymlinkAction::Pipewire(FILENAME.into()),
+            SymlinkAction::UndoUdev(FILENAME.into()),
+            SymlinkAction::UndoPipewire(FILENAME.into()),
+        ] {
+            action
+                .validate_source_file(&fixture.source, &fixture.context)
+                .unwrap();
+        }
+    }
+
+    // IsAction trait behavior
+
+    #[test]
+    fn action_traits_have_expected_values() {
+        let fixture = TestContext::new();
+
+        for action in [
+            SymlinkAction::Udev(FILENAME.into()),
+            SymlinkAction::Pipewire(FILENAME.into()),
+            SymlinkAction::UndoUdev(FILENAME.into()),
+            SymlinkAction::UndoPipewire(FILENAME.into()),
+        ] {
+            assert!(action.needs_elevation());
+            assert!(!action.fail_allowed());
+            assert!(!action.needs_reboot());
+
+            let mut output = TestContext::output();
+            assert!(
+                action
+                    .before_retry(&mut output, &fixture.context, false)
+                    .is_none()
+            );
+        }
+    }
+
+    // Serialization
+
+    #[test]
+    fn serde_round_trips_all_variants() {
+        for action in [
+            SymlinkAction::Udev(FILENAME.into()),
+            SymlinkAction::Pipewire(FILENAME.into()),
+            SymlinkAction::UndoUdev(FILENAME.into()),
+            SymlinkAction::UndoPipewire(FILENAME.into()),
+        ] {
+            let serialized = serde_json::to_string(&action).unwrap();
+            let deserialized: SymlinkAction = serde_json::from_str(&serialized).unwrap();
+
+            assert_eq!(deserialized, action);
+        }
     }
 }

@@ -11,7 +11,7 @@ use std::{
     sync::Arc,
 };
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Default, Debug, Clone, Serialize, Deserialize)]
 pub struct UserExecutionContext {
     pub user_id: u32,
     pub user_name: String,
