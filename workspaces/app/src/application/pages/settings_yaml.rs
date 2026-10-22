@@ -8,6 +8,7 @@ use anyhow::Result;
 use gtk::InputPurpose;
 use serde::Deserialize;
 use std::{collections::HashMap, sync::Arc};
+use tracing::debug;
 use url::Url;
 
 #[derive(Deserialize, Clone, Debug)]
@@ -54,35 +55,34 @@ pub struct Switch {
 
 impl Switch {
     pub fn get_status(&self, user_context: &Arc<UserExecutionContext>) -> ActionState {
-        let mut unavailable_reason = String::new();
-
-        let status: Vec<ActionState> = self
+        let action_states: Vec<ActionState> = self
             .actions
             .iter()
-            .map(|action| {
-                let status = action.get_status(user_context);
-                if let ActionState::UnAvailable(reason) = &status {
-                    unavailable_reason.clone_from(reason);
-                }
-                status
-            })
+            .map(|action| action.get_status(user_context))
             .collect();
 
-        let done = status
+        let final_action_state = if let Some(unavailable) = action_states
             .iter()
-            .all(|status| matches!(status, ActionState::Done));
-        let available = status
+            .find(|state| matches!(state, ActionState::UnAvailable(_)))
+        {
+            unavailable.clone()
+        } else if action_states
             .iter()
-            .all(|status| matches!(status, ActionState::Available));
+            .all(|state| matches!(state, ActionState::Done))
+        {
+            ActionState::Done
+        } else if action_states
+            .iter()
+            .any(|state| matches!(state, ActionState::Available))
+        {
+            ActionState::Available
+        } else {
+            ActionState::UnAvailable("This should not happen".to_string())
+        };
 
-        if done {
-            return ActionState::Done;
-        }
-        if available {
-            return ActionState::Available;
-        }
+        debug!(?action_states, action_state = %final_action_state, "Action state for Switch");
 
-        ActionState::UnAvailable(unavailable_reason)
+        final_action_state
     }
 }
 
