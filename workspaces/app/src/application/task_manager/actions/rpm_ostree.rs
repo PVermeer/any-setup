@@ -166,13 +166,13 @@ impl IsAction for RpmOstreeAction {
 
         let action_state = match self {
             Self::Install { packages, .. } => {
-                let Ok(status) = Command::new("rpm").arg("-q").args(packages).status() else {
+                let Ok(output) = Command::new("rpm").arg("-q").args(packages).output() else {
                     let message = "Failed to run 'rpm -q'";
                     error!(message);
                     return ActionState::UnAvailable(message.to_string());
                 };
 
-                if status.success() {
+                if output.status.success() {
                     ActionState::Done
                 } else {
                     ActionState::Available
@@ -180,13 +180,13 @@ impl IsAction for RpmOstreeAction {
             }
 
             Self::Remove { packages, .. } => {
-                let Ok(status) = Command::new("rpm").arg("-q").args(packages).status() else {
+                let Ok(output) = Command::new("rpm").arg("-q").args(packages).output() else {
                     let message = "Failed to run 'rpm -q'";
                     error!(message);
                     return ActionState::UnAvailable(message.to_string());
                 };
 
-                if status.success() {
+                if output.status.success() {
                     ActionState::Available
                 } else {
                     ActionState::Done

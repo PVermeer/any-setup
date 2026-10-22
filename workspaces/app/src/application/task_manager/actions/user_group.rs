@@ -77,9 +77,9 @@ impl UserGroupAction {
             user_context.apply_to(&mut groupadd_command);
         }
 
-        match groupadd_command.status() {
-            Ok(status) => {
-                if status.success() {
+        match groupadd_command.output() {
+            Ok(command_output) => {
+                if command_output.status.success() {
                     let message = "Created group with groupadd";
                     info!(%group, message);
                     output.append_stdout(message);
@@ -135,15 +135,15 @@ impl UserGroupAction {
                 user_context.apply_to(&mut getent_command);
             }
 
-            let exists_in_system_config = match grep_command.status() {
-                Ok(status) => {
-                    if status.success() {
+            let exists_in_system_config = match grep_command.output() {
+                Ok(command_output) => {
+                    if command_output.status.success() {
                         debug!(%group, ?system_config_group_file_path, "Group exists in system config file (group)");
                     } else {
                         debug!(%group, ?system_config_group_file_path, "Group does not exists in system config file (group)");
                     }
 
-                    status.success()
+                    command_output.status.success()
                 }
                 Err(error) => {
                     error!(
