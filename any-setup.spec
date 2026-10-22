@@ -26,6 +26,16 @@ BuildRequires: dbus-devel
 BuildRequires: appstream
 BuildRequires: desktop-file-utils
 
+Requires: xdg-utils
+Requires: polkit
+
+Recommends: flatpak
+Recommends: systemd-udev
+Recommends: shadow-utils
+Recommends: glibc-common
+Recommends: grep
+Recommends: coreutils
+
 %description
 A setup application that can be configured with yaml files (pages) to setup anything for the current user.
 
