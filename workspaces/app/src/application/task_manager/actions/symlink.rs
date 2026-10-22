@@ -444,8 +444,6 @@ impl SymlinkAction {
                 reload_command.arg("control");
                 reload_command.arg("--reload-rules");
 
-                user_context.apply_to(&mut reload_command);
-
                 let reload_output = reload_command
                     .output()
                     .context("Failed to run udevadm control --reload-rules")?;
@@ -454,8 +452,6 @@ impl SymlinkAction {
 
                 let mut trigger_command = Command::new("udevadm");
                 trigger_command.arg("trigger");
-
-                user_context.apply_to(&mut trigger_command);
 
                 let trigger_output = trigger_command
                     .output()
