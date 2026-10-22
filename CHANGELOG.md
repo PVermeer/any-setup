@@ -1,8 +1,55 @@
+## [0.2.0] - 2026-10-22
+
+### 🚀 Features
+
+- *(udev)* Added udev rule action
+- *(dconf)* Added dconf action
+- *(settings)* Added optional description to group
+- *(settings)* Added optional link button to group
+- *(symlink)* Symlink config file + remove udev
+
+### 🐛 Bug Fixes
+
+- *(settings)* Missing text from config
+- *(view)* Disable some more gtk markup parsing
+- *(rpm-ostree)* Kargs now install properly + refactor
+- *(action-runner)* Run undo actions only once
+- *(settings)* No empty unavailable message
+- *(symlink)* Remove user context from udev reload
+
+### 💼 Other
+
+- *(rpm)* Added deps
+
+### 🚜 Refactor
+
+- *(user-group)* Switch to mut output on retry
+- *(actions)* Changed get_command to run_action
+- *(actions)* Changed before_retry to run commands internally
+- *(actions)* Get_status always returns an ActionState
+
+### 🎨 Styling
+
+- *(app)* More consistent style
+
+### 🧪 Testing
+
+- *(symlink)* Added llm tests
+
+### ⚙️ Miscellaneous Tasks
+
+- *(dev)* Update dev-container
+- *(systemd)* Made unavailable warning message informative
+- *(actions)* Removed some log spam
 ## [0.1.1] - 2026-10-10
 
 ### 🐛 Bug Fixes
 
 - *(sidebar)* Pages now group correctly under their section
+
+### ⚙️ Miscellaneous Tasks
+
+- *(release)* 0.1.1
 ## [0.1.0] - 2026-10-10
 
 ### 🚀 Features
