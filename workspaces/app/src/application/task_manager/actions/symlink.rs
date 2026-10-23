@@ -22,9 +22,11 @@ use tracing::{debug, error, info, warn};
 pub enum SymlinkAction {
     Udev(String),
     Pipewire(String),
+    RpmRepo(String),
 
     UndoUdev(String),
     UndoPipewire(String),
+    UndoRpmRepo(String),
 }
 
 impl Display for SymlinkAction {
@@ -32,9 +34,11 @@ impl Display for SymlinkAction {
         match self {
             Self::Udev(filename) => write!(f, "Symlink udev rule {filename}"),
             Self::Pipewire(filename) => write!(f, "Symlink PipeWire config {filename}"),
+            Self::RpmRepo(filename) => write!(f, "Symlink rpm repo config {filename}"),
 
             Self::UndoUdev(filename) => write!(f, "Undo symlink udev rule {filename}"),
             Self::UndoPipewire(filename) => write!(f, "Undo symlink PipeWire config {filename}"),
+            Self::UndoRpmRepo(filename) => write!(f, "Undo symlink rpm repo config {filename}"),
         }
     }
 }
@@ -44,8 +48,10 @@ impl SymlinkAction {
         let filename = match self {
             Self::Udev(filename)
             | Self::Pipewire(filename)
+            | Self::RpmRepo(filename)
             | Self::UndoUdev(filename)
-            | Self::UndoPipewire(filename) => filename,
+            | Self::UndoPipewire(filename)
+            | Self::UndoRpmRepo(filename) => filename,
         };
         let Some(configs_dir) = &user_context.configs_dir else {
             let message = "Failed to get source configs dir";
@@ -78,6 +84,11 @@ impl SymlinkAction {
                     base_dir.join("pipewire-pulse.conf.d").join(filename),
                     base_dir.join("pipewire.conf.d").join(filename),
                 ])
+            }
+
+            Self::RpmRepo(filename) | Self::UndoRpmRepo(filename) => {
+                let base_dir = &user_context.system_config_dir;
+                Vec::from([base_dir.join("yum.repos.d").join(filename)])
             }
         };
 
@@ -167,7 +178,12 @@ impl SymlinkAction {
                 None
             }
 
-            Self::UndoPipewire(_) | Self::UndoUdev(_) => None,
+            Self::RpmRepo(_) => {
+                warn!("Unable to verify rpm repo config files");
+                None
+            }
+
+            Self::UndoPipewire(_) | Self::UndoUdev(_) | Self::UndoRpmRepo(_) => None,
         };
 
         if let Some(command) = command.as_mut() {
@@ -212,7 +228,7 @@ impl SymlinkAction {
 
     fn match_action_state_with_target(&self, source: &Path, target: &PathBuf) -> ActionState {
         match self {
-            Self::Pipewire(_) | Self::Udev(_) => {
+            Self::Pipewire(_) | Self::Udev(_) | Self::RpmRepo(_) => {
                 if self.is_our_symlink(source, target) {
                     debug!(action = %self, "Target symlink already exists");
                     return ActionState::Done;
@@ -227,7 +243,7 @@ impl SymlinkAction {
                 ActionState::Available
             }
 
-            Self::UndoPipewire(_) | Self::UndoUdev(_) => {
+            Self::UndoPipewire(_) | Self::UndoUdev(_) | Self::UndoRpmRepo(_) => {
                 if self.is_our_symlink(source, target) {
                     debug!(action = %self, "Target symlink is ours");
                     return ActionState::Available;
@@ -422,6 +438,11 @@ impl SymlinkAction {
         debug!(action = %self, "Running post actions");
 
         match self {
+            Self::RpmRepo(_) | Self::UndoRpmRepo(_) => {
+                output.append_stdout("No post action needed");
+                Ok(())
+            }
+
             Self::Pipewire(_) | Self::UndoPipewire(_) => {
                 output.append_stdout("Restarting pipewire");
 
@@ -478,9 +499,13 @@ impl IsAction for SymlinkAction {
         debug!(action = %self, "Running symlink action");
 
         match self {
-            Self::Pipewire(_) | Self::Udev(_) => self.add_symlinks(output, user_context),
+            Self::Pipewire(_) | Self::Udev(_) | Self::RpmRepo(_) => {
+                self.add_symlinks(output, user_context)
+            }
 
-            Self::UndoPipewire(_) | Self::UndoUdev(_) => self.remove_symlinks(output, user_context),
+            Self::UndoPipewire(_) | Self::UndoUdev(_) | Self::UndoRpmRepo(_) => {
+                self.remove_symlinks(output, user_context)
+            }
         }
         .inspect_err(|_error| {
             output.status = ExitStatus::from_raw(1);
@@ -505,7 +530,8 @@ impl IsAction for SymlinkAction {
                 }
             }
 
-            Self::Pipewire(_) | Self::UndoPipewire(_) => {}
+            Self::Pipewire(_) | Self::UndoPipewire(_) | Self::RpmRepo(_) | Self::UndoRpmRepo(_) => {
+            }
         }
 
         let Some(source) = self
@@ -557,9 +583,11 @@ impl IsAction for SymlinkAction {
         match self {
             Self::Pipewire(filename) => Self::UndoPipewire(filename.clone()),
             Self::Udev(filename) => Self::UndoUdev(filename.clone()),
+            Self::RpmRepo(filename) => Self::UndoRpmRepo(filename.clone()),
 
             Self::UndoPipewire(filename) => Self::Pipewire(filename.clone()),
             Self::UndoUdev(filename) => Self::Udev(filename.clone()),
+            Self::UndoRpmRepo(filename) => Self::RpmRepo(filename.clone()),
         }
     }
 
@@ -600,6 +628,7 @@ mod tests {
         udev_target: PathBuf,
         pipewire_pulse_target: PathBuf,
         pipewire_target: PathBuf,
+        rpm_repo_target: PathBuf,
     }
 
     impl TestContext {
@@ -629,6 +658,8 @@ mod tests {
                 .join("pipewire.conf.d")
                 .join(FILENAME);
 
+            let rpm_repo_target = system_config_dir.join("yum.repos.d").join(FILENAME);
+
             // Adapt this initializer if UserExecutionContext requires
             // additional fields or has a dedicated test constructor.
             let context = Arc::new(UserExecutionContext {
@@ -645,6 +676,7 @@ mod tests {
                 udev_target,
                 pipewire_pulse_target,
                 pipewire_target,
+                rpm_repo_target,
             }
         }
 
@@ -693,6 +725,14 @@ mod tests {
             SymlinkAction::UndoPipewire(FILENAME.into()).to_string(),
             format!("Undo symlink PipeWire config {FILENAME}")
         );
+        assert_eq!(
+            SymlinkAction::RpmRepo(FILENAME.into()).to_string(),
+            format!("Symlink rpm repo config {FILENAME}")
+        );
+        assert_eq!(
+            SymlinkAction::UndoRpmRepo(FILENAME.into()).to_string(),
+            format!("Undo symlink rpm repo config {FILENAME}")
+        );
     }
 
     // Source and target paths
@@ -706,6 +746,8 @@ mod tests {
             SymlinkAction::Pipewire(FILENAME.into()),
             SymlinkAction::UndoUdev(FILENAME.into()),
             SymlinkAction::UndoPipewire(FILENAME.into()),
+            SymlinkAction::RpmRepo(FILENAME.into()),
+            SymlinkAction::UndoRpmRepo(FILENAME.into()),
         ] {
             assert_eq!(
                 action.source_path(&fixture.context).unwrap(),
@@ -743,6 +785,21 @@ mod tests {
                     fixture.pipewire_pulse_target.clone(),
                     fixture.pipewire_target.clone(),
                 ]
+            );
+        }
+    }
+
+    #[test]
+    fn target_paths_resolve_for_rpm_repo_variants() {
+        let fixture = TestContext::new();
+
+        for action in [
+            SymlinkAction::RpmRepo(FILENAME.into()),
+            SymlinkAction::UndoRpmRepo(FILENAME.into()),
+        ] {
+            assert_eq!(
+                action.target_paths(&fixture.context),
+                vec![fixture.rpm_repo_target.clone()]
             );
         }
     }
@@ -835,6 +892,7 @@ mod tests {
         for action in [
             SymlinkAction::Pipewire(FILENAME.into()),
             SymlinkAction::Udev(FILENAME.into()),
+            SymlinkAction::RpmRepo(FILENAME.into()),
         ] {
             let target = action.target_paths(&fixture.context)[0].clone();
 
@@ -879,6 +937,7 @@ mod tests {
         for action in [
             SymlinkAction::UndoPipewire(FILENAME.into()),
             SymlinkAction::UndoUdev(FILENAME.into()),
+            SymlinkAction::UndoRpmRepo(FILENAME.into()),
         ] {
             let target = action.target_paths(&fixture.context)[0].clone();
 
@@ -914,6 +973,33 @@ mod tests {
             action.match_action_state_with_target(&fixture.source, &fixture.udev_target),
             ActionState::UnAvailable(_)
         ));
+    }
+
+    #[test]
+    fn add_rpm_repo_action_is_unavailable_when_target_is_foreign_file() {
+        let fixture = TestContext::new();
+        let action = SymlinkAction::RpmRepo(FILENAME.into());
+
+        fs::create_dir_all(fixture.rpm_repo_target.parent().unwrap()).unwrap();
+        fs::write(&fixture.rpm_repo_target, "foreign repo").unwrap();
+
+        assert!(matches!(
+            action.match_action_state_with_target(&fixture.source, &fixture.rpm_repo_target),
+            ActionState::UnAvailable(_)
+        ));
+    }
+
+    #[test]
+    fn undo_rpm_repo_action_is_available_when_target_is_our_symlink() {
+        let fixture = TestContext::new();
+        let action = SymlinkAction::UndoRpmRepo(FILENAME.into());
+
+        fixture.symlink_to_source(&fixture.rpm_repo_target);
+
+        assert_eq!(
+            action.match_action_state_with_target(&fixture.source, &fixture.rpm_repo_target),
+            ActionState::Available
+        );
     }
 
     // Creating symlinks
@@ -997,6 +1083,31 @@ mod tests {
         assert!(!fixture.pipewire_target.exists());
     }
 
+    #[test]
+    fn add_rpm_repo_symlink_creates_target() {
+        let fixture = TestContext::new();
+        let action = SymlinkAction::RpmRepo(FILENAME.into());
+        let mut output = TestContext::output();
+
+        action.add_symlinks(&mut output, &fixture.context).unwrap();
+
+        fixture.assert_symlink_points_to(&fixture.rpm_repo_target, &fixture.source);
+    }
+
+    #[test]
+    fn add_rpm_repo_symlink_is_idempotent() {
+        let fixture = TestContext::new();
+        let action = SymlinkAction::RpmRepo(FILENAME.into());
+
+        fixture.symlink_to_source(&fixture.rpm_repo_target);
+
+        let mut output = TestContext::output();
+
+        action.add_symlinks(&mut output, &fixture.context).unwrap();
+
+        fixture.assert_symlink_points_to(&fixture.rpm_repo_target, &fixture.source);
+    }
+
     // Removing symlinks
 
     #[test]
@@ -1040,6 +1151,22 @@ mod tests {
         assert!(!fixture.pipewire_target.exists());
     }
 
+    #[test]
+    fn remove_rpm_repo_symlink_removes_our_link_only() {
+        let fixture = TestContext::new();
+        let action = SymlinkAction::UndoRpmRepo(FILENAME.into());
+
+        fixture.symlink_to_source(&fixture.rpm_repo_target);
+
+        let mut output = TestContext::output();
+
+        action
+            .remove_symlinks(&mut output, &fixture.context)
+            .unwrap();
+
+        assert!(!fixture.rpm_repo_target.is_symlink());
+    }
+
     // Undo mapping
 
     #[test]
@@ -1060,6 +1187,14 @@ mod tests {
             SymlinkAction::UndoPipewire(FILENAME.into()).to_undo(),
             SymlinkAction::Pipewire(FILENAME.into())
         );
+        assert_eq!(
+            SymlinkAction::RpmRepo(FILENAME.into()).to_undo(),
+            SymlinkAction::UndoRpmRepo(FILENAME.into())
+        );
+        assert_eq!(
+            SymlinkAction::UndoRpmRepo(FILENAME.into()).to_undo(),
+            SymlinkAction::RpmRepo(FILENAME.into())
+        );
     }
 
     #[test]
@@ -1069,6 +1204,8 @@ mod tests {
             SymlinkAction::Pipewire(FILENAME.into()),
             SymlinkAction::UndoUdev(FILENAME.into()),
             SymlinkAction::UndoPipewire(FILENAME.into()),
+            SymlinkAction::RpmRepo(FILENAME.into()),
+            SymlinkAction::UndoRpmRepo(FILENAME.into()),
         ] {
             assert_eq!(action.to_undo().to_undo(), action);
         }
@@ -1105,6 +1242,16 @@ mod tests {
                 .get_validate_command(&fixture.source, &fixture.context)
                 .is_none()
         );
+        assert!(
+            SymlinkAction::RpmRepo(FILENAME.into())
+                .get_validate_command(&fixture.source, &fixture.context)
+                .is_none()
+        );
+        assert!(
+            SymlinkAction::UndoRpmRepo(FILENAME.into())
+                .get_validate_command(&fixture.source, &fixture.context)
+                .is_none()
+        );
     }
 
     #[test]
@@ -1115,6 +1262,8 @@ mod tests {
             SymlinkAction::Pipewire(FILENAME.into()),
             SymlinkAction::UndoUdev(FILENAME.into()),
             SymlinkAction::UndoPipewire(FILENAME.into()),
+            SymlinkAction::RpmRepo(FILENAME.into()),
+            SymlinkAction::UndoRpmRepo(FILENAME.into()),
         ] {
             action
                 .validate_source_file(&fixture.source, &fixture.context)
@@ -1133,6 +1282,8 @@ mod tests {
             SymlinkAction::Pipewire(FILENAME.into()),
             SymlinkAction::UndoUdev(FILENAME.into()),
             SymlinkAction::UndoPipewire(FILENAME.into()),
+            SymlinkAction::RpmRepo(FILENAME.into()),
+            SymlinkAction::UndoRpmRepo(FILENAME.into()),
         ] {
             assert!(action.needs_elevation());
             assert!(!action.fail_allowed());
@@ -1156,6 +1307,8 @@ mod tests {
             SymlinkAction::Pipewire(FILENAME.into()),
             SymlinkAction::UndoUdev(FILENAME.into()),
             SymlinkAction::UndoPipewire(FILENAME.into()),
+            SymlinkAction::RpmRepo(FILENAME.into()),
+            SymlinkAction::UndoRpmRepo(FILENAME.into()),
         ] {
             let serialized = serde_json::to_string(&action).unwrap();
             let deserialized: SymlinkAction = serde_json::from_str(&serialized).unwrap();

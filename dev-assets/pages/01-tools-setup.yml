@@ -106,3 +106,10 @@ groups:
         actions:
           - action: symlink
             pipewire: 40-upmix.conf
+
+      - type: switch
+        title: Enable some repo
+        subtitle: Add mullvad rpm repo
+        actions:
+          - action: symlink
+            rpmrepo: mullvad.repo
