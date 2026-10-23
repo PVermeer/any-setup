@@ -1,8 +1,17 @@
+## [0.3.2] - 2026-10-23
+
+### 🐛 Bug Fixes
+
+- *(rpm-ostree)* Get package status via latest deployment
 ## [0.3.1] - 2026-10-23
 
 ### 🐛 Bug Fixes
 
 - *(rpm-ostree)* Should never need user context
+
+### ⚙️ Miscellaneous Tasks
+
+- *(release)* 0.3.1
 ## [0.3.0] - 2026-10-23
 
 ### 🚀 Features
