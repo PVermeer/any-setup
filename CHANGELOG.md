@@ -1,3 +1,12 @@
+## [0.3.0] - 2026-10-23
+
+### 🚀 Features
+
+- *(symlink)* Add rpm repo variant
+
+### ⚙️ Miscellaneous Tasks
+
+- *(dev)* Updated dev-container with fedora flatpak repo
 ## [0.2.0] - 2026-10-22
 
 ### 🚀 Features
@@ -41,6 +50,7 @@
 - *(dev)* Update dev-container
 - *(systemd)* Made unavailable warning message informative
 - *(actions)* Removed some log spam
+- *(release)* 0.2.0
 ## [0.1.1] - 2026-10-10
 
 ### 🐛 Bug Fixes
