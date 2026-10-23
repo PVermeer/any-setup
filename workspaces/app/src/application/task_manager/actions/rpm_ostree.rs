@@ -123,14 +123,10 @@ impl IsAction for RpmOstreeAction {
     fn run_action(
         &self,
         output: &mut Output,
-        user_context: &Arc<UserExecutionContext>,
-        needs_user_context: bool,
+        _user_context: &Arc<UserExecutionContext>,
+        _needs_user_context: bool,
     ) -> Result<()> {
         let mut command = self.get_command();
-
-        if needs_user_context {
-            user_context.apply_to(&mut command);
-        }
 
         let command_output = command.output().context(match self {
             Self::Install { .. } => "Failed to run rpm-ostree install action",
