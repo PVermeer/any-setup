@@ -1,3 +1,5 @@
+mod status_json;
+
 use super::{ActionState, OutputExt};
 use crate::application::task_manager::{
     actions::IsAction, user_execution_context::UserExecutionContext,
@@ -8,6 +10,7 @@ use common::{
     utils,
 };
 use serde::{Deserialize, Serialize};
+use status_json::StatusJson;
 use std::{
     fmt::{Display, Write},
     process::{Command, Output},
@@ -154,39 +157,44 @@ impl IsAction for RpmOstreeAction {
             error!(message);
             return ActionState::UnAvailable(message.to_string());
         }
-        if !utils::command::test_command_available_sync("rpm") {
-            let message = "'rpm' Command not available";
-            error!(message);
-            return ActionState::UnAvailable(message.to_string());
-        }
 
         let action_state = match self {
             Self::Install { packages, .. } => {
-                let Ok(output) = Command::new("rpm").arg("-q").args(packages).output() else {
-                    let message = "Failed to run 'rpm -q'";
+                let Ok(status) = StatusJson::new() else {
+                    let message = "Failed to get rpm-ostree status";
                     error!(message);
                     return ActionState::UnAvailable(message.to_string());
                 };
 
-                if output.status.success() {
-                    ActionState::Done
-                } else {
-                    ActionState::Available
+                let deployment_packages = status.get_packages_latest_deployment();
+                let all_packages_are_installed = packages
+                    .iter()
+                    .all(|package| deployment_packages.contains(package));
+
+                if all_packages_are_installed {
+                    return ActionState::Done;
                 }
+
+                ActionState::Available
             }
 
             Self::Remove { packages, .. } => {
-                let Ok(output) = Command::new("rpm").arg("-q").args(packages).output() else {
-                    let message = "Failed to run 'rpm -q'";
+                let Ok(status) = StatusJson::new() else {
+                    let message = "Failed to get rpm-ostree status";
                     error!(message);
                     return ActionState::UnAvailable(message.to_string());
                 };
 
-                if output.status.success() {
-                    ActionState::Available
-                } else {
-                    ActionState::Done
+                let deployment_packages = status.get_packages_latest_deployment();
+                let any_package_is_installed = packages
+                    .iter()
+                    .any(|package| deployment_packages.contains(package));
+
+                if any_package_is_installed {
+                    return ActionState::Available;
                 }
+
+                ActionState::Done
             }
 
             Self::Kargs { add, remove } => {
