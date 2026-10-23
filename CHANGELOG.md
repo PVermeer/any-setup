@@ -1,3 +1,8 @@
+## [0.3.1] - 2026-10-23
+
+### 🐛 Bug Fixes
+
+- *(rpm-ostree)* Should never need user context
 ## [0.3.0] - 2026-10-23
 
 ### 🚀 Features
@@ -7,6 +12,7 @@
 ### ⚙️ Miscellaneous Tasks
 
 - *(dev)* Updated dev-container with fedora flatpak repo
+- *(release)* 0.3.0
 ## [0.2.0] - 2026-10-22
 
 ### 🚀 Features
