@@ -121,6 +121,10 @@ pub mod env {
         glib::user_runtime_dir().to_string_lossy().to_string()
     }
 
+    pub fn get_user_home_dir() -> PathBuf {
+        glib::home_dir()
+    }
+
     pub fn get_current_dir() -> PathBuf {
         std::env::current_dir().unwrap_or(glib::current_dir())
     }

@@ -7,7 +7,9 @@ use common::utils;
 use serde::{Deserialize, Serialize};
 use std::{
     fmt::Display,
-    process::{Command, Output},
+    fs,
+    os::unix::process::ExitStatusExt,
+    process::{Command, ExitStatus, Output},
     str::FromStr,
     sync::Arc,
 };
@@ -319,6 +321,65 @@ impl SystemdAction {
             }
         }
     }
+
+    fn is_enabled_for_other_users(&self, user_context: &Arc<UserExecutionContext>) -> bool {
+        match self {
+            Self::Disable { unit, scope, .. } => {
+                if matches!(scope, Scope::System) {
+                    return false;
+                }
+
+                let user_home_dir_name = user_context.user_home_dir.file_name().unwrap_or_default();
+
+                debug!(
+                    unit,
+                    user_home_dir_name = %user_home_dir_name.to_string_lossy(),
+                    "Checking if other users are using services"
+                );
+
+                let Ok(users) = fs::read_dir("/home") else {
+                    return false;
+                };
+
+                for user in users.flatten() {
+                    if user.file_name().as_os_str() == user_home_dir_name {
+                        continue;
+                    }
+
+                    let config = user.path().join(".config/systemd/user");
+
+                    let Ok(targets) = fs::read_dir(config) else {
+                        continue;
+                    };
+
+                    for target in targets.flatten() {
+                        let name = target.file_name();
+                        let name = name.to_string_lossy();
+
+                        if !name.ends_with(".target.wants") && !name.ends_with(".target.requires") {
+                            continue;
+                        }
+
+                        if target.path().join(unit).is_symlink() {
+                            debug!(
+                                %unit,
+                                other_user_dir_name = %&user.file_name().to_string_lossy(),
+                                "Found other user that uses service"
+                            );
+
+                            return true;
+                        }
+                    }
+                }
+
+                debug!(unit, "No other users are using service");
+
+                false
+            }
+
+            Self::Enable { .. } => false,
+        }
+    }
 }
 
 impl IsAction for SystemdAction {
@@ -327,8 +388,27 @@ impl IsAction for SystemdAction {
         output: &mut Output,
         user_context: &Arc<UserExecutionContext>,
         needs_user_context: bool,
-        _actions: &[Action],
+        actions: &[Action],
     ) -> Result<()> {
+        // Don't disable the system unit if other users have the user units enabled
+        if let Self::Disable { scope, .. } = self
+            && matches!(scope, Scope::System)
+            && actions.len() > 1
+        {
+            for action in actions {
+                if let Action::SystemD(systemd_action) = action
+                    && let Self::Disable { .. } = systemd_action
+                    && systemd_action.is_enabled_for_other_users(user_context)
+                {
+                    output.append_stdout("Cancel action");
+                    output.append_stdout("Other users are still using this unit");
+                    output.status = ExitStatus::from_raw(0);
+
+                    return Ok(());
+                }
+            }
+        }
+
         let mut command = self.get_command();
 
         if needs_user_context {

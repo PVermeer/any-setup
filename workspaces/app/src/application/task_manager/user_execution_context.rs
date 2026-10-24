@@ -15,6 +15,7 @@ use std::{
 pub struct UserExecutionContext {
     pub user_id: u32,
     pub user_name: String,
+    pub user_home_dir: PathBuf,
     pub current_dir: PathBuf,
     pub system_config_dir: PathBuf,
     pub system_data_dir: PathBuf,
@@ -40,6 +41,7 @@ impl UserExecutionContext {
         Ok(Arc::new(Self {
             user_id: utils::env::get_user_id(),
             user_name: utils::env::get_user_name(),
+            user_home_dir: utils::env::get_user_home_dir(),
             current_dir: utils::env::get_current_dir(),
             system_config_dir: app_dirs.system_config.clone(),
             system_data_dir: app_dirs.system_data.clone(),
