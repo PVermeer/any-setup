@@ -74,6 +74,7 @@ pub trait IsAction: Display {
         output: &mut Output,
         user_context: &Arc<UserExecutionContext>,
         needs_user_contex: bool,
+        actions: &[Action],
     ) -> Result<()>;
     fn needs_elevation(&self) -> bool;
     fn get_status(

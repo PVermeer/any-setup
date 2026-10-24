@@ -1,4 +1,4 @@
-use super::ActionState;
+use super::{Action, ActionState};
 use crate::application::task_manager::{
     actions::{IsAction, OutputExt},
     user_execution_context::UserExecutionContext,
@@ -194,6 +194,7 @@ impl IsAction for UserGroupAction {
         output: &mut Output,
         user_context: &Arc<UserExecutionContext>,
         needs_user_context: bool,
+        _actions: &[Action],
     ) -> Result<()> {
         let mut command = self.get_command(user_context);
         if needs_user_context {

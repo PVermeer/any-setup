@@ -237,7 +237,12 @@ impl ActionRunner {
                     output.append_stdout(&status.to_log_message());
 
                     action
-                        .run_action(&mut output, &self.user_context, needs_user_context)
+                        .run_action(
+                            &mut output,
+                            &self.user_context,
+                            needs_user_context,
+                            &self.actions,
+                        )
                         .context("Failed to run action")?;
 
                     if !output.status.success() {
@@ -250,7 +255,12 @@ impl ActionRunner {
                             output.append_stdout("\n== Retrying action command");
 
                             action
-                                .run_action(&mut output, &self.user_context, needs_user_context)
+                                .run_action(
+                                    &mut output,
+                                    &self.user_context,
+                                    needs_user_context,
+                                    &self.actions,
+                                )
                                 .context("Failed to re-run action")?;
                         }
                     }

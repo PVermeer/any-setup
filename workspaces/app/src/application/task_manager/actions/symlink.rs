@@ -1,4 +1,4 @@
-use super::ActionState;
+use super::{Action, ActionState};
 use crate::application::task_manager::{
     actions::{IsAction, OutputExt},
     user_execution_context::UserExecutionContext,
@@ -495,6 +495,7 @@ impl IsAction for SymlinkAction {
         output: &mut Output,
         user_context: &Arc<UserExecutionContext>,
         _needs_user_context: bool,
+        _actions: &[Action],
     ) -> Result<()> {
         debug!(action = %self, "Running symlink action");
 

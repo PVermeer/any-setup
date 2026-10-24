@@ -1,6 +1,6 @@
 mod dconf_value;
 
-use super::{ActionState, OutputExt};
+use super::{Action, ActionState, OutputExt};
 use crate::application::task_manager::{
     actions::IsAction, user_execution_context::UserExecutionContext,
 };
@@ -79,6 +79,7 @@ impl IsAction for DconfAction {
         output: &mut Output,
         _user_context: &Arc<UserExecutionContext>,
         _needs_user_context: bool,
+        _actions: &[Action],
     ) -> Result<()> {
         debug!(%self, "Running Dconf action");
 
