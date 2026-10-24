@@ -1,8 +1,21 @@
+## [0.3.3] - 2026-10-24
+
+### 🐛 Bug Fixes
+
+- *(actions)* Get_status should be aware of user context
+- *(action-runner)* Run undo actions in reverse
+- *(action_runner)* Re-use undo for undo from results
+- *(actions)* Run_actions should be aware of all actions
+- *(systemd)* Don't disable system unit if other users have the user units enabled
 ## [0.3.2] - 2026-10-23
 
 ### 🐛 Bug Fixes
 
 - *(rpm-ostree)* Get package status via latest deployment
+
+### ⚙️ Miscellaneous Tasks
+
+- *(release)* 0.3.2
 ## [0.3.1] - 2026-10-23
 
 ### 🐛 Bug Fixes
