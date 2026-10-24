@@ -518,7 +518,11 @@ impl IsAction for SymlinkAction {
         true
     }
 
-    fn get_status(&self, user_context: &Arc<UserExecutionContext>) -> ActionState {
+    fn get_status(
+        &self,
+        user_context: &Arc<UserExecutionContext>,
+        _needs_user_context: bool,
+    ) -> ActionState {
         debug!(action = %self, "Checking symlink action status");
 
         match self {

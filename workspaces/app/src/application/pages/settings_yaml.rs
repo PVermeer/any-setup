@@ -54,11 +54,15 @@ pub struct Switch {
 }
 
 impl Switch {
-    pub fn get_status(&self, user_context: &Arc<UserExecutionContext>) -> ActionState {
+    pub fn get_status(
+        &self,
+        user_context: &Arc<UserExecutionContext>,
+        needs_user_context: bool,
+    ) -> ActionState {
         let action_states: Vec<ActionState> = self
             .actions
             .iter()
-            .map(|action| action.get_status(user_context))
+            .map(|action| action.get_status(user_context, needs_user_context))
             .collect();
 
         let final_action_state = if let Some(unavailable) = action_states

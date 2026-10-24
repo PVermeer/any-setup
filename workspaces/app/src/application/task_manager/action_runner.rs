@@ -222,7 +222,8 @@ impl ActionRunner {
             output.append_stdout(&format!("\n==== Running action {} ====", i + 1));
             output.append_stdout(&format!("== {action}"));
 
-            let status = action.get_status(&self.user_context);
+            let needs_user_context = self.needs_elevation() && !action.needs_elevation();
+            let status = action.get_status(&self.user_context, needs_user_context);
 
             if cfg!(debug_assertions) && utils::env::is_devcontainer() {
                 std::thread::sleep(Duration::from_secs(2));
@@ -231,7 +232,6 @@ impl ActionRunner {
             match status {
                 ActionState::Available => {
                     output.append_stdout(&status.to_log_message());
-                    let needs_user_context = self.needs_elevation() && !action.needs_elevation();
 
                     action
                         .run_action(&mut output, &self.user_context, needs_user_context)

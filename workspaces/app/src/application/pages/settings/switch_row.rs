@@ -18,7 +18,7 @@ fn set_switch_row_from_status(
     switch_row: &SwitchRow,
     user_context: &Arc<UserExecutionContext>,
 ) {
-    let action_state = switch.get_status(user_context);
+    let action_state = switch.get_status(user_context, false);
     let is_actionable = matches!(action_state, ActionState::Available | ActionState::Done);
 
     switch_row.set_active(matches!(action_state, ActionState::Done));

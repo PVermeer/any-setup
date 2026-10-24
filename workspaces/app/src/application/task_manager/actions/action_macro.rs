@@ -33,10 +33,10 @@ macro_rules! impl_action {
                 }
             }
 
-            fn get_status(&self, user_context: &Arc<UserExecutionContext>) -> ActionState {
+            fn get_status(&self, user_context: &Arc<UserExecutionContext>, needs_user_contex: bool) -> ActionState {
                 match self {
                     $(
-                        Self::$variant(action) => action.get_status(user_context),
+                        Self::$variant(action) => action.get_status(user_context, needs_user_contex),
                     )+
                 }
             }

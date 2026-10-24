@@ -111,7 +111,11 @@ impl IsAction for DconfAction {
         false
     }
 
-    fn get_status(&self, _user_context: &Arc<UserExecutionContext>) -> ActionState {
+    fn get_status(
+        &self,
+        _user_context: &Arc<UserExecutionContext>,
+        _needs_user_context: bool,
+    ) -> ActionState {
         debug!(action = %self, "Running GSettings status command");
 
         if !utils::command::test_command_available_sync("gsettings") {

@@ -121,18 +121,33 @@ impl FromStr for IsEnabledOutput {
 }
 
 impl IsEnabledOutput {
-    fn from_action(action: &SystemdAction) -> Result<Self> {
-        let output = action
-            .get_check_command()
-            .output()
-            .context("Failed to run check command")?;
+    fn from_action(
+        action: &SystemdAction,
+        user_context: Option<&Arc<UserExecutionContext>>,
+    ) -> Result<Self> {
+        let mut command = action.get_check_command();
+
+        if let Some(user_context) = user_context {
+            user_context.apply_to(&mut command);
+        }
+
+        let output = command.output().context("Failed to run check command")?;
         let stdout = utils::command::parse_output(&output.stdout);
 
         Self::from_str(&stdout)
     }
 
-    fn to_action_state(&self, action: &SystemdAction, recursive_depth: Option<u32>) -> ActionState {
-        fn handle_alias(action: &SystemdAction, recursive_depth: Option<u32>) -> ActionState {
+    fn to_action_state(
+        &self,
+        action: &SystemdAction,
+        user_context: Option<&Arc<UserExecutionContext>>,
+        recursive_depth: Option<u32>,
+    ) -> ActionState {
+        fn handle_alias(
+            action: &SystemdAction,
+            user_context: Option<&Arc<UserExecutionContext>>,
+            recursive_depth: Option<u32>,
+        ) -> ActionState {
             debug!("Found alias");
 
             let depth = recursive_depth.unwrap_or(0);
@@ -157,7 +172,9 @@ impl IsEnabledOutput {
                     *unit = resolved_unit_name;
                 }
             }
-            let Ok(new_is_enabled_output) = IsEnabledOutput::from_action(&action_clone) else {
+            let Ok(new_is_enabled_output) =
+                IsEnabledOutput::from_action(&action_clone, user_context)
+            else {
                 let message = "Unable to resolve unit alias";
                 warn!("Unable to resolve unit alias");
                 return ActionState::UnAvailable(message.to_string());
@@ -168,21 +185,21 @@ impl IsEnabledOutput {
                 "Re-running alias from depth: {depth}"
             );
 
-            new_is_enabled_output.to_action_state(&action_clone, Some(depth + 1))
+            new_is_enabled_output.to_action_state(&action_clone, user_context, Some(depth + 1))
         }
 
         match action {
             SystemdAction::Enable { unit, .. } => match self {
                 Self::Enabled => ActionState::Done,
                 Self::Disabled => ActionState::Available,
-                Self::Alias => handle_alias(action, recursive_depth),
+                Self::Alias => handle_alias(action, user_context, recursive_depth),
                 _ => ActionState::UnAvailable(format!("Unable to handle unit {unit}: {self}")),
             },
 
             SystemdAction::Disable { unit, .. } => match self {
                 Self::Enabled => ActionState::Available,
                 Self::Disabled => ActionState::Done,
-                Self::Alias => handle_alias(action, recursive_depth),
+                Self::Alias => handle_alias(action, user_context, recursive_depth),
                 _ => ActionState::UnAvailable(format!("Unable to handle unit {unit}: {self}")),
             },
         }
@@ -335,8 +352,14 @@ impl IsAction for SystemdAction {
         }
     }
 
-    fn get_status(&self, _user_context: &Arc<UserExecutionContext>) -> ActionState {
+    fn get_status(
+        &self,
+        user_context: &Arc<UserExecutionContext>,
+        needs_user_context: bool,
+    ) -> ActionState {
         debug!(action = %self, "Running status command");
+
+        let user_context = needs_user_context.then_some(user_context);
 
         if !utils::command::test_command_available_sync("systemctl") {
             let message = "'systemctl' Command not available";
@@ -344,12 +367,12 @@ impl IsAction for SystemdAction {
             return ActionState::UnAvailable(message.to_string());
         }
 
-        let Ok(is_enabled_output) = IsEnabledOutput::from_action(self) else {
+        let Ok(is_enabled_output) = IsEnabledOutput::from_action(self, user_context) else {
             let message = "Failed to get is-enabled output";
             error!(message);
             return ActionState::UnAvailable(message.to_string());
         };
-        let action_state = is_enabled_output.to_action_state(self, None);
+        let action_state = is_enabled_output.to_action_state(self, user_context, None);
 
         debug!(
             action = %self,
@@ -559,17 +582,17 @@ mod tests {
         let action = enable_action();
 
         assert_eq!(
-            IsEnabledOutput::Enabled.to_action_state(&action, None),
+            IsEnabledOutput::Enabled.to_action_state(&action, None, None),
             ActionState::Done
         );
 
         assert_eq!(
-            IsEnabledOutput::Disabled.to_action_state(&action, None),
+            IsEnabledOutput::Disabled.to_action_state(&action, None, None),
             ActionState::Available
         );
 
         assert_matches!(
-            IsEnabledOutput::NotFound.to_action_state(&action, None),
+            IsEnabledOutput::NotFound.to_action_state(&action, None, None),
             ActionState::UnAvailable(_)
         );
     }
@@ -579,17 +602,17 @@ mod tests {
         let action = disable_action();
 
         assert_eq!(
-            IsEnabledOutput::Disabled.to_action_state(&action, None),
+            IsEnabledOutput::Disabled.to_action_state(&action, None, None),
             ActionState::Done
         );
 
         assert_eq!(
-            IsEnabledOutput::Enabled.to_action_state(&action, None),
+            IsEnabledOutput::Enabled.to_action_state(&action, None, None),
             ActionState::Available
         );
 
         assert_matches!(
-            IsEnabledOutput::NotFound.to_action_state(&action, None),
+            IsEnabledOutput::NotFound.to_action_state(&action, None, None),
             ActionState::UnAvailable(_)
         );
     }
@@ -600,7 +623,7 @@ mod tests {
         let action = enable_action();
 
         assert_matches!(
-            IsEnabledOutput::Alias.to_action_state(&action, Some(11)),
+            IsEnabledOutput::Alias.to_action_state(&action, None, Some(11)),
             ActionState::UnAvailable(_)
         );
 
@@ -613,7 +636,7 @@ mod tests {
         let action = disable_action();
 
         assert_matches!(
-            IsEnabledOutput::Alias.to_action_state(&action, Some(11)),
+            IsEnabledOutput::Alias.to_action_state(&action, None, Some(11)),
             ActionState::UnAvailable(_)
         );
 

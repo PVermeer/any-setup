@@ -214,7 +214,11 @@ impl IsAction for UserGroupAction {
         true
     }
 
-    fn get_status(&self, user_context: &Arc<UserExecutionContext>) -> ActionState {
+    fn get_status(
+        &self,
+        user_context: &Arc<UserExecutionContext>,
+        _needs_user_context: bool,
+    ) -> ActionState {
         let group = match self {
             Self::Add { group, .. } | Self::Remove { group, .. } => group,
         };
