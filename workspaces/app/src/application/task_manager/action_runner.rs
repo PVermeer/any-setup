@@ -137,6 +137,15 @@ impl ActionRunner {
         bail!("Failed to find the ActionRunner")
     }
 
+    pub fn to_undo(&self) -> Arc<Self> {
+        let mut self_clone = self.clone();
+        self_clone.actions = self_clone.actions.iter().map(IsAction::to_undo).collect();
+        self_clone.actions.reverse();
+        self_clone.is_undo = true;
+
+        Arc::new(self_clone)
+    }
+
     pub fn to_undo_from_results(&self, results: &Vec<ActionResult>) -> Option<Arc<Self>> {
         let mut undo_actions = Vec::new();
 
@@ -155,29 +164,20 @@ impl ActionRunner {
             return None;
         }
 
-        undo_actions.reverse();
+        let mut undo_self = self.to_undo();
+        {
+            let mut_undo_self = Arc::make_mut(&mut undo_self);
+            mut_undo_self.name = format!("{} (undo)", self.name);
+            mut_undo_self.actions = undo_actions;
+        }
 
-        Some(Self::new(
-            &format!("{} (undo)", self.name),
-            &undo_actions,
-            &self.user_context,
-        ))
+        Some(undo_self)
     }
 
     pub fn get_id(&self) -> u64 {
         let mut hasher = DefaultHasher::new();
         self.hash(&mut hasher);
         hasher.finish()
-    }
-
-    pub fn to_undo(&self) -> Arc<Self> {
-        let mut self_clone = self.clone();
-        self_clone.actions = self_clone.actions.iter().map(IsAction::to_undo).collect();
-        self_clone.actions.reverse();
-
-        self_clone.is_undo = true;
-
-        Arc::new(self_clone)
     }
 
     pub fn needs_elevation(&self) -> bool {
