@@ -155,6 +155,8 @@ impl ActionRunner {
             return None;
         }
 
+        undo_actions.reverse();
+
         Some(Self::new(
             &format!("{} (undo)", self.name),
             &undo_actions,
@@ -171,6 +173,7 @@ impl ActionRunner {
     pub fn to_undo(&self) -> Arc<Self> {
         let mut self_clone = self.clone();
         self_clone.actions = self_clone.actions.iter().map(IsAction::to_undo).collect();
+        self_clone.actions.reverse();
 
         self_clone.is_undo = true;
 

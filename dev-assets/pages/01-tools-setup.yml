@@ -75,12 +75,22 @@ groups:
               - some=karg
 
       - type: switch
-        title: Add me to docker group
-        subtitle: Add a user to the docker group
+        title: Add me to docker groups
+        subtitle: Add a user to docker groups
         actions:
           - action: usergroup
             type: add
-            group: docker
+            group: docker-1
+            create_if_missing: true # Optional
+
+          - action: usergroup
+            type: add
+            group: docker-2
+            create_if_missing: true # Optional
+                    
+          - action: usergroup
+            type: add
+            group: docker-3
             create_if_missing: true # Optional
 
       - type: switch
